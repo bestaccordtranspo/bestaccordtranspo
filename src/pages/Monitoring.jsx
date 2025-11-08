@@ -293,438 +293,304 @@ export default function Monitoring() {
   const initializeMap = async () => {
     if (!selectedBooking || !mapRef.current) return;
 
-    // Clean up existing map
+    // cleanup previous map
     if (mapInstance.current) {
-      mapInstance.current.remove();
+      try {
+        // remove MapLibre map instance
+        mapInstance.current.remove();
+      } catch (e) { /* ignore */ }
       mapInstance.current = null;
     }
 
-    try {
-      // Check if Leaflet is already loaded
-      if (window.L) {
-        await createMap();
-      } else {
-        // Load Leaflet dynamically
-        const leafletScript = document.createElement('script');
-        leafletScript.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        leafletScript.onload = () => createMap();
-        document.head.appendChild(leafletScript);
+    // Load MapLibre GL script + CSS if needed
+    if (!window.maplibregl) {
+      const cssId = 'maplibre-css';
+      if (!document.getElementById(cssId)) {
+        const link = document.createElement('link');
+        link.id = cssId;
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css';
+        document.head.appendChild(link);
       }
-    } catch (error) {
-      console.error('Error loading map:', error);
+
+      const scriptId = 'maplibre-script';
+      await new Promise((resolve, reject) => {
+        if (document.getElementById(scriptId)) {
+          // wait for global to be available
+          const t = setInterval(() => {
+            if (window.maplibregl) { clearInterval(t); resolve(); }
+          }, 50);
+          return;
+        }
+        const s = document.createElement('script');
+        s.id = scriptId;
+        s.src = 'https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js';
+        s.onload = () => resolve();
+        s.onerror = (e) => reject(e);
+        document.head.appendChild(s);
+      });
     }
+
+    // create map + route
+    await createMap();
   };
 
-  // IMPROVED: Create map with multiple destination support and fallback geocoding
-
-  // Create map with database coordinates and fallback geocoding
+  // IMPROVED: Create map with multiple destination support and ORS routing (MapLibre)
   const createMap = async () => {
     if (!mapRef.current) return;
-
-    const L = window.L;
-
-    // Initialize map centered on Philippines
-    const map = L.map(mapRef.current).setView([14.5995, 120.9842], 6);
-
-    // Add OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 19
-    }).addTo(map);
-
-    // NEW: Helper function to fetch client coordinates by address from database
-    const fetchClientCoordinates = async (address) => {
-      try {
-        console.log(`🔍 Fetching coordinates from database for: "${address}"`);
-        const response = await fetch(`${baseURL}/api/clients/by-address?address=${encodeURIComponent(address)}`);
-
-        if (!response.ok) {
-          console.log(`⚠️ No client found in database for: "${address}"`);
-          return null;
-        }
-
-        const client = await response.json();
-        if (client && client.address?.latitude && client.address?.longitude) {
-          console.log(`✅ Found coordinates in database: [${client.address.latitude}, ${client.address.longitude}]`);
-          return {
-            coords: [client.address.latitude, client.address.longitude],
-            displayName: address,
-            confidence: 'exact',
-            source: 'database'
-          };
-        }
-        return null;
-      } catch (error) {
-        console.error('Error fetching client coordinates:', error);
-        return null;
-      }
-    };
-
-    // EXISTING GEOCODING FUNCTION - Keep as is, just add source property
-    const geocodeAddress = async (address, retryLevel = 0) => {
-      try {
-        await new Promise(resolve => setTimeout(resolve, 1100));
-
-        let searchQuery = address;
-
-        if (retryLevel === 0) {
-          searchQuery = `${address}, Philippines`;
-        } else if (retryLevel === 1) {
-          const cityMatch = address.match(/City of ([^,]+)|Taguig|Makati|Manila|Quezon City|Pasig|Mandaluyong|Pasay|Parañaque|Las Piñas|Muntinlupa|Caloocan|Malabon|Navotas|Valenzuela|San Juan|Marikina|Pateros/i);
-          if (cityMatch) {
-            const city = cityMatch[1] || cityMatch[0];
-            searchQuery = `${city}, Metro Manila, Philippines`;
-          }
-        } else if (retryLevel === 2) {
-          if (address.toLowerCase().includes('metro manila') || address.toLowerCase().includes('ncr')) {
-            searchQuery = 'Metro Manila, Philippines';
-          }
-        }
-
-        console.log(`🔍 Geocoding attempt ${retryLevel + 1}: "${searchQuery}"`);
-
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&countrycodes=ph&limit=3`,
-          {
-            headers: {
-              'User-Agent': 'BestAccord-Monitoring-App'
-            }
-          }
-        );
-        const data = await response.json();
-
-        if (data && data.length > 0) {
-          console.log(`✅ Geocoded "${address}":`, data[0]);
-          return {
-            coords: [parseFloat(data[0].lat), parseFloat(data[0].lon)],
-            displayName: data[0].display_name,
-            confidence: retryLevel === 0 ? 'high' : retryLevel === 1 ? 'medium' : 'low',
-            source: 'geocoding' // ADD THIS LINE
-          };
-        } else if (retryLevel < 2) {
-          console.warn(`⚠️ No results for "${searchQuery}", trying fallback...`);
-          return await geocodeAddress(address, retryLevel + 1);
-        } else {
-          console.warn(`❌ All geocoding attempts failed for: "${address}"`);
-          return getHardcodedCoordinates(address);
-        }
-      } catch (error) {
-        console.error(`❌ Geocoding error for "${address}":`, error);
-        if (retryLevel < 2) {
-          return await geocodeAddress(address, retryLevel + 1);
-        }
-        return getHardcodedCoordinates(address);
-      }
-    };
-
-    // Keep existing getHardcodedCoordinates function as is
-
-    const allCoordinates = [];
-    const markers = [];
-
-    try {
-      // MODIFIED: Add origin marker with database priority
-      if (selectedBooking.originAddress) {
-        let originResult = null;
-
-        // 1. Try booking's stored coordinates first
-        if (selectedBooking.latitude && selectedBooking.longitude) {
-          originResult = {
-            coords: [selectedBooking.latitude, selectedBooking.longitude],
-            displayName: selectedBooking.originAddress,
-            confidence: 'exact',
-            source: 'booking'
-          };
-          console.log('✅ Using stored origin coordinates from booking');
-        }
-        // 2. NEW: Try database lookup
-        else {
-          originResult = await fetchClientCoordinates(selectedBooking.originAddress);
-        }
-
-        // 3. Fallback to geocoding
-        if (!originResult) {
-          originResult = await geocodeAddress(selectedBooking.originAddress);
-        }
-
-        if (originResult && originResult.coords) {
-          allCoordinates.push(originResult.coords);
-
-          // MODIFIED: Update confidence text to show database source
-          const confidenceText = originResult.source === 'booking' || originResult.source === 'database'
-            ? '✓ Exact location (from database)'
-            : originResult.confidence === 'high'
-              ? '✓ Geocoded (high accuracy)'
-              : originResult.confidence === 'medium'
-                ? '⚠️ Approximate area'
-                : originResult.confidence === 'fallback'
-                  ? '📍 City center (approximate)'
-                  : '📍 General area';
-
-          const originMarker = L.circleMarker(originResult.coords, {
-            radius: 10,
-            fillColor: '#10b981',
-            color: '#ffffff',
-            weight: 3,
-            opacity: 1,
-            fillOpacity: 0.9
-          }).addTo(map);
-
-          originMarker.bindPopup(`
-          <div style="min-width: 200px;">
-            <strong style="color: #10b981; font-size: 14px;">📍 Origin</strong><br/>
-            <p style="margin: 8px 0 0 0; font-size: 12px;">${selectedBooking.originAddress}</p>
-            <p style="margin: 4px 0 0 0; font-size: 10px; color: #6b7280;">${confidenceText}</p>
-          </div>
-        `);
-
-          markers.push({ type: 'origin', marker: originMarker });
-        }
-      }
-
-      // Get all destinations
-      const destinations = getDestinations(selectedBooking);
-
-      // MODIFIED: Add destination markers with database priority
-      for (let i = 0; i < destinations.length; i++) {
-        const destAddress = destinations[i];
-        if (destAddress) {
-          let destResult = null;
-
-          // 1. NEW: Try database first
-          destResult = await fetchClientCoordinates(destAddress);
-
-          // 2. Fallback to geocoding
-          if (!destResult) {
-            console.log(`⚠️ No stored coordinates for "${destAddress}", using geocoding...`);
-            destResult = await geocodeAddress(destAddress);
-          } else {
-            console.log(`✅ Using stored coordinates from database for "${destAddress}"`);
-          }
-
-          if (destResult && destResult.coords) {
-            allCoordinates.push(destResult.coords);
-
-            const colors = [
-              { fill: '#ef4444', border: '#dc2626' },
-              { fill: '#f59e0b', border: '#d97706' },
-              { fill: '#8b5cf6', border: '#7c3aed' },
-              { fill: '#ec4899', border: '#db2777' },
-              { fill: '#06b6d4', border: '#0891b2' }
-            ];
-            const color = colors[i % colors.length];
-
-            const destMarker = L.circleMarker(destResult.coords, {
-              radius: 10,
-              fillColor: color.fill,
-              color: '#ffffff',
-              weight: 3,
-              opacity: 1,
-              fillOpacity: 0.9
-            }).addTo(map);
-
-            const stopLabel = destinations.length > 1 ? `Stop ${i + 1}` : 'Destination';
-
-            // MODIFIED: Update confidence text
-            const confidenceText = destResult.source === 'database'
-              ? '✓ Exact location (from database)'
-              : destResult.confidence === 'high'
-                ? '✓ Geocoded (high accuracy)'
-                : destResult.confidence === 'medium'
-                  ? '⚠️ Approximate area'
-                  : destResult.confidence === 'fallback'
-                    ? '📍 City center (approximate)'
-                    : '📍 General area';
-
-            destMarker.bindPopup(`
-            <div style="min-width: 200px;">
-              <strong style="color: ${color.fill}; font-size: 14px;">📍 ${stopLabel}</strong><br/>
-              <p style="margin: 8px 0 0 0; font-size: 12px;">${destAddress}</p>
-              <p style="margin: 4px 0 0 0; font-size: 10px; color: #6b7280;">${confidenceText}</p>
-            </div>
-          `);
-
-            if (allCoordinates.length > 1) {
-              const originCoords = allCoordinates[0];
-              L.polyline([originCoords, destResult.coords], {
-                color: color.fill,
-                weight: 3,
-                opacity: 0.6,
-                dashArray: '10, 10'
-              }).addTo(map);
-            }
-
-            markers.push({ type: 'destination', marker: destMarker, index: i });
-          }
-        }
-      }
-
-      // Add driver's current location marker (truck icon) for ADMIN view
-      if (selectedBooking.driverLocation &&
-        selectedBooking.driverLocation.latitude &&
-        selectedBooking.driverLocation.longitude &&
-        (selectedBooking.status === "In Transit" ||
-          selectedBooking.status === "On Trip" ||
-          selectedBooking.status === "Delivered")) {
-
-        const driverCoords = [
-          selectedBooking.driverLocation.latitude,
-          selectedBooking.driverLocation.longitude
-        ];
-
-        allCoordinates.push(driverCoords);
-
-        // Create custom truck icon (orange color for admin visibility)
-        const truckIcon = createTruckDivIcon(L, '#F97316'); // Orange truck for admin
-
-        // Add truck marker
-        const truckMarker = L.marker(driverCoords, {
-          icon: truckIcon,
-          zIndexOffset: 1000 // Ensure truck appears on top
-        }).addTo(map);
-
-        // Format last updated time
-        const lastUpdated = selectedBooking.driverLocation.lastUpdated
-          ? new Date(selectedBooking.driverLocation.lastUpdated).toLocaleString()
-          : 'Unknown';
-
-        const accuracy = selectedBooking.driverLocation.accuracy
-          ? `±${Math.round(selectedBooking.driverLocation.accuracy)}m`
-          : 'Unknown';
-
-        // Get time since last update
-        const getTimeSinceUpdate = () => {
-          if (!selectedBooking.driverLocation.lastUpdated) return 'Unknown';
-
-          const now = new Date();
-          const lastUpdateTime = new Date(selectedBooking.driverLocation.lastUpdated);
-          const diffMs = now - lastUpdateTime;
-          const diffMins = Math.floor(diffMs / 60000);
-
-          if (diffMins < 1) return 'Just now';
-          if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-
-          const diffHours = Math.floor(diffMins / 60);
-          return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-        };
-
-        // Get driver name from booking
-        const driverName = selectedBooking.employeeDetails?.find(emp => emp.role === 'Driver')?.employeeName ||
-          selectedBooking.employeeDetails?.find(emp => emp.role === 'Driver')?.fullName ||
-          'Driver';
-
-        truckMarker.bindPopup(`
-        <div style="min-width: 220px;">
-          <strong style="color: #F97316; font-size: 14px;">🚚 ${driverName}'s Location</strong><br/>
-          <p style="margin: 8px 0 4px 0; font-size: 11px;">
-            <strong>Trip:</strong> ${selectedBooking.tripNumber}<br/>
-            <strong>Status:</strong> ${selectedBooking.status}
-          </p>
-          <hr style="margin: 8px 0; border: 0; border-top: 1px solid #e5e7eb;"/>
-          <p style="margin: 4px 0; font-size: 11px;">
-            <strong>Coordinates:</strong><br/>
-            ${driverCoords[0].toFixed(6)}, ${driverCoords[1].toFixed(6)}
-          </p>
-          <p style="margin: 4px 0; font-size: 10px; color: #6b7280;">
-            <strong>Last Updated:</strong> ${getTimeSinceUpdate()}<br/>
-            <span style="font-size: 9px;">${lastUpdated}</span>
-          </p>
-          <p style="margin: 4px 0; font-size: 10px; color: #6b7280;">
-            <strong>GPS Accuracy:</strong> ${accuracy}
-          </p>
-          <p style="margin: 6px 0 0 0; font-size: 9px; color: #059669; background: #d1fae5; padding: 4px 6px; border-radius: 4px;">
-            ✓ Live GPS tracking (updates every 5 min)
-          </p>
-        </div>
-      `);
-
-        // Add accuracy circle around driver location
-        if (selectedBooking.driverLocation.accuracy) {
-          L.circle(driverCoords, {
-            radius: selectedBooking.driverLocation.accuracy,
-            color: '#F97316',
-            fillColor: '#F97316',
-            fillOpacity: 0.1,
-            weight: 1,
-            opacity: 0.3
-          }).addTo(map);
-        }
-
-        // Draw dotted line from driver to next destination
-        if (destinations.length > 0) {
-          const nextDestResult = await geocodeAddress(destinations[0]);
-          if (nextDestResult && nextDestResult.coords) {
-            L.polyline([driverCoords, nextDestResult.coords], {
-              color: '#F97316',
-              weight: 2,
-              opacity: 0.6,
-              dashArray: '5, 10'
-            }).addTo(map);
-          }
-        }
-
-        markers.push({ type: 'driver', marker: truckMarker });
-      }
-
-      // Fit map to show all markers
-      if (allCoordinates.length > 0) {
-        const bounds = L.latLngBounds(allCoordinates);
-        map.fitBounds(bounds, {
-          padding: [50, 50],
-          maxZoom: 15
-        });
-      } else {
-        // Fallback to Philippines center if no coordinates
-        map.setView([14.5995, 120.9842], 6);
-      }
-    } catch (error) {
-      console.error('Error creating map markers:', error);
+    const maplibregl = window.maplibregl;
+    if (!maplibregl) {
+      console.error('MapLibre not available');
+      return;
     }
 
-    // Add a legend to explain markers
-    const legend = L.control({ position: 'bottomright' });
-    legend.onAdd = function () {
-      const div = L.DomUtil.create('div', 'info legend');
-      div.style.backgroundColor = 'white';
-      div.style.padding = '10px';
-      div.style.borderRadius = '8px';
-      div.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
-
-      let legendHtml = `
-      <div style="font-size: 11px;">
-        <strong>Map Legend</strong><br/>
-        <span style="color: #10b981;">●</span> Origin<br/>
-        <span style="color: #ef4444;">●</span> Destination<br/>
-    `;
-
-      // Only show truck legend if driver location exists
-      if (selectedBooking.driverLocation?.latitude && selectedBooking.driverLocation?.longitude) {
-        legendHtml += `<span style="color: #F97316;">🚚</span> Driver Location<br/>`;
-      }
-
-      legendHtml += `
-        <hr style="margin: 5px 0;"/>
-        <div style="font-size: 10px; color: #6b7280;">
-          ✓ Exact match<br/>
-          ⚠️ Approximate<br/>
-          📍 City center
-        </div>
-      </div>
-    `;
-
-      div.innerHTML = legendHtml;
-      return div;
+    // basic MapLibre style using OpenStreetMap raster tiles
+    const style = {
+      version: 8,
+      sources: {
+        'raster-tiles': {
+          type: 'raster',
+          tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'],
+          tileSize: 256,
+          attribution: '© OpenStreetMap contributors'
+        }
+      },
+      layers: [
+        {
+          id: 'osm-tiles',
+          type: 'raster',
+          source: 'raster-tiles'
+        }
+      ]
     };
-    legend.addTo(map);
 
+    // create map
+    const map = new maplibregl.Map({
+      container: mapRef.current,
+      style,
+      center: [120.9842, 14.5995],
+      zoom: 6
+    });
+
+    // store markers and layers for updates/removal
     mapInstance.current = map;
+    mapInstance.current._markers = [];
+    mapInstance.current._routeLayerId = 'route-layer';
+    mapInstance.current._routeSourceId = 'route-source';
 
-    // Force map to resize after a short delay
-    setTimeout(() => {
-      if (mapInstance.current) {
-        mapInstance.current.invalidateSize();
+    // helper to clear existing route + markers
+    const clearMapData = () => {
+      try {
+        // remove route layer & source
+        if (map.getLayer(mapInstance.current._routeLayerId)) {
+          map.removeLayer(mapInstance.current._routeLayerId);
+        }
+        if (map.getSource(mapInstance.current._routeSourceId)) {
+          map.removeSource(mapInstance.current._routeSourceId);
+        }
+      } catch (e) { /* ignore */ }
+
+      // remove markers
+      (mapInstance.current._markers || []).forEach(m => m.remove());
+      mapInstance.current._markers = [];
+    };
+
+    // Wait for map idle before adding data
+    map.on('load', async () => {
+      clearMapData();
+
+      // Build ordered coordinates: origin -> destinations...
+      const coordsOrder = [];
+
+      // 1) origin coords (prefer stored booking lat/lng)
+      if (selectedBooking.latitude && selectedBooking.longitude) {
+        coordsOrder.push([selectedBooking.longitude, selectedBooking.latitude]);
+      } else if (selectedBooking.originAddress) {
+        const originGeo = await geocodeAddress(selectedBooking.originAddress);
+        if (originGeo?.coords) {
+          // geocodeAddress returns [lat, lng] per your file; convert to [lng, lat]
+          coordsOrder.push([originGeo.coords[1], originGeo.coords[0]]);
+        }
       }
-    }, 100);
+
+      // 2) destinations in order (destinationDeliveries preferred, fallback to destinationAddress)
+      let destinations = [];
+      if (Array.isArray(selectedBooking.destinationDeliveries) && selectedBooking.destinationDeliveries.length > 0) {
+        destinations = selectedBooking.destinationDeliveries.map(d => d.destinationAddress);
+      } else {
+        const d = getDestinations(selectedBooking);
+        destinations = d;
+      }
+
+      for (let i = 0; i < destinations.length; i++) {
+        const dest = destinations[i];
+        if (!dest) continue;
+        // try database lookup first (your fetchClientCoordinates exists inside createMap previously)
+        let destGeo = null;
+        try {
+          const dbResp = await fetch(`${baseURL}/api/clients/by-address?address=${encodeURIComponent(dest)}`);
+          if (dbResp.ok) {
+            const client = await dbResp.json();
+            if (client?.address?.latitude && client?.address?.longitude) {
+              destGeo = { coords: [client.address.latitude, client.address.longitude], source: 'database' };
+            }
+          }
+        } catch (e) { /* ignore */ }
+
+        if (!destGeo) {
+          const g = await geocodeAddress(dest);
+          if (g?.coords) destGeo = { coords: g.coords, source: 'geocoding' };
+        }
+
+        if (destGeo && destGeo.coords) {
+          coordsOrder.push([destGeo.coords[1], destGeo.coords[0]]); // [lng, lat]
+        }
+      }
+
+      // If not enough points to route, just place markers
+      if (coordsOrder.length < 2) {
+        // place markers for what we have
+        coordsOrder.forEach((lnglat, idx) => {
+          const el = document.createElement('div');
+          el.className = 'map-marker-number';
+          el.style.width = '28px';
+          el.style.height = '28px';
+          el.style.borderRadius = '14px';
+          el.style.background = idx === 0 ? '#10b981' : '#ef4444';
+          el.style.color = '#fff';
+          el.style.display = 'flex';
+          el.style.alignItems = 'center';
+          el.style.justifyContent = 'center';
+          el.style.fontSize = '12px';
+          el.style.fontWeight = '700';
+          el.innerText = `${idx + 1}`;
+
+          const marker = new maplibregl.Marker({ element: el }).setLngLat(lnglat).addTo(map);
+          mapInstance.current._markers.push(marker);
+        });
+        if (coordsOrder.length === 1) map.setCenter(coordsOrder[0]);
+        return;
+      }
+
+      // Call OpenRouteService Directions API (geojson) - requires VITE_ORS_API_KEY
+      const orsKey = import.meta.env.VITE_ORS_API_KEY;
+      if (!orsKey) {
+        console.error('VITE_ORS_API_KEY not set. Route drawing requires an OpenRouteService API key.');
+        return;
+      }
+
+      const body = {
+        coordinates: coordsOrder,
+        instructions: false,
+        geometry: true,
+        units: 'm'
+      };
+
+      try {
+        const resp = await fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': orsKey
+          },
+          body: JSON.stringify(body)
+        });
+
+        if (!resp.ok) {
+          const txt = await resp.text();
+          throw new Error(`ORS error ${resp.status}: ${txt}`);
+        }
+
+        const data = await resp.json();
+        // ORS returns FeatureCollection with features[0] containing geometry (GeoJSON LineString)
+        const routeFeature = data?.features?.[0];
+        const distanceMeters = routeFeature?.properties?.summary?.distance ?? null; // meters
+        const durationSeconds = routeFeature?.properties?.summary?.duration ?? null;
+
+        // add source + layer
+        if (map.getSource(mapInstance.current._routeSourceId)) {
+          map.removeLayer(mapInstance.current._routeLayerId);
+          map.removeSource(mapInstance.current._routeSourceId);
+        }
+
+        map.addSource(mapInstance.current._routeSourceId, {
+          type: 'geojson',
+          data: routeFeature
+        });
+
+        map.addLayer({
+          id: mapInstance.current._routeLayerId,
+          type: 'line',
+          source: mapInstance.current._routeSourceId,
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': '#2563eb',
+            'line-width': 6,
+            'line-opacity': 0.9
+          }
+        });
+
+        // Add numbered markers for origin + stops (in order)
+        coordsOrder.forEach((lnglat, idx) => {
+          const el = document.createElement('div');
+          el.className = 'map-marker-number';
+          el.style.width = '34px';
+          el.style.height = '34px';
+          el.style.borderRadius = '18px';
+          el.style.background = idx === 0 ? '#10b981' : '#ef4444';
+          el.style.color = '#fff';
+          el.style.display = 'flex';
+          el.style.alignItems = 'center';
+          el.style.justifyContent = 'center';
+          el.style.fontSize = '13px';
+          el.style.fontWeight = '700';
+          el.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)';
+          el.innerText = `${idx + 1}`;
+
+          const marker = new maplibregl.Marker({ element: el }).setLngLat(lnglat).addTo(map);
+          mapInstance.current._markers.push(marker);
+        });
+
+        // Add truck marker if driver location exists
+        if (selectedBooking.driverLocation?.latitude && selectedBooking.driverLocation?.longitude) {
+          const truckEl = document.createElement('div');
+          truckEl.style.width = '36px';
+          truckEl.style.height = '36px';
+          truckEl.style.borderRadius = '18px';
+          truckEl.style.background = '#f97316';
+          truckEl.style.display = 'flex';
+          truckEl.style.alignItems = 'center';
+          truckEl.style.justifyContent = 'center';
+          truckEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+          truckEl.innerHTML = '🚚';
+
+          const truckLngLat = [selectedBooking.driverLocation.longitude, selectedBooking.driverLocation.latitude];
+          const truckMarker = new maplibregl.Marker({ element: truckEl }).setLngLat(truckLngLat).addTo(map);
+          mapInstance.current._markers.push(truckMarker);
+        }
+
+        // fit to route bounds
+        const coords = routeFeature.geometry.coordinates;
+        const bounds = coords.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(coords[0], coords[0]));
+        map.fitBounds(bounds, { padding: 60, maxZoom: 15 });
+
+        // expose route distance on selectedBooking UI (store on selectedBooking for display)
+        if (distanceMeters != null) {
+          // attach to state copy so UI can read it
+          setSelectedBooking(prev => prev ? ({ ...prev, routeDistanceMeters: distanceMeters, routeDurationSeconds: durationSeconds }) : prev);
+        }
+      } catch (err) {
+        console.error('Routing error (ORS):', err);
+      }
+    });
+
+    // Force resize / invalidate after short delay
+    setTimeout(() => {
+      try { map.resize(); } catch (e) { /* ignore */ }
+    }, 120);
   };
 
   // Filter bookings

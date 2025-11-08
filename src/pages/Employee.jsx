@@ -254,7 +254,7 @@ function Employee() {
         <div className="flex justify-between items-center py-6">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-900 via-indigo-800 to-purple-900 bg-clip-text text-transparent mb-2">
-              Employees
+              Drivers/Helpers
             </h1>
             <p className="text-sm text-gray-600">Manage your workforce and staff</p>
           </div>

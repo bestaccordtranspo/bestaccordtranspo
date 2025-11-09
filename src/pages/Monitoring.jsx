@@ -506,71 +506,71 @@ const getRoute = async (start, end) => {
       // Get all destinations
       const destinations = getDestinations(selectedBooking);
 
-      // MODIFIED: Add destination markers with database priority
-      for (let i = 0; i < destinations.length; i++) {
-        const destAddress = destinations[i];
-        if (destAddress) {
-          let destResult = null;
+// MODIFIED: Add destination markers with database priority
+for (let i = 0; i < destinations.length; i++) {
+  const destAddress = destinations[i];
+  if (destAddress) {
+    let destResult = null;
 
-          // 1. NEW: Try database first
-          destResult = await fetchClientCoordinates(destAddress);
+    // 1. NEW: Try database first
+    destResult = await fetchClientCoordinates(destAddress);
 
-          // 2. Fallback to geocoding
-          if (!destResult) {
-            console.log(`⚠️ No stored coordinates for "${destAddress}", using geocoding...`);
-            destResult = await geocodeAddress(destAddress);
-          } else {
-            console.log(`✅ Using stored coordinates from database for "${destAddress}"`);
-          }
+    // 2. Fallback to geocoding
+    if (!destResult) {
+      console.log(`⚠️ No stored coordinates for "${destAddress}", using geocoding...`);
+      destResult = await geocodeAddress(destAddress);
+    } else {
+      console.log(`✅ Using stored coordinates from database for "${destAddress}"`);
+    }
 
-          if (destResult && destResult.coords) {
-            allCoordinates.push(destResult.coords);
+    if (destResult && destResult.coords) {
+      allCoordinates.push(destResult.coords);
 
-            const colors = [
-              { fill: '#ef4444', border: '#dc2626' },
-              { fill: '#f59e0b', border: '#d97706' },
-              { fill: '#8b5cf6', border: '#7c3aed' },
-              { fill: '#ec4899', border: '#db2777' },
-              { fill: '#06b6d4', border: '#0891b2' }
-            ];
-            const color = colors[i % colors.length];
+      const colors = [
+        { fill: '#ef4444', border: '#dc2626' },
+        { fill: '#f59e0b', border: '#d97706' },
+        { fill: '#8b5cf6', border: '#7c3aed' },
+        { fill: '#ec4899', border: '#db2777' },
+        { fill: '#06b6d4', border: '#0891b2' }
+      ];
+      const color = colors[i % colors.length];
 
-            const destMarker = L.circleMarker(destResult.coords, {
-              radius: 10,
-              fillColor: color.fill,
-              color: '#ffffff',
-              weight: 3,
-              opacity: 1,
-              fillOpacity: 0.9
-            }).addTo(map);
+      const destMarker = L.circleMarker(destResult.coords, {
+        radius: 10,
+        fillColor: color.fill,
+        color: '#ffffff',
+        weight: 3,
+        opacity: 1,
+        fillOpacity: 0.9
+      }).addTo(map);
 
-            const stopLabel = destinations.length > 1 ? `Stop ${i + 1}` : 'Destination';
+      const stopLabel = destinations.length > 1 ? `Stop ${i + 1}` : 'Destination';
 
-            // MODIFIED: Update confidence text
-            const confidenceText = destResult.source === 'database'
-              ? '✓ Exact location (from database)'
-              : destResult.confidence === 'high'
-                ? '✓ Geocoded (high accuracy)'
-                : destResult.confidence === 'medium'
-                  ? '⚠️ Approximate area'
-                  : destResult.confidence === 'fallback'
-                    ? '📍 City center (approximate)'
-                    : '📍 General area';
+      // MODIFIED: Update confidence text
+      const confidenceText = destResult.source === 'database'
+        ? '✓ Exact location (from database)'
+        : destResult.confidence === 'high'
+          ? '✓ Geocoded (high accuracy)'
+          : destResult.confidence === 'medium'
+            ? '⚠️ Approximate area'
+            : destResult.confidence === 'fallback'
+              ? '📍 City center (approximate)'
+              : '📍 General area';
 
-            destMarker.bindPopup(`
-            <div style="min-width: 200px;">
-              <strong style="color: ${color.fill}; font-size: 14px;">📍 ${stopLabel}</strong><br/>
-              <p style="margin: 8px 0 0 0; font-size: 12px;">${destAddress}</p>
-              <p style="margin: 4px 0 0 0; font-size: 10px; color: #6b7280;">${confidenceText}</p>
-            </div>
-          `);
+      destMarker.bindPopup(`
+      <div style="min-width: 200px;">
+        <strong style="color: ${color.fill}; font-size: 14px;">📍 ${stopLabel}</strong><br/>
+        <p style="margin: 8px 0 0 0; font-size: 12px;">${destAddress}</p>
+        <p style="margin: 4px 0 0 0; font-size: 10px; color: #6b7280;">${confidenceText}</p>
+      </div>
+    `);
 
-            markers.push({ type: 'destination', marker: destMarker, index: i });
-          }
-        }
-      }
+      markers.push({ type: 'destination', marker: destMarker, index: i });
+    }
+  }
+}
 
-      // Add driver's current location marker (truck icon) for ADMIN view
+      // Add driver's current location and route TOGETHER
       if (selectedBooking.driverLocation &&
         selectedBooking.driverLocation.latitude &&
         selectedBooking.driverLocation.longitude &&
@@ -661,19 +661,8 @@ const getRoute = async (start, end) => {
           }).addTo(map);
         }
 
-        markers.push({ type: 'driver', marker: truckMarker });
-      }
-
-      // Draw routes ONLY when driver is actively traveling
-        if (selectedBooking.driverLocation && 
-            selectedBooking.driverLocation.latitude && 
-            selectedBooking.driverLocation.longitude &&
-            (selectedBooking.status === "In Transit" || selectedBooking.status === "On Trip")) {
-          
-          const driverCoords = [
-            selectedBooking.driverLocation.latitude,
-            selectedBooking.driverLocation.longitude
-          ];
+        // ✨ Draw routes ONLY when driver is actively traveling (In Transit or On Trip)
+        if (selectedBooking.status === "In Transit" || selectedBooking.status === "On Trip") {
           
           // Find the next pending destination
           let nextDestination = null;
@@ -693,6 +682,8 @@ const getRoute = async (start, end) => {
           
           // Draw route ONLY to the next pending destination
           if (nextDestination) {
+            console.log(`🗺️ Drawing route to next destination: ${nextDestination}`);
+            
             let nextDestResult = await fetchClientCoordinates(nextDestination);
             
             if (!nextDestResult) {
@@ -704,6 +695,7 @@ const getRoute = async (start, end) => {
               const driverRoute = await getRoute(driverCoords, nextDestResult.coords);
               
               if (driverRoute && driverRoute.coordinates) {
+                console.log(`✅ Route found! Drawing ${driverRoute.coordinates.length} points`);
                 // Draw the active route in bold orange
                 L.polyline(driverRoute.coordinates, {
                   color: '#F97316',
@@ -711,6 +703,7 @@ const getRoute = async (start, end) => {
                   opacity: 0.8,
                 }).addTo(map);
               } else {
+                console.log(`⚠️ OSRM routing failed, using straight line`);
                 // Fallback to straight line
                 L.polyline([driverCoords, nextDestResult.coords], {
                   color: '#F97316',
@@ -720,8 +713,13 @@ const getRoute = async (start, end) => {
                 }).addTo(map);
               }
             }
+          } else {
+            console.log(`⚠️ No pending destination found`);
           }
         }
+
+        markers.push({ type: 'driver', marker: truckMarker });
+      }
 
       // Fit map to show all markers
       if (allCoordinates.length > 0) {

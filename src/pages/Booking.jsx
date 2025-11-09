@@ -1739,209 +1739,294 @@ function Booking() {
                                 ? 'border-blue-600 bg-blue-600'
                                 : 'border-gray-300'
                                 }`}>
-                                {tripType === 'multiple' ? (
-  <div className="space-y-4">
-    {selectedBranches.map((branchData, index) => (
-      <div key={branchData.key} className="border-2 border-indigo-300 rounded-2xl p-5 bg-gradient-to-br from-indigo-50 to-purple-50">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-indigo-200">
-          <span className="text-base font-bold text-indigo-700 bg-indigo-200 px-4 py-2 rounded-full">
-            🚚 Stop {index + 1}
-          </span>
-          {selectedBranches.length > 1 && (
-            <button
-              type="button"
-              onClick={() => removeBranch(index)}
-              className="text-red-600 hover:text-red-800 text-sm font-semibold flex items-center gap-1 px-3 py-1 hover:bg-red-50 rounded-lg transition-colors"
-            >
-              ✕ Remove Stop
-            </button>
-          )}
-        </div>
+                                {tripType === 'multiple' && <div className="w-2 h-2 rounded-full bg-white"></div>}
+                              </div>
+                              <span className="text-sm font-medium">Multiple Drop Trip</span>
+                            </label>
+                          </div>
+                        </div>
 
-        {/* Branch & Type of Order */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Select Branch *
-            </label>
-            <select
-              value={branchData.branch}
-              onChange={(e) => handleMultipleBranchChange(index, e.target.value)}
-              required
-              disabled={!formData.companyName}
-              className="w-full px-4 py-2.5 border-2 border-indigo-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 font-medium"
-            >
-              <option value="">Select branch</option>
-              {formData.companyName && getClientBranches(formData.companyName).map((client) => (
-                <option
-                  key={client.clientBranch}
-                  value={client.clientBranch}
-                  disabled={selectedBranches.some((b, i) => i !== index && b.branch === client.clientBranch)}
-                >
-                  {client.clientBranch}
-                  {selectedBranches.some((b, i) => i !== index && b.branch === client.clientBranch) ? ' (Selected)' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Shipper/Consignor *</label>
+                            <input
+                              type="text"
+                              name="shipperConsignorName"
+                              value={formData.shipperConsignorName}
+                              onChange={handleChange}
+                              required
+                              placeholder="Enter Shipper/Consignor Name"
+                              className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Origin/From *</label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                name="originAddress"
+                                value={formData.originAddress}
+                                readOnly
+                                required
+                                placeholder="Select origin address"
+                                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50/50"
+                              />
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                type="button"
+                                onClick={openAddressModal}
+                                className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium whitespace-nowrap"
+                              >
+                                Select Address
+                              </motion.button>
+                            </div>
+                            {formData.originAddress && (
+                              <p className="text-xs text-green-600 mt-1">
+                                ✓ Address selected: {formData.originAddress}
+                              </p>
+                            )}
+                          </div>
+                        </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Type of Order *
-            </label>
-            <select
-              value={branchData.typeOfOrder}
-              onChange={(e) => handleTypeOfOrderChange(index, e.target.value)}
-              required
-              className="w-full px-4 py-2.5 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent font-medium"
-            >
-              <option value="Delivery">📦 Delivery</option>
-              <option value="Pick-up">📥 Pick-up</option>
-              <option value="Return">🔄 Return</option>
-            </select>
-          </div>
-        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {tripType === 'single' ? 'Customer/Establishment *' : 'Destinations *'}
+                            </label>
 
-        {/* Destination Address */}
-        <div className="mb-4">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Destination Address
-          </label>
-          <input
-            type="text"
-            value={branchData.address}
-            readOnly
-            placeholder="Auto-populated when branch is selected"
-            className="w-full px-4 py-2.5 border-2 border-indigo-200 rounded-xl bg-indigo-50/70 text-gray-700 font-medium"
-          />
-        </div>
+                            {tripType === 'multiple' ? (
+                              <div className="space-y-4">
+                                {selectedBranches.map((branchData, index) => (
+                                  <div key={branchData.key} className="border-2 border-indigo-300 rounded-2xl p-5 bg-gradient-to-br from-indigo-50 to-purple-50">
+                                    {/* Header */}
+                                    <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-indigo-200">
+                                      <span className="text-base font-bold text-indigo-700 bg-indigo-200 px-4 py-2 rounded-full">
+                                        🚚 Stop {index + 1}
+                                      </span>
+                                      {selectedBranches.length > 1 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => removeBranch(index)}
+                                          className="text-red-600 hover:text-red-800 text-sm font-semibold flex items-center gap-1 px-3 py-1 hover:bg-red-50 rounded-lg transition-colors"
+                                        >
+                                          ✕ Remove Stop
+                                        </button>
+                                      )}
+                                    </div>
 
-        {/* Product Details Form */}
-        <div className="bg-white rounded-xl p-4 border-2 border-purple-200">
-          <h4 className="text-sm font-bold text-purple-700 mb-3 flex items-center gap-2">
-            📋 Product Details for this Stop
-          </h4>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Product Name *
-              </label>
-              <input
-                type="text"
-                value={branchData.productName}
-                onChange={(e) => handleBranchProductChange(index, 'productName', e.target.value)}
-                placeholder="e.g., Tasty Boy"
-                required
-                className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
-              />
-            </div>
+                                    {/* Branch & Type of Order */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                      <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                          Select Branch *
+                                        </label>
+                                        <select
+                                          value={branchData.branch}
+                                          onChange={(e) => handleMultipleBranchChange(index, e.target.value)}
+                                          required
+                                          disabled={!formData.companyName}
+                                          className="w-full px-4 py-2.5 border-2 border-indigo-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 font-medium"
+                                        >
+                                          <option value="">Select branch</option>
+                                          {formData.companyName && getClientBranches(formData.companyName).map((client) => (
+                                            <option
+                                              key={client.clientBranch}
+                                              value={client.clientBranch}
+                                              disabled={selectedBranches.some((b, i) => i !== index && b.branch === client.clientBranch)}
+                                            >
+                                              {client.clientBranch}
+                                              {selectedBranches.some((b, i) => i !== index && b.branch === client.clientBranch) ? ' (Selected)' : ''}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Number of Packages *
-              </label>
-              <input
-                type="number"
-                value={branchData.numberOfPackages}
-                onChange={(e) => handleBranchProductChange(index, 'numberOfPackages', e.target.value)}
-                placeholder="e.g., 10"
-                required
-                min="1"
-                className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
-              />
-            </div>
+                                      <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                          Type of Order *
+                                        </label>
+                                        <select
+                                          value={branchData.typeOfOrder}
+                                          onChange={(e) => handleTypeOfOrderChange(index, e.target.value)}
+                                          required
+                                          className="w-full px-4 py-2.5 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent font-medium"
+                                        >
+                                          <option value="Delivery">📦 Delivery</option>
+                                          <option value="Pick-up">📥 Pick-up</option>
+                                          <option value="Return">🔄 Return</option>
+                                        </select>
+                                      </div>
+                                    </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Units per Package *
-              </label>
-              <input
-                type="number"
-                value={branchData.unitPerPackage}
-                onChange={(e) => handleBranchProductChange(index, 'unitPerPackage', e.target.value)}
-                placeholder="e.g., 200"
-                required
-                min="1"
-                className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
-              />
-            </div>
+                                    {/* Destination Address */}
+                                    <div className="mb-4">
+                                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Destination Address
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={branchData.address}
+                                        readOnly
+                                        placeholder="Auto-populated when branch is selected"
+                                        className="w-full px-4 py-2.5 border-2 border-indigo-200 rounded-xl bg-indigo-50/70 text-gray-700 font-medium"
+                                      />
+                                    </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Total Quantity (Auto)
-              </label>
-              <input
-                type="number"
-                value={branchData.quantity}
-                readOnly
-                placeholder="Auto-calculated"
-                className="w-full px-3 py-2 border border-purple-200 rounded-lg bg-purple-50/70 text-gray-700 text-sm font-semibold"
-              />
-            </div>
+                                    {/* Product Details Form */}
+                                    <div className="bg-white rounded-xl p-4 border-2 border-purple-200">
+                                      <h4 className="text-sm font-bold text-purple-700 mb-3 flex items-center gap-2">
+                                        📋 Product Details for this Stop
+                                      </h4>
+                                      
+                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        <div>
+                                          <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                            Product Name *
+                                          </label>
+                                          <input
+                                            type="text"
+                                            value={branchData.productName}
+                                            onChange={(e) => handleBranchProductChange(index, 'productName', e.target.value)}
+                                            placeholder="e.g., Tasty Boy"
+                                            required
+                                            className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
+                                          />
+                                        </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Gross Weight (tons) *
-              </label>
-              <input
-                type="number"
-                value={branchData.grossWeight}
-                onChange={(e) => handleBranchProductChange(index, 'grossWeight', e.target.value)}
-                placeholder="e.g., 5.5"
-                required
-                min="0.1"
-                step="0.1"
-                className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    ))}
+                                        <div>
+                                          <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                            Number of Packages *
+                                          </label>
+                                          <input
+                                            type="number"
+                                            value={branchData.numberOfPackages}
+                                            onChange={(e) => handleBranchProductChange(index, 'numberOfPackages', e.target.value)}
+                                            placeholder="e.g., 10"
+                                            required
+                                            min="1"
+                                            className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
+                                          />
+                                        </div>
 
-    <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      type="button"
-      onClick={addBranch}
-      disabled={!formData.companyName || !hasAvailableBranches()}
-      className="w-full px-5 py-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all duration-300 font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      ➕ Add Another Destination
-    </motion.button>
+                                        <div>
+                                          <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                            Units per Package *
+                                          </label>
+                                          <input
+                                            type="number"
+                                            value={branchData.unitPerPackage}
+                                            onChange={(e) => handleBranchProductChange(index, 'unitPerPackage', e.target.value)}
+                                            placeholder="e.g., 200"
+                                            required
+                                            min="1"
+                                            className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
+                                          />
+                                        </div>
 
-    {!hasAvailableBranches() && selectedBranches.length > 0 && (
-      <p className="text-sm text-amber-600 text-center font-medium">
-        ⚠️ All available branches have been selected
-      </p>
-    )}
-  </div>
-) : (
-  // Single destination remains the same
-  <select
-    name="customerEstablishmentName"
-    value={formData.customerEstablishmentName}
-    onChange={handleBranchChange}
-    required
-    disabled={!formData.companyName}
-    className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent disabled:bg-gray-100"
-  >
-    <option value="">Select branch</option>
-    {formData.companyName && getClientBranches(formData.companyName).map((client, index) => (
-      <option key={index} value={client.clientBranch}>
-        {client.clientBranch}
-      </option>
-    ))}
-  </select>
-)}
+                                        <div>
+                                          <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                            Total Quantity (Auto)
+                                          </label>
+                                          <input
+                                            type="number"
+                                            value={branchData.quantity}
+                                            readOnly
+                                            placeholder="Auto-calculated"
+                                            className="w-full px-3 py-2 border border-purple-200 rounded-lg bg-purple-50/70 text-gray-700 text-sm font-semibold"
+                                          />
+                                        </div>
 
+                                        <div>
+                                          <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                            Gross Weight (tons) *
+                                          </label>
+                                          <input
+                                            type="number"
+                                            value={branchData.grossWeight}
+                                            onChange={(e) => handleBranchProductChange(index, 'grossWeight', e.target.value)}
+                                            placeholder="e.g., 5.5"
+                                            required
+                                            min="0.1"
+                                            step="0.1"
+                                            className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
 
-// ==================== PART 8: UPDATE TYPE OF ORDER SECTION ====================
-// REPLACE the "Type of Order" section to only show for SINGLE trips:
+                                <motion.button
+                                  whileHover={{ scale: 1.02 }}
+                                  whileTap={{ scale: 0.98 }}
+                                  type="button"
+                                  onClick={addBranch}
+                                  disabled={!formData.companyName || !hasAvailableBranches()}
+                                  className="w-full px-5 py-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all duration-300 font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  ➕ Add Another Destination
+                                </motion.button>
 
-{tripType === 'single' && (
+                                {!hasAvailableBranches() && selectedBranches.length > 0 && (
+                                  <p className="text-sm text-amber-600 text-center font-medium">
+                                    ⚠️ All available branches have been selected
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              // Single destination remains the same
+                              <select
+                                name="customerEstablishmentName"
+                                value={formData.customerEstablishmentName}
+                                onChange={handleBranchChange}
+                                required
+                                disabled={!formData.companyName}
+                                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent disabled:bg-gray-100"
+                              >
+                                <option value="">Select branch</option>
+                                {formData.companyName && getClientBranches(formData.companyName).map((client, index) => (
+                                  <option key={index} value={client.clientBranch}>
+                                    {client.clientBranch}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {tripType === 'single' ? 'Destination/To *' : 'Destinations Preview'}
+                            </label>
+
+                            {tripType === 'single' ? (
+                              // Single destination (original behavior)
+                              <input
+                                type="text"
+                                name="destinationAddress"
+                                value={formData.destinationAddress}
+                                readOnly
+                                placeholder="Select branch first"
+                                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50/50"
+                              />
+                            ) : (
+                              // Multiple destinations preview
+                              <div className="space-y-2 max-h-60 overflow-y-auto p-3 bg-gray-50 rounded-xl border border-indigo-200">
+                                {selectedBranches.map((branchData, index) => (
+                                  <div key={branchData.key} className="text-sm">
+                                    <div className="font-medium text-gray-700">Stop {index + 1}: {branchData.branch || 'Not selected'}</div>
+                                    {branchData.address && (
+                                      <div className="text-xs text-gray-500 truncate">{branchData.address}</div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {tripType === 'single' && (
   <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100">
     <h3 className="text-lg font-semibold text-gray-900 mb-4">Product Details</h3>
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -2011,7 +2096,7 @@ function Booking() {
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Fee *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Fee (PHP) *</label>
         <input
           type="number"
           name="deliveryFee"
@@ -2025,273 +2110,6 @@ function Booking() {
     </div>
   </div>
 )}
-                              </div>
-                              <span className="text-sm font-medium">Multiple Drop Trip</span>
-                            </label>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Shipper/Consignor *</label>
-                            <input
-                              type="text"
-                              name="shipperConsignorName"
-                              value={formData.shipperConsignorName}
-                              onChange={handleChange}
-                              required
-                              placeholder="Enter Shipper/Consignor Name"
-                              className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Origin/From *</label>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                name="originAddress"
-                                value={formData.originAddress}
-                                readOnly
-                                required
-                                placeholder="Select origin address"
-                                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50/50"
-                              />
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                type="button"
-                                onClick={openAddressModal}
-                                className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium whitespace-nowrap"
-                              >
-                                Select Address
-                              </motion.button>
-                            </div>
-                            {formData.originAddress && (
-                              <p className="text-xs text-green-600 mt-1">
-                                ✓ Address selected: {formData.originAddress}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {tripType === 'single' ? 'Customer/Establishment *' : 'Destinations *'}
-                            </label>
-
-                            {tripType === 'single' ? (
-                              <select
-                                name="customerEstablishmentName"
-                                value={formData.customerEstablishmentName}
-                                onChange={handleBranchChange}
-                                required
-                                disabled={!formData.companyName}
-                                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent disabled:bg-gray-100"
-                              >
-                                <option value="">Select branch</option>
-                                {formData.companyName && getClientBranches(formData.companyName).map((client, index) => (
-                                  <option key={index} value={client.clientBranch}>
-                                    {client.clientBranch}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              <div className="space-y-3">
-                                {selectedBranches.map((branchData, index) => (
-                                  <div key={branchData.key} className="border border-indigo-200 rounded-xl p-4 bg-white">
-                                    <div className="flex items-center justify-between mb-3">
-                                      <span className="text-sm font-medium text-gray-700 bg-indigo-100 px-3 py-1 rounded-full">
-                                        Stop {index + 1}
-                                      </span>
-                                      {selectedBranches.length > 1 && (
-                                        <button
-                                          type="button"
-                                          onClick={() => removeBranch(index)}
-                                          className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-1"
-                                        >
-                                          Remove Stop
-                                        </button>
-                                      )}
-                                    </div>
-
-                                    <div className="space-y-3">
-                                      <div>
-                                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                                          Select Branch *
-                                        </label>
-                                        <select
-                                          value={branchData.branch}
-                                          onChange={(e) => handleMultipleBranchChange(index, e.target.value)}
-                                          required
-                                          disabled={!formData.companyName}
-                                          className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent disabled:bg-gray-100"
-                                        >
-                                          <option value="">Select branch</option>
-                                          {formData.companyName && getClientBranches(formData.companyName).map((client) => (
-                                            <option
-                                              key={client.clientBranch}
-                                              value={client.clientBranch}
-                                              disabled={selectedBranches.some((b, i) => i !== index && b.branch === client.clientBranch)}
-                                            >
-                                              {client.clientBranch}
-                                              {selectedBranches.some((b, i) => i !== index && b.branch === client.clientBranch) ? ' (Already selected)' : ''}
-                                            </option>
-                                          ))}
-                                        </select>
-                                      </div>
-
-                                      <div>
-                                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                                          Destination Address
-                                        </label>
-                                        <input
-                                          type="text"
-                                          value={branchData.address}
-                                          readOnly
-                                          placeholder="Address will auto-populate when branch is selected"
-                                          className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50/50 text-gray-700"
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-
-                                <motion.button
-                                  whileHover={{ scale: 1.02 }}
-                                  whileTap={{ scale: 0.98 }}
-                                  type="button"
-                                  onClick={addBranch}
-                                  disabled={!formData.companyName || !hasAvailableBranches()}
-                                  className="w-full px-4 py-3 bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 rounded-xl hover:from-green-200 hover:to-emerald-200 transition-all duration-300 font-medium border border-green-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  + Add Another Destination
-                                </motion.button>
-
-                                {!hasAvailableBranches() && selectedBranches.length > 0 && (
-                                  <p className="text-xs text-amber-600 text-center">
-                                    All available branches have been selected
-                                  </p>
-                                )}
-                              </div>
-                            )}
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {tripType === 'single' ? 'Destination/To *' : 'Destinations Preview'}
-                            </label>
-
-                            {tripType === 'single' ? (
-                              // Single destination (original behavior)
-                              <input
-                                type="text"
-                                name="destinationAddress"
-                                value={formData.destinationAddress}
-                                readOnly
-                                placeholder="Select branch first"
-                                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50/50"
-                              />
-                            ) : (
-                              // Multiple destinations preview
-                              <div className="space-y-2 max-h-60 overflow-y-auto p-3 bg-gray-50 rounded-xl border border-indigo-200">
-                                {selectedBranches.map((branchData, index) => (
-                                  <div key={branchData.key} className="text-sm">
-                                    <div className="font-medium text-gray-700">Stop {index + 1}: {branchData.branch || 'Not selected'}</div>
-                                    {branchData.address && (
-                                      <div className="text-xs text-gray-500 truncate">{branchData.address}</div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Type of Order */}
-                      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Type of Order</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Product Name *</label>
-                            <input
-                              type="text"
-                              name="productName"
-                              value={formData.productName}
-                              onChange={handleChange}
-                              placeholder="Tasty Boy"
-                              required
-                              className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Number of Packages *</label>
-                            <input
-                              type="number"
-                              name="numberOfPackages"
-                              value={formData.numberOfPackages}
-                              onChange={handleChange}
-                              required
-                              min="1"
-                              placeholder="10 box"
-                              className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Units per Package *</label>
-                            <input
-                              type="number"
-                              name="unitPerPackage"
-                              value={formData.unitPerPackage}
-                              onChange={handleChange}
-                              required
-                              min="1"
-                              placeholder="200pcs/box"
-                              className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Quantity (Auto-calculated) *</label>
-                            <input
-                              type="number"
-                              name="quantity"
-                              value={formData.quantity}
-                              readOnly
-                              placeholder="2000pcs"
-                              className="w-full px-4 py-2.5 border border-purple-200 rounded-xl bg-purple-50/50"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Gross Weight *</label>
-                            <input
-                              type="number"
-                              name="grossWeight"
-                              value={formData.grossWeight}
-                              onChange={handleChange}
-                              placeholder="5 tons"
-                              required
-                              min="0.1"
-                              step="0.1"
-                              className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Fee *</label>
-                            <input
-                              type="number"
-                              name="deliveryFee"
-                              value={formData.deliveryFee}
-                              onChange={handleChange}
-                              required
-                              placeholder="10000 PHP"
-                              className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                            />
-                          </div>
-                        </div>
-                      </div>
 
 
                       {/* Area Rate & Vehicle Info */}

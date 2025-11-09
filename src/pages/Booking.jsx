@@ -1963,7 +1963,7 @@ function Booking() {
                                   type="button"
                                   onClick={addBranch}
                                   disabled={!formData.companyName || !hasAvailableBranches()}
-                                  className="w-full px-5 py-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all duration-300 font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="w-full px-5 py-4 bg-gradient-to-r from-purple-300 to-purple-800 text-white rounded-xl hover:from-purple-500 hover:to-purple-900 transition-all duration-300 font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   ➕ Add Another Destination
                                 </motion.button>

@@ -3,19 +3,13 @@ import mongoose from "mongoose";
 const bookingSchema = new mongoose.Schema({
     reservationId: { type: String, unique: true },
     tripNumber: { type: String, unique: true },
-    productName: { type: String, required: true },
-    quantity: { type: Number, required: true },
-    grossWeight: { type: Number, required: true },
-    unitPerPackage: { type: Number, required: true },
-    numberOfPackages: { type: Number, required: true },
-    deliveryFee: { type: Number, required: true },
+    
+    // Company and shipment info (shared across all stops)
     companyName: { type: String, required: true },
     shipperConsignorName: { type: String, required: true },
-    customerEstablishmentName: { type: String, required: true },
     originAddress: { type: String, required: true },
-    destinationAddress: [{ type: String, required: true }],
-    latitude: { type: Number, default: null },
-    longitude: { type: Number, default: null },
+    
+    // Trip configuration
     tripType: {
         type: String,
         enum: ['single', 'multiple'],
@@ -26,20 +20,50 @@ const bookingSchema = new mongoose.Schema({
         default: 1
     },
     
-    // ✨ NEW: Track delivery status for each destination
+    // Store complete product details for each destination
     destinationDeliveries: [{
-        destinationAddress: { type: String },
-        destinationIndex: { type: Number },
+        // Destination info
+        customerEstablishmentName: { type: String, required: true },
+        destinationAddress: { type: String, required: true },
+        destinationIndex: { type: Number, required: true },
+        
+        // Product details per destination
+        typeOfOrder: { 
+            type: String, 
+            enum: ['Delivery', 'Pick-up', 'Return'],
+            default: 'Delivery'
+        },
+        productName: { type: String, required: true },
+        quantity: { type: Number, required: true },
+        grossWeight: { type: Number, required: true },
+        unitPerPackage: { type: Number, required: true },
+        numberOfPackages: { type: Number, required: true },
+        
+        // Delivery status
         status: { 
             type: String, 
             enum: ['pending', 'delivered'],
             default: 'pending'
         },
         deliveredAt: { type: Date, default: null },
-        deliveredBy: { type: String, default: null }, // Driver's employeeId
-        proofOfDelivery: { type: String, default: null }, // Optional: Photo for this specific stop
-        notes: { type: String, default: null } // Optional: Delivery notes
+        deliveredBy: { type: String, default: null },
+        proofOfDelivery: { type: String, default: null },
+        notes: { type: String, default: null }
     }],
+    
+    // Legacy fields for backward compatibility (for single trips)
+    productName: { type: String },
+    quantity: { type: Number },
+    grossWeight: { type: Number },
+    unitPerPackage: { type: Number },
+    numberOfPackages: { type: Number },
+    customerEstablishmentName: { type: String },
+    destinationAddress: [{ type: String }],
+    
+    // Shared fields
+    deliveryFee: { type: Number, required: true },
+    latitude: { type: Number, default: null },
+    longitude: { type: Number, default: null },
     
     vehicleId: {
         type: String,
@@ -97,21 +121,18 @@ const bookingSchema = new mongoose.Schema({
     strictQuery: false
 });
 
-// ✨ NEW: Middleware to initialize destinationDeliveries when booking is created
+// Middleware to handle backward compatibility
 bookingSchema.pre('save', function(next) {
-    // Only initialize if destinationDeliveries is empty and we have destinations
-    if (this.isNew && this.destinationAddress && this.destinationAddress.length > 0 && 
-        (!this.destinationDeliveries || this.destinationDeliveries.length === 0)) {
-        
-        this.destinationDeliveries = this.destinationAddress.map((address, index) => ({
-            destinationAddress: address,
-            destinationIndex: index,
-            status: 'pending',
-            deliveredAt: null,
-            deliveredBy: null,
-            proofOfDelivery: null,
-            notes: null
-        }));
+    // For single trips, sync legacy fields with destinationDeliveries
+    if (this.tripType === 'single' && this.destinationDeliveries && this.destinationDeliveries.length > 0) {
+        const firstDest = this.destinationDeliveries[0];
+        this.productName = firstDest.productName;
+        this.quantity = firstDest.quantity;
+        this.grossWeight = firstDest.grossWeight;
+        this.unitPerPackage = firstDest.unitPerPackage;
+        this.numberOfPackages = firstDest.numberOfPackages;
+        this.customerEstablishmentName = firstDest.customerEstablishmentName;
+        this.destinationAddress = [firstDest.destinationAddress];
     }
     next();
 });

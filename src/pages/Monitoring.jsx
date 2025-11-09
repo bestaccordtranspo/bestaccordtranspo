@@ -916,21 +916,30 @@ export default function Monitoring() {
           ).map(([status, count], index) => {
             const config = statusConfig[status] || statusConfig["Pending"];
             const StatusIcon = config.icon;
+            const isActive = statusFilter === status;
 
             return (
               <motion.div
                 key={status}
-                className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-purple-500 hover:shadow-md transition"
+                onClick={() => setStatusFilter(status)}
+                className={`bg-white p-4 rounded-lg shadow-sm border-l-4 hover:shadow-md transition cursor-pointer ${
+                  isActive 
+                    ? 'border-purple-600 ring-2 ring-purple-200 bg-purple-50' 
+                    : 'border-purple-500'
+                }`}
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ duration: 0.3, delay: index * 0.1 }}
                 whileHover={{ y: -2, scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">{status}</p>
+                    <p className={`text-sm font-medium ${isActive ? 'text-purple-700' : 'text-gray-600'}`}>
+                      {status}
+                    </p>
                     <motion.p
-                      className="text-2xl font-bold text-gray-800"
+                      className={`text-2xl font-bold ${isActive ? 'text-purple-800' : 'text-gray-800'}`}
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ delay: index * 0.1 + 0.2 }}
@@ -943,9 +952,18 @@ export default function Monitoring() {
                     animate={{ rotate: 0, opacity: 1 }}
                     transition={{ delay: index * 0.1 + 0.3 }}
                   >
-                    <StatusIcon className="w-8 h-8 text-purple-400" />
+                    <StatusIcon className={`w-8 h-8 ${isActive ? 'text-purple-600' : 'text-purple-400'}`} />
                   </motion.div>
                 </div>
+                {isActive && (
+                  <motion.div
+                    className="mt-2 text-xs text-purple-600 font-medium"
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    ✓ Active filter
+                  </motion.div>
+                )}
               </motion.div>
             );
           })}

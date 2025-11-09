@@ -565,55 +565,6 @@ const getRoute = async (start, end) => {
             </div>
           `);
 
-          // Draw ACTUAL ROUTE instead of straight line
-          if (allCoordinates.length > 1) {
-            const originCoords = allCoordinates[0];
-            
-            // Get route from OSRM
-            const routeData = await getRoute(originCoords, destResult.coords);
-            
-            if (routeData && routeData.coordinates) {
-              // Draw the actual road route
-              L.polyline(routeData.coordinates, {
-                color: color.fill,
-                weight: 4,
-                opacity: 0.7,
-              }).addTo(map);
-
-              // Add route info popup in the middle of the route
-              const midPoint = routeData.coordinates[Math.floor(routeData.coordinates.length / 2)];
-              L.marker(midPoint, {
-                icon: L.divIcon({
-                  className: 'route-info-marker',
-                  html: `
-                    <div style="
-                      background: white;
-                      padding: 4px 8px;
-                      border-radius: 12px;
-                      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-                      font-size: 11px;
-                      font-weight: 600;
-                      color: ${color.fill};
-                      white-space: nowrap;
-                      border: 2px solid ${color.fill};
-                    ">
-                      ${routeData.distance} km • ${routeData.duration} min
-                    </div>
-                  `,
-                  iconSize: [0, 0]
-                })
-              }).addTo(map);
-            } else {
-              // Fallback to straight line if routing fails
-              L.polyline([originCoords, destResult.coords], {
-                color: color.fill,
-                weight: 3,
-                opacity: 0.6,
-                dashArray: '10, 10'
-              }).addTo(map);
-            }
-          }
-
             markers.push({ type: 'destination', marker: destMarker, index: i });
           }
         }
@@ -710,57 +661,67 @@ const getRoute = async (start, end) => {
           }).addTo(map);
         }
 
-        // Draw route from driver to next destination with ETA
-        if (destinations.length > 0) {
-          const nextDestResult = await geocodeAddress(destinations[0]);
-          if (nextDestResult && nextDestResult.coords) {
-            // Get actual route for driver to next destination
-            const driverRoute = await getRoute(driverCoords, nextDestResult.coords);
-            
-            if (driverRoute && driverRoute.coordinates) {
-              L.polyline(driverRoute.coordinates, {
-                color: '#F97316',
-                weight: 3,
-                opacity: 0.7,
-                dashArray: '10, 10'
-              }).addTo(map);
+        markers.push({ type: 'driver', marker: truckMarker });
+      }
 
-              // Add ETA info for driver
-              const midPoint = driverRoute.coordinates[Math.floor(driverRoute.coordinates.length / 2)];
-              L.marker(midPoint, {
-                icon: L.divIcon({
-                  className: 'driver-eta-marker',
-                  html: `
-                    <div style="
-                      background: #F97316;
-                      color: white;
-                      padding: 4px 8px;
-                      border-radius: 12px;
-                      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                      font-size: 11px;
-                      font-weight: 600;
-                      white-space: nowrap;
-                    ">
-                      🚚 ETA: ${driverRoute.duration} min (${driverRoute.distance} km)
-                    </div>
-                  `,
-                  iconSize: [0, 0]
-                })
-              }).addTo(map);
-            } else {
-              // Fallback to straight line
-              L.polyline([driverCoords, nextDestResult.coords], {
-                color: '#F97316',
-                weight: 2,
-                opacity: 0.6,
-                dashArray: '5, 10'
-              }).addTo(map);
+      // Draw routes ONLY when driver is actively traveling
+        if (selectedBooking.driverLocation && 
+            selectedBooking.driverLocation.latitude && 
+            selectedBooking.driverLocation.longitude &&
+            (selectedBooking.status === "In Transit" || selectedBooking.status === "On Trip")) {
+          
+          const driverCoords = [
+            selectedBooking.driverLocation.latitude,
+            selectedBooking.driverLocation.longitude
+          ];
+          
+          // Find the next pending destination
+          let nextDestination = null;
+          let nextDestIndex = -1;
+          
+          if (selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries.length > 0) {
+            const pendingDest = selectedBooking.destinationDeliveries.find(d => d.status === 'pending');
+            if (pendingDest) {
+              nextDestination = pendingDest.destinationAddress;
+              nextDestIndex = pendingDest.destinationIndex;
+            }
+          } else {
+            // Fallback for old bookings without destination tracking
+            nextDestination = destinations[0];
+            nextDestIndex = 0;
+          }
+          
+          // Draw route ONLY to the next pending destination
+          if (nextDestination) {
+            let nextDestResult = await fetchClientCoordinates(nextDestination);
+            
+            if (!nextDestResult) {
+              nextDestResult = await geocodeAddress(nextDestination);
+            }
+            
+            if (nextDestResult && nextDestResult.coords) {
+              // Get actual route from driver to next destination
+              const driverRoute = await getRoute(driverCoords, nextDestResult.coords);
+              
+              if (driverRoute && driverRoute.coordinates) {
+                // Draw the active route in bold orange
+                L.polyline(driverRoute.coordinates, {
+                  color: '#F97316',
+                  weight: 5,
+                  opacity: 0.8,
+                }).addTo(map);
+              } else {
+                // Fallback to straight line
+                L.polyline([driverCoords, nextDestResult.coords], {
+                  color: '#F97316',
+                  weight: 4,
+                  opacity: 0.7,
+                  dashArray: '10, 5'
+                }).addTo(map);
+              }
             }
           }
         }
-
-        markers.push({ type: 'driver', marker: truckMarker });
-      }
 
       // Fit map to show all markers
       if (allCoordinates.length > 0) {

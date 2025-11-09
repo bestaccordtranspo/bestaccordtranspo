@@ -790,7 +790,7 @@ const getRoute = async (start, end) => {
                 icon: L.divIcon({
                   className: 'route-label',
                   html: `<div style="background: white; padding: 4px 8px; border-radius: 4px; border: 2px solid #F97316; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); white-space: nowrap;">
-                          🚚 ${driverRoute.distance}km · ${calculateETA(driverRoute.duration)}
+                          🚚 ${driverRoute.distance}km
                         </div>`,
                   iconSize: [100, 30],
                   iconAnchor: [50, 15]

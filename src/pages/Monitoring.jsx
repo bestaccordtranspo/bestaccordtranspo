@@ -315,6 +315,27 @@ export default function Monitoring() {
     }
   };
 
+  // OSRM Routing function to get actual road routes
+const getRoute = async (start, end) => {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson&steps=true`;
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.routes && data.routes.length > 0) {
+      const route = data.routes[0];
+      return {
+        coordinates: route.geometry.coordinates.map(coord => [coord[1], coord[0]]),
+        distance: (route.distance / 1000).toFixed(2), // km
+        duration: Math.round(route.duration / 60), // minutes
+      };
+    }
+  } catch (error) {
+    console.error('OSRM routing error:', error);
+    return null;
+  }
+};
+
   // IMPROVED: Create map with multiple destination support and fallback geocoding
 
   // Create map with database coordinates and fallback geocoding
@@ -544,8 +565,46 @@ export default function Monitoring() {
             </div>
           `);
 
-            if (allCoordinates.length > 1) {
-              const originCoords = allCoordinates[0];
+          // Draw ACTUAL ROUTE instead of straight line
+          if (allCoordinates.length > 1) {
+            const originCoords = allCoordinates[0];
+            
+            // Get route from OSRM
+            const routeData = await getRoute(originCoords, destResult.coords);
+            
+            if (routeData && routeData.coordinates) {
+              // Draw the actual road route
+              L.polyline(routeData.coordinates, {
+                color: color.fill,
+                weight: 4,
+                opacity: 0.7,
+              }).addTo(map);
+
+              // Add route info popup in the middle of the route
+              const midPoint = routeData.coordinates[Math.floor(routeData.coordinates.length / 2)];
+              L.marker(midPoint, {
+                icon: L.divIcon({
+                  className: 'route-info-marker',
+                  html: `
+                    <div style="
+                      background: white;
+                      padding: 4px 8px;
+                      border-radius: 12px;
+                      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                      font-size: 11px;
+                      font-weight: 600;
+                      color: ${color.fill};
+                      white-space: nowrap;
+                      border: 2px solid ${color.fill};
+                    ">
+                      ${routeData.distance} km • ${routeData.duration} min
+                    </div>
+                  `,
+                  iconSize: [0, 0]
+                })
+              }).addTo(map);
+            } else {
+              // Fallback to straight line if routing fails
               L.polyline([originCoords, destResult.coords], {
                 color: color.fill,
                 weight: 3,
@@ -553,6 +612,7 @@ export default function Monitoring() {
                 dashArray: '10, 10'
               }).addTo(map);
             }
+          }
 
             markers.push({ type: 'destination', marker: destMarker, index: i });
           }
@@ -650,16 +710,52 @@ export default function Monitoring() {
           }).addTo(map);
         }
 
-        // Draw dotted line from driver to next destination
+        // Draw route from driver to next destination with ETA
         if (destinations.length > 0) {
           const nextDestResult = await geocodeAddress(destinations[0]);
           if (nextDestResult && nextDestResult.coords) {
-            L.polyline([driverCoords, nextDestResult.coords], {
-              color: '#F97316',
-              weight: 2,
-              opacity: 0.6,
-              dashArray: '5, 10'
-            }).addTo(map);
+            // Get actual route for driver to next destination
+            const driverRoute = await getRoute(driverCoords, nextDestResult.coords);
+            
+            if (driverRoute && driverRoute.coordinates) {
+              L.polyline(driverRoute.coordinates, {
+                color: '#F97316',
+                weight: 3,
+                opacity: 0.7,
+                dashArray: '10, 10'
+              }).addTo(map);
+
+              // Add ETA info for driver
+              const midPoint = driverRoute.coordinates[Math.floor(driverRoute.coordinates.length / 2)];
+              L.marker(midPoint, {
+                icon: L.divIcon({
+                  className: 'driver-eta-marker',
+                  html: `
+                    <div style="
+                      background: #F97316;
+                      color: white;
+                      padding: 4px 8px;
+                      border-radius: 12px;
+                      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                      font-size: 11px;
+                      font-weight: 600;
+                      white-space: nowrap;
+                    ">
+                      🚚 ETA: ${driverRoute.duration} min (${driverRoute.distance} km)
+                    </div>
+                  `,
+                  iconSize: [0, 0]
+                })
+              }).addTo(map);
+            } else {
+              // Fallback to straight line
+              L.polyline([driverCoords, nextDestResult.coords], {
+                color: '#F97316',
+                weight: 2,
+                opacity: 0.6,
+                dashArray: '5, 10'
+              }).addTo(map);
+            }
           }
         }
 
@@ -961,7 +1057,7 @@ export default function Monitoring() {
                     initial={{ opacity: 0, y: -5 }}
                     animate={{ opacity: 1, y: 0 }}
                   >
-                    ✓ Active filter
+                    ✓ Showing all "{status}" Bookings
                   </motion.div>
                 )}
               </motion.div>

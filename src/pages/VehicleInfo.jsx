@@ -178,6 +178,10 @@ function VehicleInfo() {
                                 <th className="px-6 py-3 font-semibold bg-gray-100">Registration Expiry Date</th>
                                 <td className="px-6 py-3">{vehicle.registrationExpiryDate}</td>
                             </tr>
+                            <tr className="border-b">
+                                <th className="px-6 py-3 font-semibold bg-gray-100">Max Weight Capacity (kg)</th>
+                                <td className="px-6 py-3">{vehicle.maxWeightCapacity}</td>
+                            </tr>
                             <tr>
                                 <th className="px-6 py-3 font-semibold bg-gray-100">Date Added</th>
                                 <td className="px-6 py-3">{vehicle.createdAt}</td>

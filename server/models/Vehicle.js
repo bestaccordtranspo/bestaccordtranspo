@@ -12,6 +12,7 @@ const VehicleSchema = new mongoose.Schema(
     chassisNumber: { type: String },
     engineNumber: { type: String },
     registrationExpiryDate: { type: Date },
+    maxWeightCapacity: { type: Number },
     status: {
       type: String,
       enum: ["Available", "Not Available", "On Trip"],

@@ -42,7 +42,8 @@ export default function Vehicle() {
     engineNumber: "",
     registrationExpiryDate: "",
     status: "Available",
-    maxWeightCapacity: ""
+    maxWeightCapacity: "",
+    kmRate: ""  
   });
 
   const containerRef = useRef(null);
@@ -132,7 +133,8 @@ export default function Vehicle() {
           ? vehicle.registrationExpiryDate.slice(0, 10)
           : "",
         status: vehicle.status,
-        maxWeightCapacity: vehicle.maxWeightCapacity ?? ""
+        maxWeightCapacity: vehicle.maxWeightCapacity ?? "",
+        kmRate: vehicle.kmRate ?? ""
       });
     } else {
       setEditVehicle(null);
@@ -147,7 +149,8 @@ export default function Vehicle() {
         engineNumber: "",
         registrationExpiryDate: "",
         status: "Available",
-        maxWeightCapacity: ""
+        maxWeightCapacity: "",
+        kmRate: ""
       });
     }
     setShowModal(true);
@@ -660,6 +663,18 @@ export default function Vehicle() {
                         name="maxWeightCapacity"
                         placeholder="Enter max weight capacity"
                         value={formData.maxWeightCapacity}
+                        onChange={handleChange}
+                        min="0"
+                        className="w-full px-4 py-2.5 border border-violet-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">fare per Kilometer (KM)</label>
+                      <input
+                        type="number"
+                        name="kmRate"
+                        placeholder="Enter base rate per Kilometer (KM)"
+                        value={formData.kmRate}
                         onChange={handleChange}
                         min="0"
                         className="w-full px-4 py-2.5 border border-violet-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent"

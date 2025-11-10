@@ -459,25 +459,6 @@ function Booking() {
     return newFormData;
   });
   
-  // REMOVE THIS ENTIRE SECTION - no need to sync with selectedBranches for single trips
-  // if (tripType === 'single') {
-  //   if (['productName', 'numberOfPackages', 'unitPerPackage', 'quantity', 'grossWeight'].includes(name)) {
-  //     setSelectedBranches(prev => {
-  //       const packages = name === 'numberOfPackages' ? parseInt(value) || 0 : parseInt(prev[0]?.numberOfPackages) || 0;
-  //       const units = name === 'unitPerPackage' ? parseInt(value) || 0 : parseInt(prev[0]?.unitPerPackage) || 0;
-  //       const calculatedQty = packages * units;
-  //
-  //       const updated = [{
-  //         ...prev[0],
-  //         [name]: value,
-  //         ...(name === 'numberOfPackages' || name === 'unitPerPackage' ? { quantity: calculatedQty } : {})
-  //       }];
-  //       console.log('🔄 Updated selectedBranches from product change:', updated);
-  //       return updated;
-  //     });
-  //   }
-  // }
-  
   validateField(name, value);
 };
 
@@ -757,7 +738,6 @@ function Booking() {
       originAddress: formData.originAddress,
       
       // Trip configuration - single drop is just multiple drop with 1 stop
-      tripType: selectedBranches.length > 1 ? 'multiple' : 'single',
       numberOfStops: selectedBranches.length,
       
       // All delivery data
@@ -826,7 +806,7 @@ useEffect(() => {
       selectedBranches: selectedBranches
     });
   }
-}, [showModal, tripType, formData.customerEstablishmentName, formData.destinationAddress, formData.productName, selectedBranches]);
+}, [showModal, formData.customerEstablishmentName, formData.destinationAddress, formData.productName, selectedBranches]);
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to archive this booking?")) return;

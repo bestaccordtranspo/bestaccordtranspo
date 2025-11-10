@@ -46,15 +46,15 @@ function Booking() {
   // Trip type state
   const [tripType, setTripType] = useState('single'); // 'single' or 'multiple'
   const [selectedBranches, setSelectedBranches] = useState([
-    { 
-      branch: '', 
-      address: '', 
+    {
+      branch: '',
+      address: '',
       productName: '',
       numberOfPackages: '',
       unitPerPackage: '',
       quantity: '',
       grossWeight: '',
-      key: Date.now() 
+      key: Date.now()
     }
   ]);
 
@@ -134,15 +134,15 @@ function Booking() {
     if (hasAvailableBranches()) {
       setSelectedBranches(prev => [
         ...prev,
-        { 
-          branch: '', 
-          address: '', 
+        {
+          branch: '',
+          address: '',
           productName: '',
           numberOfPackages: '',
           unitPerPackage: '',
           quantity: '',
           grossWeight: '',
-          key: Date.now() + prev.length 
+          key: Date.now() + prev.length
         }
       ]);
     }
@@ -185,16 +185,16 @@ function Booking() {
     setSelectedBranches(prev =>
       prev.map((branchData, i) => {
         if (i !== index) return branchData;
-        
+
         const updated = { ...branchData, [field]: value };
-        
+
         // Auto-calculate quantity if packages or units change
         if (field === 'numberOfPackages' || field === 'unitPerPackage') {
           const packages = field === 'numberOfPackages' ? parseInt(value) || 0 : parseInt(updated.numberOfPackages) || 0;
           const units = field === 'unitPerPackage' ? parseInt(value) || 0 : parseInt(updated.unitPerPackage) || 0;
           updated.quantity = packages * units;
         }
-        
+
         return updated;
       })
     );
@@ -1777,11 +1777,11 @@ function Booking() {
                           </div>
                         </div>
 
-                       <div className={`gap-4 mt-4 ${tripType === 'single' ? 'grid grid-cols-1 md:grid-cols-2' : ''}`}>
-  <div className={tripType === 'multiple' ? 'w-full' : ''}>
-    <label className="block text-sm font-medium text-gray-700 mb-2">
-      {tripType === 'single' ? 'Customer/Establishment *' : 'Destinations *'}
-    </label>
+                        <div className={`gap-4 mt-4 ${tripType === 'single' ? 'grid grid-cols-1 md:grid-cols-2' : ''}`}>
+                          <div className={tripType === 'multiple' ? 'w-full' : ''}>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {tripType === 'single' ? 'Customer/Establishment *' : 'Destinations *'}
+                            </label>
 
                             {tripType === 'multiple' ? (
                               <div className="space-y-4">
@@ -1850,7 +1850,7 @@ function Booking() {
                                       <h4 className="text-sm font-bold text-purple-700 mb-3 flex items-center gap-2">
                                         📋 Product Details for this Stop
                                       </h4>
-                                      
+
                                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                         <div>
                                           <label className="block text-xs font-semibold text-gray-700 mb-1">
@@ -1971,18 +1971,29 @@ function Booking() {
                               {tripType === 'single' ? 'Destination/To *' : 'Destinations Preview'}
                             </label>
 
-                            {tripType === 'single' ? (
-                              // Single destination (original behavior)
-                              <input
-                                type="text"
-                                name="destinationAddress"
-                                value={formData.destinationAddress}
-                                readOnly
-                                placeholder="Select branch first"
-                                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50/50"
-                              />
-                            ) : (
-                              // Multiple destinations preview
+                            {tripType === 'single' && (
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Destination/To *
+                                </label>
+                                <input
+                                  type="text"
+                                  name="destinationAddress"
+                                  value={formData.destinationAddress}
+                                  readOnly
+                                  placeholder="Select branch first"
+                                  className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50/50"
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Multiple Destinations Preview - Moved below destinations */}
+                          {tripType === 'multiple' && (
+                            <div className="mt-6">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Destinations Preview
+                              </label>
                               <div className="space-y-2 max-h-60 overflow-y-auto p-3 bg-gray-50 rounded-xl border border-indigo-200">
                                 {selectedBranches.map((branchData, index) => (
                                   <div key={branchData.key} className="text-sm">
@@ -1993,541 +2004,543 @@ function Booking() {
                                   </div>
                                 ))}
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
                       </div>
+                    </div>
 
                       {tripType === 'single' && (
-  <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100">
-    <h3 className="text-lg font-semibold text-gray-900 mb-4">Product Details</h3>
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Product Name *</label>
-        <input
-          type="text"
-          name="productName"
-          value={formData.productName}
-          onChange={handleChange}
-          placeholder="Tasty Boy"
-          required
-          className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Number of Packages *</label>
-        <input
-          type="number"
-          name="numberOfPackages"
-          value={formData.numberOfPackages}
-          onChange={handleChange}
-          required
-          min="1"
-          placeholder="10"
-          className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Units per Package *</label>
-        <input
-          type="number"
-          name="unitPerPackage"
-          value={formData.unitPerPackage}
-          onChange={handleChange}
-          required
-          min="1"
-          placeholder="200"
-          className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-        />
-      </div>
-    </div>
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Quantity (Auto) *</label>
-        <input
-          type="number"
-          name="quantity"
-          value={formData.quantity}
-          readOnly
-          placeholder="2000"
-          className="w-full px-4 py-2.5 border border-purple-200 rounded-xl bg-purple-50/50"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Gross Weight (tons) *</label>
-        <input
-          type="number"
-          name="grossWeight"
-          value={formData.grossWeight}
-          onChange={handleChange}
-          placeholder="5"
-          required
-          min="0.1"
-          step="0.1"
-          className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Fee (PHP) *</label>
-        <input
-          type="number"
-          name="deliveryFee"
-          value={formData.deliveryFee}
-          onChange={handleChange}
-          required
-          placeholder="10000"
-          className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-        />
-      </div>
-    </div>
-  </div>
-)}
-
-
-                      {/* Area Rate & Vehicle Info */}
-                      <div className="bg-gradient-to-r from-violet-50 to-fuchsia-50 p-6 rounded-2xl border border-violet-100">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Area Rate & Vehicle Info</h3>
-
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Select Vehicle *</label>
-                          <select
-                            name="vehicleId"
-                            value={formData.vehicleId}
-                            onChange={handleVehicleChange}
+                    <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Product Details</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Product Name *</label>
+                          <input
+                            type="text"
+                            name="productName"
+                            value={formData.productName}
+                            onChange={handleChange}
+                            placeholder="Tasty Boy"
                             required
-                            className="w-full px-4 py-2.5 border border-violet-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent"
+                            className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Number of Packages *</label>
+                          <input
+                            type="number"
+                            name="numberOfPackages"
+                            value={formData.numberOfPackages}
+                            onChange={handleChange}
+                            required
+                            min="1"
+                            placeholder="10"
+                            className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Units per Package *</label>
+                          <input
+                            type="number"
+                            name="unitPerPackage"
+                            value={formData.unitPerPackage}
+                            onChange={handleChange}
+                            required
+                            min="1"
+                            placeholder="200"
+                            className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Quantity (Auto) *</label>
+                          <input
+                            type="number"
+                            name="quantity"
+                            value={formData.quantity}
+                            readOnly
+                            placeholder="2000"
+                            className="w-full px-4 py-2.5 border border-purple-200 rounded-xl bg-purple-50/50"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Gross Weight (tons) *</label>
+                          <input
+                            type="number"
+                            name="grossWeight"
+                            value={formData.grossWeight}
+                            onChange={handleChange}
+                            placeholder="5"
+                            required
+                            min="0.1"
+                            step="0.1"
+                            className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Fee (PHP) *</label>
+                          <input
+                            type="number"
+                            name="deliveryFee"
+                            value={formData.deliveryFee}
+                            onChange={handleChange}
+                            required
+                            placeholder="10000"
+                            className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+
+                  {/* Area Rate & Vehicle Info */}
+                  <div className="bg-gradient-to-r from-violet-50 to-fuchsia-50 p-6 rounded-2xl border border-violet-100">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Area Rate & Vehicle Info</h3>
+
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Select Vehicle *</label>
+                      <select
+                        name="vehicleId"
+                        value={formData.vehicleId}
+                        onChange={handleVehicleChange}
+                        required
+                        className="w-full px-4 py-2.5 border border-violet-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent"
+                      >
+                        <option value="">Select Vehicle</option>
+                        {(() => {
+                          // Safely handle address strings to prevent .toLowerCase() errors
+                          const origin = typeof formData.originAddress === 'string' ? formData.originAddress : '';
+                          const destination = typeof formData.destinationAddress === 'string' ? formData.destinationAddress : '';
+
+                          const key = `${origin?.toLowerCase()} - ${destination?.toLowerCase()}`;
+                          const allowedVehiclesArr = addressDefaults[key];
+                          const allowedVehicleTypes = Array.isArray(allowedVehiclesArr)
+                            ? allowedVehiclesArr.map(def => def.vehicleType)
+                            : [];
+
+                          return getAvailableVehicles()
+                            .filter(vehicle => allowedVehicleTypes.length === 0 || allowedVehicleTypes.includes(vehicle.vehicleType))
+                            .map(vehicle => (
+                              <option key={vehicle._id} value={vehicle.vehicleId}>
+                                {`${vehicle.vehicleId} - ${vehicle.manufacturedBy} ${vehicle.model} (${vehicle.vehicleType}) - ${vehicle.plateNumber}`}
+                              </option>
+                            ));
+                        })()}
+                      </select>
+                    </div>
+                  </div>
+              </div>
+                  )}
+
+              {currentStep === 2 && (
+                <div className="space-y-6">
+                  {/* Scheduling */}
+                  <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Scheduling</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
+                        <input
+                          type="date"
+                          name="dateNeeded"
+                          value={formData.dateNeeded}
+                          onChange={handleChange}
+                          required
+                          className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Time *</label>
+                        <input
+                          type="time"
+                          name="timeNeeded"
+                          value={formData.timeNeeded}
+                          onChange={handleChange}
+                          required
+                          className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Assign Employees & Roles */}
+                  <div className="bg-gradient-to-r from-indigo-50 to-violet-50 p-6 rounded-2xl border border-indigo-100">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Assign Employees & Roles</h3>
+
+                    {formData.employeeAssigned.map((employeeId, index) => (
+                      <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 border border-indigo-200 rounded-xl bg-white/50">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            {index === 0 ? "Select Driver *" : "Select Helper"}
+                          </label>
+                          <select
+                            value={employeeId}
+                            onChange={(e) => handleEmployeeChange(index, e.target.value)}
+                            required
+                            className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
                           >
-                            <option value="">Select Vehicle</option>
-                            {(() => {
-                              // Safely handle address strings to prevent .toLowerCase() errors
-                              const origin = typeof formData.originAddress === 'string' ? formData.originAddress : '';
-                              const destination = typeof formData.destinationAddress === 'string' ? formData.destinationAddress : '';
-
-                              const key = `${origin?.toLowerCase()} - ${destination?.toLowerCase()}`;
-                              const allowedVehiclesArr = addressDefaults[key];
-                              const allowedVehicleTypes = Array.isArray(allowedVehiclesArr)
-                                ? allowedVehiclesArr.map(def => def.vehicleType)
-                                : [];
-
-                              return getAvailableVehicles()
-                                .filter(vehicle => allowedVehicleTypes.length === 0 || allowedVehicleTypes.includes(vehicle.vehicleType))
-                                .map(vehicle => (
-                                  <option key={vehicle._id} value={vehicle.vehicleId}>
-                                    {`${vehicle.vehicleId} - ${vehicle.manufacturedBy} ${vehicle.model} (${vehicle.vehicleType}) - ${vehicle.plateNumber}`}
-                                  </option>
-                                ));
-                            })()}
+                            <option value="">{index === 0 ? "Select Driver" : "Select Helper"}</option>
+                            {getAvailableEmployees(index).map((employee) => (
+                              <option key={employee._id} value={employee.employeeId}>
+                                {`${employee.employeeId} - ${employee.fullName || employee.name || ''}`.trim()}
+                              </option>
+                            ))}
                           </select>
                         </div>
-                      </div>
-                    </div>
-                  )}
 
-                  {currentStep === 2 && (
-                    <div className="space-y-6">
-                      {/* Scheduling */}
-                      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Scheduling</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
-                            <input
-                              type="date"
-                              name="dateNeeded"
-                              value={formData.dateNeeded}
-                              onChange={handleChange}
-                              required
-                              className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Time *</label>
-                            <input
-                              type="time"
-                              name="timeNeeded"
-                              value={formData.timeNeeded}
-                              onChange={handleChange}
-                              required
-                              className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                            />
-                          </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                          <input
+                            type="text"
+                            value={formData.roleOfEmployee[index] || ""}
+                            readOnly
+                            placeholder="Role"
+                            className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50/50"
+                          />
+                        </div>
+
+                        <div className="flex items-end">
+                          {formData.employeeAssigned.length > 1 && (
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              type="button"
+                              onClick={() => removeEmployee(index)}
+                              className="px-4 py-2.5 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors font-medium"
+                            >
+                              Remove
+                            </motion.button>
+                          )}
                         </div>
                       </div>
+                    ))}
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      type="button"
+                      onClick={addEmployee}
+                      className="w-full px-4 py-3 bg-gradient-to-r from-indigo-100 to-violet-100 text-indigo-700 rounded-xl hover:from-indigo-200 hover:to-violet-200 transition-all duration-300 font-medium"
+                    >
+                      + Add Helper
+                    </motion.button>
+                  </div>
+                </div>
+              )}
+            </form>
 
-                      {/* Assign Employees & Roles */}
-                      <div className="bg-gradient-to-r from-indigo-50 to-violet-50 p-6 rounded-2xl border border-indigo-100">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Assign Employees & Roles</h3>
+            {/* Modal Footer */}
+            <div className="sticky bottom-0 bg-gradient-to-r from-gray-50 to-gray-100 px-8 py-6 rounded-b-3xl border-t border-gray-200 flex-shrink-0">
+              <div className="flex justify-between items-center gap-4">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  type="button"
+                  onClick={closeModal}
+                  className="px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all duration-300 shadow-sm"
+                >
+                  Cancel
+                </motion.button>
 
-                        {formData.employeeAssigned.map((employeeId, index) => (
-                          <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 border border-indigo-200 rounded-xl bg-white/50">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                {index === 0 ? "Select Driver *" : "Select Helper"}
-                              </label>
-                              <select
-                                value={employeeId}
-                                onChange={(e) => handleEmployeeChange(index, e.target.value)}
-                                required
-                                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-                              >
-                                <option value="">{index === 0 ? "Select Driver" : "Select Helper"}</option>
-                                {getAvailableEmployees(index).map((employee) => (
-                                  <option key={employee._id} value={employee.employeeId}>
-                                    {`${employee.employeeId} - ${employee.fullName || employee.name || ''}`.trim()}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
-                              <input
-                                type="text"
-                                value={formData.roleOfEmployee[index] || ""}
-                                readOnly
-                                placeholder="Role"
-                                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50/50"
-                              />
-                            </div>
-
-                            <div className="flex items-end">
-                              {formData.employeeAssigned.length > 1 && (
-                                <motion.button
-                                  whileHover={{ scale: 1.05 }}
-                                  whileTap={{ scale: 0.95 }}
-                                  type="button"
-                                  onClick={() => removeEmployee(index)}
-                                  className="px-4 py-2.5 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors font-medium"
-                                >
-                                  Remove
-                                </motion.button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          type="button"
-                          onClick={addEmployee}
-                          className="w-full px-4 py-3 bg-gradient-to-r from-indigo-100 to-violet-100 text-indigo-700 rounded-xl hover:from-indigo-200 hover:to-violet-200 transition-all duration-300 font-medium"
-                        >
-                          + Add Helper
-                        </motion.button>
-                      </div>
-                    </div>
+                <div className="flex gap-3">
+                  {currentStep === 2 && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      type="button"
+                      onClick={prevStep}
+                      className="px-6 py-3 bg-gray-500 text-white rounded-xl font-medium hover:bg-gray-600 transition-all duration-300 shadow-md inline-flex items-center gap-2"
+                    >
+                      <ChevronLeft size={18} />
+                      Back
+                    </motion.button>
                   )}
-                </form>
 
-                {/* Modal Footer */}
-                <div className="sticky bottom-0 bg-gradient-to-r from-gray-50 to-gray-100 px-8 py-6 rounded-b-3xl border-t border-gray-200 flex-shrink-0">
-                  <div className="flex justify-between items-center gap-4">
+                  {currentStep < 2 ? (
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       type="button"
-                      onClick={closeModal}
-                      className="px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all duration-300 shadow-sm"
+                      onClick={nextStep}
+                      className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-300 inline-flex items-center gap-2"
                     >
-                      Cancel
+                      Next
+                      <ChevronRight size={18} />
                     </motion.button>
-
-                    <div className="flex gap-3">
-                      {currentStep === 2 && (
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          type="button"
-                          onClick={prevStep}
-                          className="px-6 py-3 bg-gray-500 text-white rounded-xl font-medium hover:bg-gray-600 transition-all duration-300 shadow-md inline-flex items-center gap-2"
-                        >
-                          <ChevronLeft size={18} />
-                          Back
-                        </motion.button>
-                      )}
-
-                      {currentStep < 2 ? (
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          type="button"
-                          onClick={nextStep}
-                          className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-300 inline-flex items-center gap-2"
-                        >
-                          Next
-                          <ChevronRight size={18} />
-                        </motion.button>
-                      ) : (
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          type="button"
-                          onClick={handleSubmit}
-                          className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-300"
-                        >
-                          {editBooking ? "Update Booking" : "Create Booking"}
-                        </motion.button>
-                      )}
-                    </div>
-                  </div>
+                  ) : (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      type="button"
+                      onClick={handleSubmit}
+                      className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-300"
+                    >
+                      {editBooking ? "Update Booking" : "Create Booking"}
+                    </motion.button>
+                  )}
                 </div>
               </div>
+            </div>
+          </div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+    </motion.div>
+  )
+}
+      </AnimatePresence >
 
-      {/* Origin Address Selection Modal */}
-      <AnimatePresence>
-        {showOriginAddressModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-60 flex justify-center items-center p-4 bg-black/40 backdrop-blur-sm"
-            onClick={() => setShowOriginAddressModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-indigo-100"
+  {/* Origin Address Selection Modal */ }
+  < AnimatePresence >
+  { showOriginAddressModal && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-60 flex justify-center items-center p-4 bg-black/40 backdrop-blur-sm"
+      onClick={() => setShowOriginAddressModal(false)}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-indigo-100"
+      >
+        {/* Modal Header */}
+        <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-6 rounded-t-3xl z-10">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-2xl font-bold text-white">
+                Select Origin Address
+              </h2>
+              <p className="text-indigo-100 text-sm mt-1">
+                Fill in the complete address details
+              </p>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setShowOriginAddressModal(false)}
+              className="p-2 hover:bg-white/20 rounded-full transition-colors"
             >
-              {/* Modal Header */}
-              <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-6 rounded-t-3xl z-10">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h2 className="text-2xl font-bold text-white">
-                      Select Origin Address
-                    </h2>
-                    <p className="text-indigo-100 text-sm mt-1">
-                      Fill in the complete address details
-                    </p>
-                  </div>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => setShowOriginAddressModal(false)}
-                    className="p-2 hover:bg-white/20 rounded-full transition-colors"
-                  >
-                    <X size={24} className="text-white" />
-                  </motion.button>
-                </div>
+              <X size={24} className="text-white" />
+            </motion.button>
+          </div>
+        </div>
+
+        {/* Modal Content */}
+        <div className="p-8 space-y-6">
+          {/* Street Address */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Street Address *
+            </label>
+            <input
+              type="text"
+              value={addressFormData.street}
+              onChange={(e) => setAddressFormData(prev => ({
+                ...prev,
+                street: e.target.value
+              }))}
+              placeholder="House number, street name, building"
+              required
+              className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+            />
+          </div>
+
+          {/* Region */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Region *
+            </label>
+            <select
+              name="region"
+              value={formData.region}
+              onChange={handleAddressChange}
+              className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+            >
+              <option value="">Select Region</option>
+              {regions.map((region) => (
+                <option key={region.code} value={region.code}>
+                  {region.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Province */}
+          {formData.region !== "130000000" ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Province *
+              </label>
+              <select
+                name="province"
+                value={formData.province}
+                onChange={handleAddressChange}
+                disabled={!formData.region}
+                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent disabled:bg-gray-100"
+              >
+                <option value="">Select Province</option>
+                {provinces.map((province) => (
+                  <option key={province.code} value={province.code}>
+                    {province.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Province</label>
+              <div className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-gray-50 text-gray-700">
+                Metro Manila (National Capital Region)
               </div>
-
-              {/* Modal Content */}
-              <div className="p-8 space-y-6">
-                {/* Street Address */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Street Address *
-                  </label>
-                  <input
-                    type="text"
-                    value={addressFormData.street}
-                    onChange={(e) => setAddressFormData(prev => ({
-                      ...prev,
-                      street: e.target.value
-                    }))}
-                    placeholder="House number, street name, building"
-                    required
-                    className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-                  />
-                </div>
-
-                {/* Region */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Region *
-                  </label>
-                  <select
-                    name="region"
-                    value={formData.region}
-                    onChange={handleAddressChange}
-                    className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-                  >
-                    <option value="">Select Region</option>
-                    {regions.map((region) => (
-                      <option key={region.code} value={region.code}>
-                        {region.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Province */}
-                {formData.region !== "130000000" ? (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Province *
-                    </label>
-                    <select
-                      name="province"
-                      value={formData.province}
-                      onChange={handleAddressChange}
-                      disabled={!formData.region}
-                      className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent disabled:bg-gray-100"
-                    >
-                      <option value="">Select Province</option>
-                      {provinces.map((province) => (
-                        <option key={province.code} value={province.code}>
-                          {province.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Province</label>
-                    <div className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-gray-50 text-gray-700">
-                      Metro Manila (National Capital Region)
-                    </div>
-                  </div>
-                )}
+            </div>
+          )}
 
 
-                {/* City/Municipality */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    City/Municipality *
-                  </label>
-                  <select
-                    name="city"
-                    value={formData.city}
-                    onChange={handleAddressChange}
-                    disabled={!formData.province}
-                    className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent disabled:bg-gray-100"
-                  >
-                    <option value="">Select City/Municipality</option>
-                    {cities.map((city) => (
-                      <option key={city.code} value={city.code}>
-                        {city.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+          {/* City/Municipality */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              City/Municipality *
+            </label>
+            <select
+              name="city"
+              value={formData.city}
+              onChange={handleAddressChange}
+              disabled={!formData.province}
+              className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent disabled:bg-gray-100"
+            >
+              <option value="">Select City/Municipality</option>
+              {cities.map((city) => (
+                <option key={city.code} value={city.code}>
+                  {city.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-                {/* Barangay */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Barangay *
-                  </label>
-                  <select
-                    name="barangay"
-                    value={formData.barangay}
-                    onChange={handleAddressChange}
-                    disabled={!formData.city}
-                    className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent disabled:bg-gray-100"
-                  >
-                    <option value="">Select Barangay</option>
-                    {barangays.map((barangay) => (
-                      <option key={barangay.code} value={barangay.code}>
-                        {barangay.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+          {/* Barangay */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Barangay *
+            </label>
+            <select
+              name="barangay"
+              value={formData.barangay}
+              onChange={handleAddressChange}
+              disabled={!formData.city}
+              className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent disabled:bg-gray-100"
+            >
+              <option value="">Select Barangay</option>
+              {barangays.map((barangay) => (
+                <option key={barangay.code} value={barangay.code}>
+                  {barangay.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-                {/* Address Preview */}
-                <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200">
-                  <h3 className="text-sm font-semibold text-indigo-800 mb-2">Address Preview:</h3>
-                  <p className="text-sm text-indigo-600">
-                    {formatAddressPreview()}
-                  </p>
-                </div>
-              </div>
+          {/* Address Preview */}
+          <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200">
+            <h3 className="text-sm font-semibold text-indigo-800 mb-2">Address Preview:</h3>
+            <p className="text-sm text-indigo-600">
+              {formatAddressPreview()}
+            </p>
+          </div>
+        </div>
 
-              {/* Location Pinning with Map */}
-              <div className="bg-gradient-to-r from-violet-50 to-purple-50 p-6 rounded-2xl border border-violet-100 mb-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <MapPin className="text-purple-600" size={20} />
-                  <h3 className="text-lg font-semibold text-gray-900">Pin Your Location</h3>
-                </div>
-                <p className="text-sm text-gray-600 mb-4">
-                  Search your address or click on the map to pin your exact location. You can also drag the marker to adjust.
-                </p>
+        {/* Location Pinning with Map */}
+        <div className="bg-gradient-to-r from-violet-50 to-purple-50 p-6 rounded-2xl border border-violet-100 mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <MapPin className="text-purple-600" size={20} />
+            <h3 className="text-lg font-semibold text-gray-900">Pin Your Location</h3>
+          </div>
+          <p className="text-sm text-gray-600 mb-4">
+            Search your address or click on the map to pin your exact location. You can also drag the marker to adjust.
+          </p>
 
-                <div className="mb-4 flex gap-2">
-                  <input
-                    type="text"
-                    value={addressSearch}
-                    onChange={(e) => setAddressSearch(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddressSearch())}
-                    placeholder="Search address (e.g., Quezon City, Metro Manila)..."
-                    className="flex-1 px-4 py-2.5 border border-violet-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent"
-                  />
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    type="button"
-                    onClick={handleAddressSearch}
-                    className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-300 inline-flex items-center gap-2"
-                  >
-                    <Search size={18} />
-                    Search
-                  </motion.button>
-                </div>
+          <div className="mb-4 flex gap-2">
+            <input
+              type="text"
+              value={addressSearch}
+              onChange={(e) => setAddressSearch(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddressSearch())}
+              placeholder="Search address (e.g., Quezon City, Metro Manila)..."
+              className="flex-1 px-4 py-2.5 border border-violet-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent"
+            />
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              type="button"
+              onClick={handleAddressSearch}
+              className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-300 inline-flex items-center gap-2"
+            >
+              <Search size={18} />
+              Search
+            </motion.button>
+          </div>
 
-                {/* FIXED: Wrapped map in container with proper height constraints */}
-                <div className="relative overflow-hidden rounded-xl">
-                  <div
-                    id="location-map"
-                    className="w-full rounded-xl shadow-lg border-2 border-violet-200"
-                    style={{ height: '384px', minHeight: '384px', maxHeight: '384px' }}
-                  ></div>
-                </div>
+          {/* FIXED: Wrapped map in container with proper height constraints */}
+          <div className="relative overflow-hidden rounded-xl">
+            <div
+              id="location-map"
+              className="w-full rounded-xl shadow-lg border-2 border-violet-200"
+              style={{ height: '384px', minHeight: '384px', maxHeight: '384px' }}
+            ></div>
+          </div>
 
-                {markerPosition && (
-                  <div className="mt-3 p-3 bg-white rounded-lg border border-violet-200">
-                    <p className="text-xs text-gray-600">
-                      <strong>Coordinates:</strong> {markerPosition[0].toFixed(6)}, {markerPosition[1].toFixed(6)}
-                    </p>
-                  </div>
-                )}
-              </div>
+          {markerPosition && (
+            <div className="mt-3 p-3 bg-white rounded-lg border border-violet-200">
+              <p className="text-xs text-gray-600">
+                <strong>Coordinates:</strong> {markerPosition[0].toFixed(6)}, {markerPosition[1].toFixed(6)}
+              </p>
+            </div>
+          )}
+        </div>
 
-              {/* Modal Footer */}
-              <div className="sticky bottom-0 bg-gradient-to-r from-gray-50 to-gray-100 px-8 py-6 rounded-b-3xl border-t border-gray-200">
-                <div className="flex justify-between items-center gap-4">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    type="button"
-                    onClick={() => setShowOriginAddressModal(false)}
-                    className="px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all duration-300 shadow-sm"
-                  >
-                    Cancel
-                  </motion.button>
+        {/* Modal Footer */}
+        <div className="sticky bottom-0 bg-gradient-to-r from-gray-50 to-gray-100 px-8 py-6 rounded-b-3xl border-t border-gray-200">
+          <div className="flex justify-between items-center gap-4">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              type="button"
+              onClick={() => setShowOriginAddressModal(false)}
+              className="px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all duration-300 shadow-sm"
+            >
+              Cancel
+            </motion.button>
 
-                  <div className="flex gap-3">
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      type="button"
-                      onClick={clearAddressForm}
-                      className="px-6 py-3 bg-gray-500 text-white rounded-xl font-medium hover:bg-gray-600 transition-all duration-300"
-                    >
-                      Clear
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      type="button"
-                      onClick={saveOriginAddress}
-                      disabled={!isAddressFormValid()}
-                      className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Use This Address
-                    </motion.button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+            <div className="flex gap-3">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                type="button"
+                onClick={clearAddressForm}
+                className="px-6 py-3 bg-gray-500 text-white rounded-xl font-medium hover:bg-gray-600 transition-all duration-300"
+              >
+                Clear
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                type="button"
+                onClick={saveOriginAddress}
+                disabled={!isAddressFormValid()}
+                className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Use This Address
+              </motion.button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )}
+      </AnimatePresence >
+    </div >
   );
 }
 

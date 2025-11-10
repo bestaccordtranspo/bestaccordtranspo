@@ -44,7 +44,6 @@ function Booking() {
   const [uniqueDates, setUniqueDates] = useState([]);
 
   // Trip type state
-  const [tripType, setTripType] = useState('single'); // 'single' or 'multiple'
   const [selectedBranches, setSelectedBranches] = useState([
     {
       branch: '',
@@ -663,108 +662,50 @@ function Booking() {
   }
 
   try {
-    console.log('🚀 Starting booking submission process...');
-    console.log('📝 Current formData:', JSON.stringify(formData, null, 2));
-    console.log('📍 Current selectedBranches:', JSON.stringify(selectedBranches, null, 2));
-    console.log('🔄 Trip type:', tripType);
-
-    // Build destinationDeliveries based on trip type
-    let destinationDeliveries = [];
-
-    if (tripType === 'multiple') {
-      console.log('🛣️ Processing multiple destinations...');
-      
-      // Validate multiple destinations
-      for (let i = 0; i < selectedBranches.length; i++) {
-        const branch = selectedBranches[i];
-        console.log(`🔍 Validating branch ${i + 1}:`, branch);
-        
-        if (!branch.branch || branch.branch.trim() === '') {
-          alert(`Please select a branch for Stop ${i + 1}`);
-          return;
-        }
-        if (!branch.address || branch.address.trim() === '') {
-          alert(`Please ensure destination address is populated for Stop ${i + 1}`);
-          return;
-        }
-        if (!branch.productName || branch.productName.trim() === '') {
-          alert(`Please fill in Product Name for Stop ${i + 1}`);
-          return;
-        }
-        if (!branch.numberOfPackages || parseInt(branch.numberOfPackages) <= 0) {
-          alert(`Please fill in valid Number of Packages for Stop ${i + 1}`);
-          return;
-        }
-        if (!branch.unitPerPackage || parseInt(branch.unitPerPackage) <= 0) {
-          alert(`Please fill in valid Units per Package for Stop ${i + 1}`);
-          return;
-        }
-        if (!branch.grossWeight || parseFloat(branch.grossWeight) <= 0) {
-          alert(`Please fill in valid Gross Weight for Stop ${i + 1}`);
-          return;
-        }
-      }
-
-      destinationDeliveries = selectedBranches.map((branch, index) => ({
-        customerEstablishmentName: branch.branch,
-        destinationAddress: branch.address,
-        destinationIndex: index,
-        productName: branch.productName,
-        quantity: parseInt(branch.quantity) || 0,
-        grossWeight: parseFloat(branch.grossWeight) || 0,
-        unitPerPackage: parseInt(branch.unitPerPackage) || 0,
-        numberOfPackages: parseInt(branch.numberOfPackages) || 0,
-        status: 'pending'
-      }));
-    } else {
-      // Single trip - USE FORMDATA DIRECTLY (not selectedBranches)
-      console.log('🎯 Processing single destination...');
-      
-      // Single trip validation
-      if (!formData.customerEstablishmentName || formData.customerEstablishmentName.trim() === '') {
-        alert('Please select a customer/establishment.');
+    // Validate all destinations (whether single or multiple)
+    for (let i = 0; i < selectedBranches.length; i++) {
+      const branch = selectedBranches[i];
+      if (!branch.branch || branch.branch.trim() === '') {
+        alert(`Please select a branch for Stop ${i + 1}`);
         return;
       }
-      if (!formData.destinationAddress || formData.destinationAddress.trim() === '') {
-        alert('Please ensure destination address is populated.');
+      if (!branch.address || branch.address.trim() === '') {
+        alert(`Please ensure destination address is populated for Stop ${i + 1}`);
         return;
       }
-      if (!formData.productName || formData.productName.trim() === '') {
-        alert('Please fill in Product Name.');
+      if (!branch.productName || branch.productName.trim() === '') {
+        alert(`Please fill in Product Name for Stop ${i + 1}`);
         return;
       }
-      if (!formData.numberOfPackages || parseInt(formData.numberOfPackages) <= 0) {
-        alert('Please enter a valid number of packages.');
+      if (!branch.numberOfPackages || parseInt(branch.numberOfPackages) <= 0) {
+        alert(`Please fill in valid Number of Packages for Stop ${i + 1}`);
         return;
       }
-      if (!formData.unitPerPackage || parseInt(formData.unitPerPackage) <= 0) {
-        alert('Please enter valid units per package.');
+      if (!branch.unitPerPackage || parseInt(branch.unitPerPackage) <= 0) {
+        alert(`Please fill in valid Units per Package for Stop ${i + 1}`);
         return;
       }
-      if (!formData.grossWeight || parseFloat(formData.grossWeight) <= 0) {
-        alert('Please enter a valid gross weight.');
+      if (!branch.grossWeight || parseFloat(branch.grossWeight) <= 0) {
+        alert(`Please fill in valid Gross Weight for Stop ${i + 1}`);
         return;
       }
-
-      // For single trip, create destinationDeliveries from formData
-      destinationDeliveries = [
-        {
-          customerEstablishmentName: formData.customerEstablishmentName,
-          destinationAddress: formData.destinationAddress,
-          destinationIndex: 0,
-          productName: formData.productName,
-          quantity: parseInt(formData.quantity) || 0,
-          grossWeight: parseFloat(formData.grossWeight) || 0,
-          unitPerPackage: parseInt(formData.unitPerPackage) || 0,
-          numberOfPackages: parseInt(formData.numberOfPackages) || 0,
-          status: 'pending'
-        }
-      ];
     }
 
-    console.log('📦 Final destinationDeliveries:', JSON.stringify(destinationDeliveries, null, 2));
+    // Build destinationDeliveries from selectedBranches
+    const destinationDeliveries = selectedBranches.map((branch, index) => ({
+      customerEstablishmentName: branch.branch,
+      destinationAddress: branch.address,
+      destinationIndex: index,
+      typeOfOrder: 'Delivery',
+      productName: branch.productName,
+      quantity: parseInt(branch.quantity) || 0,
+      grossWeight: parseFloat(branch.grossWeight) || 0,
+      unitPerPackage: parseInt(branch.unitPerPackage) || 0,
+      numberOfPackages: parseInt(branch.numberOfPackages) || 0,
+      status: 'pending'
+    }));
 
-    // Common validation for both trip types
+    // Common validation
     if (!formData.vehicleId || formData.vehicleId.trim() === '') {
       alert('Please select a vehicle.');
       return;
@@ -813,18 +754,18 @@ function Booking() {
       return;
     }
 
-    // SIMPLIFIED: Only use destinationDeliveries array
+    // Simplified submit data - always use multiple drop structure
     const submitData = {
       // Basic booking info
       companyName: formData.companyName,
       shipperConsignorName: formData.shipperConsignorName,
       originAddress: formData.originAddress,
       
-      // Trip configuration
-      tripType: tripType,
-      numberOfStops: tripType === 'multiple' ? selectedBranches.length : 1,
+      // Trip configuration - single drop is just multiple drop with 1 stop
+      tripType: selectedBranches.length > 1 ? 'multiple' : 'single',
+      numberOfStops: selectedBranches.length,
       
-      // Single source of truth for all delivery data
+      // All delivery data
       destinationDeliveries: destinationDeliveries,
       
       // Financial
@@ -848,20 +789,12 @@ function Booking() {
         : [formData.roleOfEmployee].filter(role => role !== ""),
       
       // Location data
+      originAddressDetails: originAddressDetails,
       latitude: formData.latitude || null,
       longitude: formData.longitude || null
     };
 
-    console.log('📤 Simplified Submit Data:', JSON.stringify(submitData, null, 2));
-    // ADD THESE CRITICAL CHECKS
-console.log("🔍 CRITICAL CHECKS:");
-console.log("- submitData exists?", !!submitData);
-console.log("- destinationDeliveries exists?", !!submitData.destinationDeliveries);
-console.log("- destinationDeliveries is array?", Array.isArray(submitData.destinationDeliveries));
-console.log("- destinationDeliveries length:", submitData.destinationDeliveries?.length);
-console.log("- First item:", submitData.destinationDeliveries?.[0]);
-console.log("- First item customerEstablishmentName:", submitData.destinationDeliveries?.[0]?.customerEstablishmentName);
-
+    console.log('📤 Submit Data:', JSON.stringify(submitData, null, 2));
 
     if (editBooking) {
       await axiosClient.put(
@@ -1758,7 +1691,7 @@ useEffect(() => {
                         </div>
 
                         {/* Trip Type Toggle */}
-                        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100 mb-4">
+                        {/* <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100 mb-4">
                           <h3 className="text-sm font-medium text-gray-700 mb-3">Trip Type</h3>
                           <div className="flex gap-4">
                             <label className="flex items-center cursor-pointer">
@@ -1807,7 +1740,7 @@ useEffect(() => {
                               <span className="text-sm font-medium">Multiple Drop Trip</span>
                             </label>
                           </div>
-                        </div>
+                        </div> */}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
@@ -1853,193 +1786,174 @@ useEffect(() => {
                         </div>
 
                         <div className={`gap-4 mt-4 ${tripType === 'single' ? 'grid grid-cols-1 md:grid-cols-2' : ''}`}>
-                          <div className={tripType === 'multiple' ? 'w-full' : ''}>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {tripType === 'single' ? 'Customer/Establishment *' : 'Destinations *'}
-                            </label>
+                          {/* Destinations Section - Always show multiple drop interface */}
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    Destinations *
+  </label>
+  
+  <div className="space-y-4">
+    {selectedBranches.map((branchData, index) => (
+      <div key={branchData.key} className="border-2 border-indigo-300 rounded-2xl p-5 bg-gradient-to-br from-indigo-50 to-purple-50">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-indigo-200">
+          <span className="text-base font-bold text-indigo-700 bg-indigo-200 px-4 py-2 rounded-full">
+            Stop {index + 1}
+          </span>
+          {selectedBranches.length > 1 && (
+            <button
+              type="button"
+              onClick={() => removeBranch(index)}
+              className="text-red-600 hover:text-red-800 text-sm font-semibold flex items-center gap-1 px-3 py-1 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              ✕ Remove Stop
+            </button>
+          )}
+        </div>
 
-                            {tripType === 'multiple' ? (
-                              <div className="space-y-4">
-                                {selectedBranches.map((branchData, index) => (
-                                  <div key={branchData.key} className="border-2 border-indigo-300 rounded-2xl p-5 bg-gradient-to-br from-indigo-50 to-purple-50">
-                                    {/* Header */}
-                                    <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-indigo-200">
-                                      <span className="text-base font-bold text-indigo-700 bg-indigo-200 px-4 py-2 rounded-full">
-                                        Stop {index + 1}
-                                      </span>
-                                      {selectedBranches.length > 1 && (
-                                        <button
-                                          type="button"
-                                          onClick={() => removeBranch(index)}
-                                          className="text-red-600 hover:text-red-800 text-sm font-semibold flex items-center gap-1 px-3 py-1 hover:bg-red-50 rounded-lg transition-colors"
-                                        >
-                                          ✕ Remove Stop
-                                        </button>
-                                      )}
-                                    </div>
+        {/* Branch Selection */}
+        <div className="mb-4">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Select Branch *
+          </label>
+          <select
+            value={branchData.branch}
+            onChange={(e) => handleMultipleBranchChange(index, e.target.value)}
+            required
+            disabled={!formData.companyName}
+            className="w-full px-4 py-2.5 border-2 border-indigo-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 font-medium"
+          >
+            <option value="">Select branch</option>
+            {formData.companyName && getClientBranches(formData.companyName).map((client) => (
+              <option
+                key={client.clientBranch}
+                value={client.clientBranch}
+                disabled={selectedBranches.some((b, i) => i !== index && b.branch === client.clientBranch)}
+              >
+                {client.clientBranch}
+                {selectedBranches.some((b, i) => i !== index && b.branch === client.clientBranch) ? ' (Selected)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
 
-                                    {/* Branch & Type of Order */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                      <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                          Select Branch *
-                                        </label>
-                                        <select
-                                          value={branchData.branch}
-                                          onChange={(e) => handleMultipleBranchChange(index, e.target.value)}
-                                          required
-                                          disabled={!formData.companyName}
-                                          className="w-full px-4 py-2.5 border-2 border-indigo-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 font-medium"
-                                        >
-                                          <option value="">Select branch</option>
-                                          {formData.companyName && getClientBranches(formData.companyName).map((client) => (
-                                            <option
-                                              key={client.clientBranch}
-                                              value={client.clientBranch}
-                                              disabled={selectedBranches.some((b, i) => i !== index && b.branch === client.clientBranch)}
-                                            >
-                                              {client.clientBranch}
-                                              {selectedBranches.some((b, i) => i !== index && b.branch === client.clientBranch) ? ' (Selected)' : ''}
-                                            </option>
-                                          ))}
-                                        </select>
-                                      </div>
-                                    </div>
+        {/* Destination Address */}
+        <div className="mb-4">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Destination Address
+          </label>
+          <input
+            type="text"
+            value={branchData.address}
+            readOnly
+            placeholder="Auto-populated when branch is selected"
+            className="w-full px-4 py-2.5 border-2 border-indigo-200 rounded-xl bg-indigo-50/70 text-gray-700 font-medium"
+          />
+        </div>
 
-                                    {/* Destination Address */}
-                                    <div className="mb-4">
-                                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Destination Address
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={branchData.address}
-                                        readOnly
-                                        placeholder="Auto-populated when branch is selected"
-                                        className="w-full px-4 py-2.5 border-2 border-indigo-200 rounded-xl bg-indigo-50/70 text-gray-700 font-medium"
-                                      />
-                                    </div>
+        {/* Product Details Form */}
+        <div className="bg-white rounded-xl p-4 border-2 border-purple-200">
+          <h4 className="text-sm font-bold text-purple-700 mb-3 flex items-center gap-2">
+            📋 Product Details for this Stop
+          </h4>
 
-                                    {/* Product Details Form */}
-                                    <div className="bg-white rounded-xl p-4 border-2 border-purple-200">
-                                      <h4 className="text-sm font-bold text-purple-700 mb-3 flex items-center gap-2">
-                                        📋 Product Details for this Stop
-                                      </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Product Name *
+              </label>
+              <input
+                type="text"
+                value={branchData.productName}
+                onChange={(e) => handleBranchProductChange(index, 'productName', e.target.value)}
+                placeholder="e.g., Tasty Boy"
+                required
+                className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
+              />
+            </div>
 
-                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        <div>
-                                          <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                            Product Name *
-                                          </label>
-                                          <input
-                                            type="text"
-                                            value={branchData.productName}
-                                            onChange={(e) => handleBranchProductChange(index, 'productName', e.target.value)}
-                                            placeholder="e.g., Tasty Boy"
-                                            required
-                                            className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
-                                          />
-                                        </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Number of Packages *
+              </label>
+              <input
+                type="number"
+                value={branchData.numberOfPackages}
+                onChange={(e) => handleBranchProductChange(index, 'numberOfPackages', e.target.value)}
+                placeholder="e.g., 10"
+                required
+                min="1"
+                className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
+              />
+            </div>
 
-                                        <div>
-                                          <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                            Number of Packages *
-                                          </label>
-                                          <input
-                                            type="number"
-                                            value={branchData.numberOfPackages}
-                                            onChange={(e) => handleBranchProductChange(index, 'numberOfPackages', e.target.value)}
-                                            placeholder="e.g., 10"
-                                            required
-                                            min="1"
-                                            className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
-                                          />
-                                        </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Units per Package *
+              </label>
+              <input
+                type="number"
+                value={branchData.unitPerPackage}
+                onChange={(e) => handleBranchProductChange(index, 'unitPerPackage', e.target.value)}
+                placeholder="e.g., 200"
+                required
+                min="1"
+                className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
+              />
+            </div>
 
-                                        <div>
-                                          <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                            Units per Package *
-                                          </label>
-                                          <input
-                                            type="number"
-                                            value={branchData.unitPerPackage}
-                                            onChange={(e) => handleBranchProductChange(index, 'unitPerPackage', e.target.value)}
-                                            placeholder="e.g., 200"
-                                            required
-                                            min="1"
-                                            className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
-                                          />
-                                        </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Total Quantity (Auto)
+              </label>
+              <input
+                type="number"
+                value={branchData.quantity}
+                readOnly
+                placeholder="Auto-calculated"
+                className="w-full px-3 py-2 border border-purple-200 rounded-lg bg-purple-50/70 text-gray-700 text-sm font-semibold"
+              />
+            </div>
 
-                                        <div>
-                                          <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                            Total Quantity (Auto)
-                                          </label>
-                                          <input
-                                            type="number"
-                                            value={branchData.quantity}
-                                            readOnly
-                                            placeholder="Auto-calculated"
-                                            className="w-full px-3 py-2 border border-purple-200 rounded-lg bg-purple-50/70 text-gray-700 text-sm font-semibold"
-                                          />
-                                        </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Gross Weight (tons) *
+              </label>
+              <input
+                type="number"
+                value={branchData.grossWeight}
+                onChange={(e) => handleBranchProductChange(index, 'grossWeight', e.target.value)}
+                placeholder="e.g., 5.5"
+                required
+                min="0.1"
+                step="0.1"
+                className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    ))}
 
-                                        <div>
-                                          <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                            Gross Weight (tons) *
-                                          </label>
-                                          <input
-                                            type="number"
-                                            value={branchData.grossWeight}
-                                            onChange={(e) => handleBranchProductChange(index, 'grossWeight', e.target.value)}
-                                            placeholder="e.g., 5.5"
-                                            required
-                                            min="0.1"
-                                            step="0.1"
-                                            className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
-                                          />
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
+    {/* Add Another Destination Button */}
+    <motion.button
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      type="button"
+      onClick={addBranch}
+      disabled={!formData.companyName || !hasAvailableBranches()}
+      className="w-full px-5 py-4 bg-gradient-to-r from-purple-300 to-purple-800 text-white rounded-xl hover:from-purple-500 hover:to-purple-900 transition-all duration-300 font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      ➕ Add Another Destination
+    </motion.button>
 
-                                <motion.button
-                                  whileHover={{ scale: 1.02 }}
-                                  whileTap={{ scale: 0.98 }}
-                                  type="button"
-                                  onClick={addBranch}
-                                  disabled={!formData.companyName || !hasAvailableBranches()}
-                                  className="w-full px-5 py-4 bg-gradient-to-r from-purple-300 to-purple-800 text-white rounded-xl hover:from-purple-500 hover:to-purple-900 transition-all duration-300 font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  ➕ Add Another Destination
-                                </motion.button>
-
-                                {!hasAvailableBranches() && selectedBranches.length > 0 && (
-                                  <p className="text-sm text-amber-600 text-center font-medium">
-                                    ⚠️ All available branches have been selected
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              // Single destination remains the same
-                              <select
-                                name="customerEstablishmentName"
-                                value={formData.customerEstablishmentName}
-                                onChange={handleBranchChange}
-                                required
-                                disabled={!formData.companyName}
-                                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent disabled:bg-gray-100"
-                              >
-                                <option value="">Select branch</option>
-                                {formData.companyName && getClientBranches(formData.companyName).map((client, index) => (
-                                  <option key={index} value={client.clientBranch}>
-                                    {client.clientBranch}
-                                  </option>
-                                ))}
-                              </select>
-                            )}
-                          </div>
+    {!hasAvailableBranches() && selectedBranches.length > 0 && (
+      <p className="text-sm text-amber-600 text-center font-medium">
+        ⚠️ All available branches have been selected
+      </p>
+    )}
+  </div>
+</div>
 
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2085,89 +1999,89 @@ useEffect(() => {
                       </div>
                     </div>
 
-                    {tripType === 'single' && (
-                    <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Product Details</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Product Name *</label>
-                          <input
-                            type="text"
-                            name="productName"
-                            value={formData.productName}
-                            onChange={handleChange}
-                            placeholder="Tasty Boy"
-                            required
-                            className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Number of Packages *</label>
-                          <input
-                            type="number"
-                            name="numberOfPackages"
-                            value={formData.numberOfPackages}
-                            onChange={handleChange}
-                            required
-                            min="1"
-                            placeholder="10"
-                            className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Units per Package *</label>
-                          <input
-                            type="number"
-                            name="unitPerPackage"
-                            value={formData.unitPerPackage}
-                            onChange={handleChange}
-                            required
-                            min="1"
-                            placeholder="200"
-                            className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Quantity (Auto) *</label>
-                          <input
-                            type="number"
-                            name="quantity"
-                            value={formData.quantity}
-                            readOnly
-                            placeholder="Auto-calculated"
-                            className="w-full px-4 py-2.5 border border-purple-200 rounded-xl bg-purple-50/50"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Gross Weight (tons) *</label>
-                          <input
-                            type="number"
-                            name="grossWeight"
-                            value={formData.grossWeight}
-                            onChange={handleChange}
-                            placeholder="5"
-                            required
-                            min="0.1"
-                            step="0.1"
-                            className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Fee (PHP) *</label>
-                          <input
-                            type="number"
-                            name="deliveryFee"
-                            value={formData.deliveryFee}
-                            onChange={handleChange}
-                            required
-                            placeholder="10000"
-                            className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    // {tripType === 'single' && (
+                    // <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100">
+                    //   <h3 className="text-lg font-semibold text-gray-900 mb-4">Product Details</h3>
+                    //   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    //     <div>
+                    //       <label className="block text-sm font-medium text-gray-700 mb-2">Product Name *</label>
+                    //       <input
+                    //         type="text"
+                    //         name="productName"
+                    //         value={formData.productName}
+                    //         onChange={handleChange}
+                    //         placeholder="Tasty Boy"
+                    //         required
+                    //         className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                    //       />
+                    //     </div>
+                    //     <div>
+                    //       <label className="block text-sm font-medium text-gray-700 mb-2">Number of Packages *</label>
+                    //       <input
+                    //         type="number"
+                    //         name="numberOfPackages"
+                    //         value={formData.numberOfPackages}
+                    //         onChange={handleChange}
+                    //         required
+                    //         min="1"
+                    //         placeholder="10"
+                    //         className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                    //       />
+                    //     </div>
+                    //     <div>
+                    //       <label className="block text-sm font-medium text-gray-700 mb-2">Units per Package *</label>
+                    //       <input
+                    //         type="number"
+                    //         name="unitPerPackage"
+                    //         value={formData.unitPerPackage}
+                    //         onChange={handleChange}
+                    //         required
+                    //         min="1"
+                    //         placeholder="200"
+                    //         className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                    //       />
+                    //     </div>
+                    //   </div>
+                    //   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                    //     <div>
+                    //       <label className="block text-sm font-medium text-gray-700 mb-2">Quantity (Auto) *</label>
+                    //       <input
+                    //         type="number"
+                    //         name="quantity"
+                    //         value={formData.quantity}
+                    //         readOnly
+                    //         placeholder="Auto-calculated"
+                    //         className="w-full px-4 py-2.5 border border-purple-200 rounded-xl bg-purple-50/50"
+                    //       />
+                    //     </div>
+                    //     <div>
+                    //       <label className="block text-sm font-medium text-gray-700 mb-2">Gross Weight (tons) *</label>
+                    //       <input
+                    //         type="number"
+                    //         name="grossWeight"
+                    //         value={formData.grossWeight}
+                    //         onChange={handleChange}
+                    //         placeholder="5"
+                    //         required
+                    //         min="0.1"
+                    //         step="0.1"
+                    //         className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                    //       />
+                    //     </div>
+                    //     <div>
+                    //       <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Fee (PHP) *</label>
+                    //       <input
+                    //         type="number"
+                    //         name="deliveryFee"
+                    //         value={formData.deliveryFee}
+                    //         onChange={handleChange}
+                    //         required
+                    //         placeholder="10000"
+                    //         className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                    //       />
+                    //     </div>
+                    //   </div>
+                    // </div>
                   )}
 
 

@@ -54,7 +54,7 @@ const bookingSchema = new mongoose.Schema({
     // destinationAddress: [{ type: String }],
     
     // Shared fields
-    deliveryFee: { type: Number, required: true },
+    deliveryFee: { type: Number, required: true, null:true },
     latitude: { type: Number, default: null },
     longitude: { type: Number, default: null },
     

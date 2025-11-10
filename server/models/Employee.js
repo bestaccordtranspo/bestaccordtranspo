@@ -13,7 +13,7 @@ const employeeSchema = new mongoose.Schema({
   dateHired: { type: Date },
   shift: { type: String, enum: ["Morning", "Afternoon", "Night"] },
   status: { type: String, enum: ["Available", "On Trip"], default: "Available" },
-  email: { type: String, unique: true, required: true },
+  username: { type: String, unique: true, required: true },
   password: { type: String },
   isArchived: { type: Boolean, default: false },
 }, { timestamps: true });

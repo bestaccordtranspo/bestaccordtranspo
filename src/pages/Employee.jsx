@@ -36,7 +36,7 @@ function Employee() {
     emergencyContactNumber: "",
     dateHired: "",
     shift: "Morning",
-    email: "",
+    username: "",
     password: "",
   });
 
@@ -87,7 +87,7 @@ function Employee() {
           emp.fullName?.toLowerCase().includes(generalSearch.toLowerCase()) ||
           emp.role?.toLowerCase().includes(generalSearch.toLowerCase()) ||
           emp.mobileNumber?.includes(generalSearch) ||
-          emp.email?.toLowerCase().includes(generalSearch.toLowerCase())
+          (emp.username || "").toLowerCase().includes(generalSearch.toLowerCase())
       );
     }
 
@@ -121,7 +121,7 @@ function Employee() {
         emergencyContactNumber: "",
         dateHired: "",
         shift: "Morning",
-        email: "",
+        username: "",
         password: "",
       });
     }
@@ -177,8 +177,11 @@ function Employee() {
     }
 
     if (step === 2) {
-      if (!formData.email.trim()) newErrors.email = "Email is required.";
-      else if (!/^\S+@\S+\.\S+$/.test(formData.email)) newErrors.email = "Invalid email format.";
+      if (!(formData.username || "").trim()) {
+        newErrors.username = "Username is required.";
+      } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
+        newErrors.username = "Username can only contain letters, numbers and underscores.";
+      }
       if (!formData.password.trim()) {
         newErrors.password = "Password is required.";
       } else if (formData.password.length < 6) {
@@ -649,16 +652,16 @@ function Employee() {
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Credentials</h3>
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Username *</label>
                           <input
-                            type="email"
-                            name="email"
-                            value={formData.email}
+                            type="text"
+                            name="username"
+                            value={formData.username}
                             onChange={handleChange}
                             required
                             className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
                           />
-                          {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                          {errors.username && <p className="text-red-500 text-xs mt-1">{errors.username}</p>}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>

@@ -22,16 +22,17 @@ export default function DriverLogin() {
     setLoading(true);
 
     if (!employeeId || !password) {
-      setError("Employee ID and Password are required");
+      setError("Employee ID / Username and Password are required");
       setLoading(false);
       return;
     }
 
     try {
-      console.log("🔐 Attempting login with:", { employeeId, password });
+      console.log("🔐 Attempting login with identifier:", employeeId);
 
       const res = await axiosClient.post("/api/driver/driver-login", {
-        employeeId,
+        // keep sending the same key the server expects; server will match against employeeId OR username
+        employeeId: employeeId,
         password,
       });
 
@@ -45,12 +46,10 @@ export default function DriverLogin() {
       localStorage.setItem("driverEmployeeId", res.data.employeeId);
       localStorage.setItem("driverName", res.data.fullName);
 
-
       // Use window.location for hard navigation
       setTimeout(() => {
         window.location.href = "/driver-dashboard";
       }, 800);
-
     } catch (err) {
       console.error("❌ Login error:", err);
       console.error("❌ Error response:", err.response?.data);
@@ -68,7 +67,8 @@ export default function DriverLogin() {
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
       }}
-    >      {/* Mobile-optimized background elements */}
+    >
+      {/* Mobile-optimized background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-20 -right-20 w-40 h-40 sm:w-80 sm:h-80 bg-purple-500/20 rounded-full blur-3xl"></div>
         <div className="absolute -bottom-20 -left-20 w-40 h-40 sm:w-80 sm:h-80 bg-indigo-500/20 rounded-full blur-3xl"></div>
@@ -81,8 +81,6 @@ export default function DriverLogin() {
         transition={{ duration: 0.6, ease: "easeOut" }}
         className="w-full max-w-sm relative z-10"
       >
-
-
         {/* Login Card - Mobile Optimized */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -152,7 +150,7 @@ export default function DriverLogin() {
               transition={{ delay: 0.5, duration: 0.4 }}
             >
               <label className="block text-sm font-medium text-white mb-3">
-                Employee ID
+                Employee ID or Username
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -164,7 +162,7 @@ export default function DriverLogin() {
                   type="text"
                   value={employeeId}
                   onChange={(e) => setEmployeeId(e.target.value)}
-                  placeholder="Enter your employee ID"
+                  placeholder="Enter your employee ID or username"
                   className="block w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all duration-300 backdrop-blur-sm text-base"
                 />
               </div>

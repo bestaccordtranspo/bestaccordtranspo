@@ -8,38 +8,43 @@ import jwt from "jsonwebtoken";
  * Logs in a driver/helper and returns a JWT
  */
 export const driverLogin = async (req, res) => {
-  const { employeeId, password } = req.body;
+  // Accept either employeeId or username from the client (client currently sends the field named `employeeId`)
+  const identifier = req.body.employeeId || req.body.identifier;
+  const { password } = req.body;
 
   try {
-    console.log("📩 Login attempt:", { employeeId, password });
+    console.log("📩 Login attempt:", { identifier, password });
 
-    if (!employeeId || !password) {
-      return res.status(400).json({ msg: "Please enter employee ID and password" });
+    if (!identifier || !password) {
+      return res.status(400).json({ msg: "Please enter employee ID / username and password" });
     }
 
-    // Find employee by employeeId
-    const employee = await Employee.findOne({ employeeId });
+    // Find employee by employeeId OR username
+    const employee = await Employee.findOne({
+      $or: [{ employeeId: identifier }, { username: identifier }]
+    });
 
     if (!employee) {
-      console.log("❌ No employee found with ID:", employeeId);
-      return res.status(400).json({ msg: "Invalid employee ID or password" });
+      console.log("❌ No employee found with identifier:", identifier);
+      return res.status(400).json({ msg: "Invalid employee ID / username or password" });
     }
 
     console.log("✅ Employee found:", {
       dbId: employee.employeeId,
+      username: employee.username,
       role: employee.role,
     });
 
     // Only allow Drivers and Helpers (case-insensitive)
-    if (!["driver", "helper"].includes(employee.role.toLowerCase())) {
+    if (!["driver", "helper"].includes((employee.role || "").toLowerCase())) {
       console.log("⛔ Role not allowed:", employee.role);
       return res.status(403).json({ msg: "Access denied. Not a driver/helper." });
     }
 
     // Plain-text password check (Note: In production, use bcrypt.compare)
     if (employee.password !== password) {
-      console.log("❌ Password mismatch");
-      return res.status(400).json({ msg: "Invalid employee ID or password" });
+      console.log("❌ Password mismatch for:", identifier);
+      return res.status(400).json({ msg: "Invalid employee ID / username or password" });
     }
 
     // Create JWT
@@ -49,12 +54,13 @@ export const driverLogin = async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    console.log("✅ Login successful for:", employee.employeeId);
+    console.log("✅ Login successful for:", employee.employeeId, employee.username);
 
     res.json({
       token,
       role: employee.role,
       employeeId: employee.employeeId,
+      username: employee.username,
       fullName: employee.fullName,
     });
   } catch (err) {

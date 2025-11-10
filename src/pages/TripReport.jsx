@@ -452,7 +452,7 @@ export default function TripReport() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-900 via-indigo-800 to-purple-900 bg-clip-text text-transparent">
-            Trip Reports
+            Billing
           </h1>
           <p className="text-gray-600 text-sm">Manage and view uploaded trip documents and receipts</p>
         </div>

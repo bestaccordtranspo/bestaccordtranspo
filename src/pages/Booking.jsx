@@ -567,7 +567,7 @@ function Booking() {
   const getEmployeeDisplayName = (employeeId) => {
     const employee = employees.find(emp => emp.employeeId === employeeId);
     if (employee) {
-      return `${employee.employeeId} - ${employee.fullName || employee.name || ''}`.trim();
+      return `${employee.fullName || employee.name || ''}`.trim();
     }
     return employeeId;
   };
@@ -1996,7 +1996,7 @@ useEffect(() => {
                   <option value="">{index === 0 ? "Select Driver" : "Select Helper"}</option>
                   {getAvailableEmployees(index).map((employee) => (
                     <option key={employee._id} value={employee.employeeId}>
-                      {`${employee.employeeId} - ${employee.fullName || employee.name || ''}`.trim()}
+                      {`${employee.fullName || employee.name || ''}`.trim()}
                     </option>
                   ))}
                 </select>

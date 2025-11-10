@@ -24,7 +24,7 @@ export default function DashboardLayout() {
     { name: "Dashboard", path: "/dashboard", icon: <LayoutDashboard size={20} /> },
     { name: "Booking", path: "/dashboard/booking", icon: <Package size={20} /> },
     { name: "Monitoring", path: "/dashboard/monitoring", icon: <Navigation size={20} /> },
-    { name: "Trip Report", path: "/dashboard/trip-report", icon: <FileText size={20} /> },
+    { name: "Billing", path: "/dashboard/trip-report", icon: <FileText size={20} /> },
   ];
 
   if (role === "admin") {

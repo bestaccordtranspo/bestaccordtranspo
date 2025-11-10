@@ -20,19 +20,12 @@ const bookingSchema = new mongoose.Schema({
         default: 1
     },
     
-    // Store complete product details for each destination
+    // Store complete product details for each destination - THIS IS NOW THE SINGLE SOURCE OF TRUTH
     destinationDeliveries: [{
         // Destination info
         customerEstablishmentName: { type: String, required: true },
         destinationAddress: { type: String, required: true },
         destinationIndex: { type: Number, required: true },
-        
-        // Product details per destination
-        typeOfOrder: { 
-            type: String, 
-            enum: ['Delivery', 'Pick-up', 'Return'],
-            default: 'Delivery'
-        },
         productName: { type: String, required: true },
         quantity: { type: Number, required: true },
         grossWeight: { type: Number, required: true },
@@ -51,14 +44,14 @@ const bookingSchema = new mongoose.Schema({
         notes: { type: String, default: null }
     }],
     
-    // Legacy fields for backward compatibility (for single trips)
-    productName: { type: String },
-    quantity: { type: Number },
-    grossWeight: { type: Number },
-    unitPerPackage: { type: Number },
-    numberOfPackages: { type: Number },
-    customerEstablishmentName: { type: String },
-    destinationAddress: [{ type: String }],
+    // REMOVED: Legacy fields for backward compatibility
+    // productName: { type: String },
+    // quantity: { type: Number },
+    // grossWeight: { type: Number },
+    // unitPerPackage: { type: Number },
+    // numberOfPackages: { type: Number },
+    // customerEstablishmentName: { type: String },
+    // destinationAddress: [{ type: String }],
     
     // Shared fields
     deliveryFee: { type: Number, required: true },
@@ -121,20 +114,6 @@ const bookingSchema = new mongoose.Schema({
     strictQuery: false
 });
 
-// Middleware to handle backward compatibility
-bookingSchema.pre('save', function(next) {
-    // For single trips, sync legacy fields with destinationDeliveries
-    if (this.tripType === 'single' && this.destinationDeliveries && this.destinationDeliveries.length > 0) {
-        const firstDest = this.destinationDeliveries[0];
-        this.productName = firstDest.productName;
-        this.quantity = firstDest.quantity;
-        this.grossWeight = firstDest.grossWeight;
-        this.unitPerPackage = firstDest.unitPerPackage;
-        this.numberOfPackages = firstDest.numberOfPackages;
-        this.customerEstablishmentName = firstDest.customerEstablishmentName;
-        this.destinationAddress = [firstDest.destinationAddress];
-    }
-    next();
-});
+// REMOVED: No more pre-save middleware needed since we only have one data structure
 
 export default mongoose.model("Booking", bookingSchema);

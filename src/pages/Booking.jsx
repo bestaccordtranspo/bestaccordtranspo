@@ -853,6 +853,15 @@ function Booking() {
     };
 
     console.log('📤 Simplified Submit Data:', JSON.stringify(submitData, null, 2));
+    // ADD THESE CRITICAL CHECKS
+console.log("🔍 CRITICAL CHECKS:");
+console.log("- submitData exists?", !!submitData);
+console.log("- destinationDeliveries exists?", !!submitData.destinationDeliveries);
+console.log("- destinationDeliveries is array?", Array.isArray(submitData.destinationDeliveries));
+console.log("- destinationDeliveries length:", submitData.destinationDeliveries?.length);
+console.log("- First item:", submitData.destinationDeliveries?.[0]);
+console.log("- First item customerEstablishmentName:", submitData.destinationDeliveries?.[0]?.customerEstablishmentName);
+
 
     if (editBooking) {
       await axiosClient.put(

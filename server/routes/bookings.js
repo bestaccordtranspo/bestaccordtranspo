@@ -157,7 +157,15 @@ async function updateVehicleAndEmployeeStatus(booking, newStatus) {
 // POST create booking
 router.post("/", async (req, res) => {
   try {
+    console.log("📥 ========== NEW BOOKING REQUEST ==========");
+    console.log("📦 Full request body:", JSON.stringify(req.body, null, 2));
+    console.log("🎯 Trip Type:", req.body.tripType);
+    console.log("📍 Destination Deliveries:", JSON.stringify(req.body.destinationDeliveries, null, 2));
+    
     const { reservationId, tripNumber, ...bookingData } = req.body;
+
+    // CRITICAL: Log what we're about to save
+    console.log("💾 Data to be saved (bookingData):", JSON.stringify(bookingData, null, 2));
 
     // Generate new IDs
     const newReservationId = await getNextReservationID();
@@ -167,6 +175,19 @@ router.post("/", async (req, res) => {
       return res.status(500).json({ message: "Failed to generate booking IDs" });
     }
 
+    console.log("🆔 Generated IDs:", { newReservationId, newTripNumber });
+
+    // CRITICAL: Check destinationDeliveries before creating the document
+    if (!bookingData.destinationDeliveries || bookingData.destinationDeliveries.length === 0) {
+      console.error("❌ ERROR: destinationDeliveries is missing or empty!");
+      return res.status(400).json({ 
+        message: "destinationDeliveries is required and cannot be empty" 
+      });
+    }
+
+    console.log("✅ destinationDeliveries validation passed");
+    console.log("📋 First delivery:", bookingData.destinationDeliveries[0]);
+
     // Create new booking
     const newBooking = new Booking({
       ...bookingData,
@@ -175,15 +196,22 @@ router.post("/", async (req, res) => {
       status: "Pending"
     });
 
+    console.log("📝 Booking document created (before save)");
+    console.log("🔍 Document destinationDeliveries:", JSON.stringify(newBooking.destinationDeliveries, null, 2));
+
     const savedBooking = await newBooking.save();
 
+    console.log("✅ Booking saved successfully:", savedBooking._id);
 
     // Update vehicle and employee statuses to "On Trip"
     await updateVehicleAndEmployeeStatus(savedBooking, "On Trip");
 
     res.status(201).json(savedBooking);
   } catch (err) {
+    console.error("❌ ========== ERROR CREATING BOOKING ==========");
     console.error("Error creating booking:", err);
+    console.warn(err); // This will show the full validation error details
+    
     if (err.code === 11000) {
       return res.status(409).json({ message: "Duplicate booking ID. Please retry." });
     }
@@ -202,6 +230,8 @@ router.post("/", async (req, res) => {
     // Handle validation errors
     if (err.name === 'ValidationError') {
       const errors = Object.values(err.errors).map(e => e.message);
+      console.error("📋 Validation errors:", errors);
+      console.error("🔍 Failed fields:", Object.keys(err.errors));
       return res.status(400).json({
         message: "Validation failed",
         errors: errors

@@ -612,231 +612,240 @@ function Booking() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    if (e) e.preventDefault();
+  const const handleSubmit = async (e) => {
+  if (e) e.preventDefault();
 
-    if (currentStep !== 2) {
+  if (currentStep !== 2) {
+    return;
+  }
+
+  // Trip-specific validation
+  if (tripType === 'multiple') {
+    const emptyBranches = selectedBranches.filter(branch => !branch.branch.trim());
+    if (emptyBranches.length > 0) {
+      alert('Please select a branch for all destinations.');
       return;
     }
 
-    // Trip-specific validation
+    const emptyAddresses = selectedBranches.filter(branch => !branch.address.trim());
+    if (emptyAddresses.length > 0) {
+      alert('Some selected branches have missing address information.');
+      return;
+    }
+  } else {
+    // Single trip validation
+    if (!formData.customerEstablishmentName || formData.customerEstablishmentName.trim() === '') {
+      alert('Please select a customer/establishment.');
+      return;
+    }
+    if (!formData.destinationAddress || formData.destinationAddress.trim() === '') {
+      alert('Please ensure destination address is populated.');
+      return;
+    }
+  }
+
+  if (!formData.vehicleId || formData.vehicleId.trim() === '') {
+    alert('Please select a vehicle.');
+    return;
+  }
+
+  // Extra check for plateNumber
+  if (!formData.plateNumber || formData.plateNumber.trim() === '') {
+    alert('⚠️ Plate number is missing! Please go back to Step 1 and reselect the vehicle.');
+    console.error("Missing plateNumber in formData:", formData);
+    return;
+  }
+
+  const requiredFields = {
+    productName: 'Product Name',
+    numberOfPackages: 'Number of Packages',
+    unitPerPackage: 'Units per Package',
+    grossWeight: 'Gross Weight',
+    deliveryFee: 'Delivery Fee',
+    companyName: 'Company Name',
+    shipperConsignorName: 'Shipper/Consignor',
+    originAddress: 'Origin Address',
+    vehicleId: 'Vehicle',
+    vehicleType: 'Vehicle Type',
+    dateNeeded: 'Date Needed',
+    timeNeeded: 'Time Needed'
+  };
+
+  for (const [field, label] of Object.entries(requiredFields)) {
+    if (!formData[field] || formData[field].toString().trim() === '') {
+      alert(`Please fill in the ${label} field.`);
+      return;
+    }
+  }
+
+  const validEmployees = formData.employeeAssigned.filter(emp => emp && emp.trim() !== "");
+  if (validEmployees.length === 0) {
+    alert('Please assign at least one employee.');
+    return;
+  }
+
+  const validRoles = formData.roleOfEmployee.filter(role => role && role.trim() !== "");
+  if (validRoles.length !== validEmployees.length) {
+    alert('All assigned employees must have roles.');
+    return;
+  }
+
+  if (isNaN(formData.numberOfPackages) || parseInt(formData.numberOfPackages) <= 0) {
+    alert('Please enter a valid number of packages.');
+    return;
+  }
+  if (isNaN(formData.unitPerPackage) || parseInt(formData.unitPerPackage) <= 0) {
+    alert('Please enter valid units per package.');
+    return;
+  }
+  if (isNaN(formData.grossWeight) || parseFloat(formData.grossWeight) <= 0) {
+    alert('Please enter a valid gross weight.');
+    return;
+  }
+  if (isNaN(formData.deliveryFee) || parseFloat(formData.deliveryFee) <= 0) {
+    alert('Please enter a valid delivery fee.');
+    return;
+  }
+
+  const selectedDate = new Date(formData.dateNeeded);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (selectedDate < today) {
+    alert('Please select a date that is today or in the future.');
+    return;
+  }
+
+  try {
+    // Build destinationDeliveries correctly for single vs multiple trips
+    let destinationDeliveries;
+    
     if (tripType === 'multiple') {
-      const emptyBranches = selectedBranches.filter(branch => !branch.branch.trim());
-      if (emptyBranches.length > 0) {
-        alert('Please select a branch for all destinations.');
-        return;
-      }
-
-      const emptyAddresses = selectedBranches.filter(branch => !branch.address.trim());
-      if (emptyAddresses.length > 0) {
-        alert('Some selected branches have missing address information.');
-        return;
-      }
-    } else {
-      // Single trip validation
-      if (!formData.customerEstablishmentName || formData.customerEstablishmentName.trim() === '') {
-        alert('Please select a customer/establishment.');
-        return;
-      }
-      if (!formData.destinationAddress || formData.destinationAddress.trim() === '') {
-        alert('Please ensure destination address is populated.');
-        return;
-      }
-    }
-
-    if (!formData.vehicleId || formData.vehicleId.trim() === '') {
-      alert('Please select a vehicle.');
-      return;
-    }
-
-    // Extra check for plateNumber
-    if (!formData.plateNumber || formData.plateNumber.trim() === '') {
-      alert('⚠️ Plate number is missing! Please go back to Step 1 and reselect the vehicle.');
-      console.error("Missing plateNumber in formData:", formData);
-      return;
-    }
-
-    const requiredFields = {
-      productName: 'Product Name',
-      numberOfPackages: 'Number of Packages',
-      unitPerPackage: 'Units per Package',
-      grossWeight: 'Gross Weight',
-      deliveryFee: 'Delivery Fee',
-      companyName: 'Company Name',
-      shipperConsignorName: 'Shipper/Consignor',
-      originAddress: 'Origin Address',
-      vehicleId: 'Vehicle',
-      vehicleType: 'Vehicle Type',
-      dateNeeded: 'Date Needed',
-      timeNeeded: 'Time Needed'
-    };
-
-    for (const [field, label] of Object.entries(requiredFields)) {
-      if (!formData[field] || formData[field].toString().trim() === '') {
-        alert(`Please fill in the ${label} field.`);
-        return;
-      }
-    }
-
-    const validEmployees = formData.employeeAssigned.filter(emp => emp && emp.trim() !== "");
-    if (validEmployees.length === 0) {
-      alert('Please assign at least one employee.');
-      return;
-    }
-
-    const validRoles = formData.roleOfEmployee.filter(role => role && role.trim() !== "");
-    if (validRoles.length !== validEmployees.length) {
-      alert('All assigned employees must have roles.');
-      return;
-    }
-
-    if (isNaN(formData.numberOfPackages) || parseInt(formData.numberOfPackages) <= 0) {
-      alert('Please enter a valid number of packages.');
-      return;
-    }
-    if (isNaN(formData.unitPerPackage) || parseInt(formData.unitPerPackage) <= 0) {
-      alert('Please enter valid units per package.');
-      return;
-    }
-    if (isNaN(formData.grossWeight) || parseFloat(formData.grossWeight) <= 0) {
-      alert('Please enter a valid gross weight.');
-      return;
-    }
-    if (isNaN(formData.deliveryFee) || parseFloat(formData.deliveryFee) <= 0) {
-      alert('Please enter a valid delivery fee.');
-      return;
-    }
-
-    const selectedDate = new Date(formData.dateNeeded);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (selectedDate < today) {
-      alert('Please select a date that is today or in the future.');
-      return;
-    }
-
-    try {
-      // Build destinationDeliveries correctly for single vs multiple trips
-      let destinationDeliveries;
-      if (tripType === 'multiple') {
-        destinationDeliveries = selectedBranches.map((branch, index) => ({
-          customerEstablishmentName: branch.branch,
-          destinationAddress: branch.address,
-          destinationIndex: index,
-          typeOfOrder: branch.typeOfOrder || 'Delivery',
-          productName: branch.productName,
-          quantity: parseInt(branch.quantity) || 0,
-          grossWeight: parseFloat(branch.grossWeight) || 0,
-          unitPerPackage: parseInt(branch.unitPerPackage) || 0,
-          numberOfPackages: parseInt(branch.numberOfPackages) || 0,
-          status: 'pending'
-        }));
-      } else {
-        // single trip: use top-level formData values to ensure required fields exist
-        destinationDeliveries = [
-          {
-            customerEstablishmentName: formData.customerEstablishmentName || selectedBranches[0]?.branch || '',
-            destinationAddress: formData.destinationAddress || selectedBranches[0]?.address || '',
-            destinationIndex: 0,
-            typeOfOrder: selectedBranches[0]?.typeOfOrder || 'Delivery',
-            productName: formData.productName || '',
-            quantity: parseInt(formData.quantity) || parseInt(selectedBranches[0]?.quantity) || 0,
-            grossWeight: parseFloat(formData.grossWeight) || parseFloat(selectedBranches[0]?.grossWeight) || 0,
-            unitPerPackage: parseInt(formData.unitPerPackage) || parseInt(selectedBranches[0]?.unitPerPackage) || 0,
-            numberOfPackages: parseInt(formData.numberOfPackages) || parseInt(selectedBranches[0]?.numberOfPackages) || 0,
-            status: 'pending'
-          }
-        ];
-      }
-
-      const destinationData = {
-        customerEstablishmentName: tripType === 'multiple'
-          ? selectedBranches.map(b => b.branch).join(' | ')
-          : selectedBranches[0]?.branch || formData.customerEstablishmentName,
-        destinationAddress: selectedBranches.map(b => b.address).filter(addr => addr && addr.trim() !== ''),
-        tripType: tripType,
-        numberOfStops: selectedBranches.length,
-        destinationDeliveries: destinationDeliveries
-      };
-
-      if (tripType === 'multiple') {
-        for (let i = 0; i < selectedBranches.length; i++) {
-          const branch = selectedBranches[i];
-          if (!branch.productName || branch.productName.trim() === '') {
-            alert(`Please fill in Product Name for Stop ${i + 1}`);
-            return;
-          }
-          if (!branch.numberOfPackages || parseInt(branch.numberOfPackages) <= 0) {
-            alert(`Please fill in valid Number of Packages for Stop ${i + 1}`);
-            return;
-          }
-          if (!branch.unitPerPackage || parseInt(branch.unitPerPackage) <= 0) {
-            alert(`Please fill in valid Units per Package for Stop ${i + 1}`);
-            return;
-          }
-          if (!branch.grossWeight || parseFloat(branch.grossWeight) <= 0) {
-            alert(`Please fill in valid Gross Weight for Stop ${i + 1}`);
-            return;
-          }
+      // Validate multiple destinations
+      for (let i = 0; i < selectedBranches.length; i++) {
+        const branch = selectedBranches[i];
+        if (!branch.productName || branch.productName.trim() === '') {
+          alert(`Please fill in Product Name for Stop ${i + 1}`);
+          return;
+        }
+        if (!branch.numberOfPackages || parseInt(branch.numberOfPackages) <= 0) {
+          alert(`Please fill in valid Number of Packages for Stop ${i + 1}`);
+          return;
+        }
+        if (!branch.unitPerPackage || parseInt(branch.unitPerPackage) <= 0) {
+          alert(`Please fill in valid Units per Package for Stop ${i + 1}`);
+          return;
+        }
+        if (!branch.grossWeight || parseFloat(branch.grossWeight) <= 0) {
+          alert(`Please fill in valid Gross Weight for Stop ${i + 1}`);
+          return;
         }
       }
 
-      const submitData = {
-        ...formData,
-        ...destinationData,
-        productName: selectedBranches[0]?.productName || formData.productName,
-        quantity: parseInt(selectedBranches[0]?.quantity) || parseInt(formData.quantity) || 0,
-        grossWeight: parseFloat(selectedBranches[0]?.grossWeight) || parseFloat(formData.grossWeight) || 0,
-        unitPerPackage: parseInt(selectedBranches[0]?.unitPerPackage) || parseInt(formData.unitPerPackage) || 0,
-        numberOfPackages: parseInt(selectedBranches[0]?.numberOfPackages) || parseInt(formData.numberOfPackages) || 0,
-        deliveryFee: parseFloat(formData.deliveryFee) || 0,
-        employeeAssigned: Array.isArray(formData.employeeAssigned)
-          ? formData.employeeAssigned.filter(emp => emp !== "")
-          : [formData.employeeAssigned].filter(emp => emp !== ""),
-        roleOfEmployee: Array.isArray(formData.roleOfEmployee)
-          ? formData.roleOfEmployee.filter(role => role !== "")
-          : [formData.roleOfEmployee].filter(role => role !== ""),
-        originAddressDetails: originAddressDetails,
-      };
-
-      // Debug log to verify the data structure BEFORE sending
-      console.log('📤 FINAL Submit Data:', {
-        destinationAddress: submitData.destinationAddress,
-        destinationAddressLength: submitData.destinationAddress?.length,
-        tripType: submitData.tripType,
-        numberOfStops: submitData.numberOfStops,
-        customerEstablishmentName: submitData.customerEstablishmentName
-      });
-      console.log('📤 COMPLETE Submit Data:', JSON.stringify(submitData, null, 2));
-
-      if (editBooking) {
-        await axiosClient.put(
-          `/api/bookings/${editBooking._id}`,
-          submitData
-        );
-        alert('Booking updated successfully!');
-      } else {
-        await axiosClient.post("/api/bookings", submitData);
-        alert('Booking created successfully!');
-      }
-      closeModal();
-      fetchBookings();
-    } catch (err) {
-      console.error("Full error object:", err);
-      console.error("Error response:", err.response?.data);
-
-      if (err.response?.data?.message) {
-        alert(`Error: ${err.response.data.message}`);
-      } else if (err.response?.status === 400) {
-        alert("Bad request. Please check your input data.");
-      } else if (err.response?.status === 500) {
-        alert("Server error. Please try again later.");
-      } else {
-        alert("Error adding/updating booking. Please try again.");
-      }
+      destinationDeliveries = selectedBranches.map((branch, index) => ({
+        customerEstablishmentName: branch.branch,
+        destinationAddress: branch.address,
+        destinationIndex: index,
+        typeOfOrder: branch.typeOfOrder || 'Delivery',
+        productName: branch.productName,
+        quantity: parseInt(branch.quantity) || 0,
+        grossWeight: parseFloat(branch.grossWeight) || 0,
+        unitPerPackage: parseInt(branch.unitPerPackage) || 0,
+        numberOfPackages: parseInt(branch.numberOfPackages) || 0,
+        status: 'pending'
+      }));
+    } else {
+      // Single trip - use formData directly
+      destinationDeliveries = [
+        {
+          customerEstablishmentName: formData.customerEstablishmentName,
+          destinationAddress: formData.destinationAddress,
+          destinationIndex: 0,
+          typeOfOrder: 'Delivery',
+          productName: formData.productName,
+          quantity: parseInt(formData.quantity) || 0,
+          grossWeight: parseFloat(formData.grossWeight) || 0,
+          unitPerPackage: parseInt(formData.unitPerPackage) || 0,
+          numberOfPackages: parseInt(formData.numberOfPackages) || 0,
+          status: 'pending'
+        }
+      ];
     }
-  };
+
+    const destinationData = {
+      customerEstablishmentName: tripType === 'multiple'
+        ? selectedBranches.map(b => b.branch).join(' | ')
+        : formData.customerEstablishmentName,
+      destinationAddress: tripType === 'multiple'
+        ? selectedBranches.map(b => b.address)
+        : [formData.destinationAddress],
+      tripType: tripType,
+      numberOfStops: tripType === 'multiple' ? selectedBranches.length : 1,
+      destinationDeliveries: destinationDeliveries
+    };
+
+    const submitData = {
+      ...formData,
+      ...destinationData,
+      // For single trips, keep the original product details at the top level
+      productName: tripType === 'multiple' ? selectedBranches[0]?.productName : formData.productName,
+      quantity: tripType === 'multiple' 
+        ? parseInt(selectedBranches[0]?.quantity) || 0 
+        : parseInt(formData.quantity) || 0,
+      grossWeight: tripType === 'multiple'
+        ? parseFloat(selectedBranches[0]?.grossWeight) || 0
+        : parseFloat(formData.grossWeight) || 0,
+      unitPerPackage: tripType === 'multiple'
+        ? parseInt(selectedBranches[0]?.unitPerPackage) || 0
+        : parseInt(formData.unitPerPackage) || 0,
+      numberOfPackages: tripType === 'multiple'
+        ? parseInt(selectedBranches[0]?.numberOfPackages) || 0
+        : parseInt(formData.numberOfPackages) || 0,
+      deliveryFee: parseFloat(formData.deliveryFee) || 0,
+      employeeAssigned: Array.isArray(formData.employeeAssigned)
+        ? formData.employeeAssigned.filter(emp => emp !== "")
+        : [formData.employeeAssigned].filter(emp => emp !== ""),
+      roleOfEmployee: Array.isArray(formData.roleOfEmployee)
+        ? formData.roleOfEmployee.filter(role => role !== "")
+        : [formData.roleOfEmployee].filter(role => role !== ""),
+      originAddressDetails: originAddressDetails,
+    };
+
+    // Debug log to verify the data structure BEFORE sending
+    console.log('📤 FINAL Submit Data:', {
+      destinationDeliveries: submitData.destinationDeliveries,
+      tripType: submitData.tripType,
+      customerEstablishmentName: submitData.customerEstablishmentName
+    });
+    console.log('📤 COMPLETE Submit Data:', JSON.stringify(submitData, null, 2));
+
+    if (editBooking) {
+      await axiosClient.put(
+        `/api/bookings/${editBooking._id}`,
+        submitData
+      );
+      alert('Booking updated successfully!');
+    } else {
+      await axiosClient.post("/api/bookings", submitData);
+      alert('Booking created successfully!');
+    }
+    closeModal();
+    fetchBookings();
+  } catch (err) {
+    console.error("Full error object:", err);
+    console.error("Error response:", err.response?.data);
+
+    if (err.response?.data?.message) {
+      alert(`Error: ${err.response.data.message}`);
+    } else if (err.response?.status === 400) {
+      alert("Bad request. Please check your input data.");
+    } else if (err.response?.status === 500) {
+      alert("Server error. Please try again later.");
+    } else {
+      alert("Error adding/updating booking. Please try again.");
+    }
+  }
+};
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to archive this booking?")) return;
@@ -2022,90 +2031,91 @@ function Booking() {
                       </div>
                     </div>
 
+                    {tripType === 'single' && (
                       {tripType === 'single' && (
-                    <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Product Details</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Product Name *</label>
-                          <input
-                            type="text"
-                            name="productName"
-                            value={formData.productName}
-                            onChange={handleChange}
-                            placeholder="Tasty Boy"
-                            required
-                            className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                          />
+                      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Product Details</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Product Name *</label>
+                            <input
+                              type="text"
+                              name="productName"
+                              value={formData.productName}
+                              onChange={handleChange}
+                              placeholder="Tasty Boy"
+                              required
+                              className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Number of Packages *</label>
+                            <input
+                              type="number"
+                              name="numberOfPackages"
+                              value={formData.numberOfPackages}
+                              onChange={handleChange}
+                              required
+                              min="1"
+                              placeholder="10"
+                              className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Units per Package *</label>
+                            <input
+                              type="number"
+                              name="unitPerPackage"
+                              value={formData.unitPerPackage}
+                              onChange={handleChange}
+                              required
+                              min="1"
+                              placeholder="200"
+                              className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Number of Packages *</label>
-                          <input
-                            type="number"
-                            name="numberOfPackages"
-                            value={formData.numberOfPackages}
-                            onChange={handleChange}
-                            required
-                            min="1"
-                            placeholder="10"
-                            className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Units per Package *</label>
-                          <input
-                            type="number"
-                            name="unitPerPackage"
-                            value={formData.unitPerPackage}
-                            onChange={handleChange}
-                            required
-                            min="1"
-                            placeholder="200"
-                            className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                          />
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Quantity (Auto) *</label>
+                            <input
+                              type="number"
+                              name="quantity"
+                              value={formData.quantity}
+                              readOnly
+                              placeholder="Auto-calculated"
+                              className="w-full px-4 py-2.5 border border-purple-200 rounded-xl bg-purple-50/50"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Gross Weight (tons) *</label>
+                            <input
+                              type="number"
+                              name="grossWeight"
+                              value={formData.grossWeight}
+                              onChange={handleChange}
+                              placeholder="5"
+                              required
+                              min="0.1"
+                              step="0.1"
+                              className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Fee (PHP) *</label>
+                            <input
+                              type="number"
+                              name="deliveryFee"
+                              value={formData.deliveryFee}
+                              onChange={handleChange}
+                              required
+                              placeholder="10000"
+                              className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                            />
+                          </div>
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Quantity (Auto) *</label>
-                          <input
-                            type="number"
-                            name="quantity"
-                            value={formData.quantity}
-                            readOnly
-                            placeholder="Auto-calculated"
-                            className="w-full px-4 py-2.5 border border-purple-200 rounded-xl bg-purple-50/50"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Gross Weight (tons) *</label>
-                          <input
-                            type="number"
-                            name="grossWeight"
-                            value={formData.grossWeight}
-                            onChange={handleChange}
-                            placeholder="5"
-                            required
-                            min="0.1"
-                            step="0.1"
-                            className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Fee (PHP) *</label>
-                          <input
-                            type="number"
-                            name="deliveryFee"
-                            value={formData.deliveryFee}
-                            onChange={handleChange}
-                            required
-                            placeholder="10000"
-                            className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                    )}
 
 
                   {/* Area Rate & Vehicle Info */}

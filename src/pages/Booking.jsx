@@ -1873,6 +1873,35 @@ useEffect(() => {
                     ⚠️ All available branches have been selected
                   </p>
                 )}
+
+                {/* Destinations Preview */}
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Destinations Preview
+                  </label>
+                  <div className="space-y-2 max-h-60 overflow-y-auto p-3 bg-gray-50 rounded-xl border border-indigo-200">
+                    {selectedBranches.map((branchData, index) => (
+                      <div key={branchData.key} className="text-sm">
+                        <div className="font-medium text-gray-700">
+                          Stop {index + 1}: {branchData.branch || 'Not selected'}
+                        </div>
+                        {branchData.address && (
+                          <div className="text-xs text-gray-500 truncate">
+                            {branchData.address}
+                          </div>
+                        )}
+                        {branchData.productName && (
+                          <div className="text-xs text-purple-600">
+                            Product: {branchData.productName}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Total stops: {selectedBranches.length} • {selectedBranches.length > 1 ? 'Multiple Drop Trip' : 'Single Drop Trip'}
+                  </p>
+                </div>           
               </div>
             </div>
           </div>

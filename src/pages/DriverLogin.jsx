@@ -31,8 +31,9 @@ export default function DriverLogin() {
       console.log("🔐 Attempting login with identifier:", employeeId);
 
       const res = await axiosClient.post("/api/driver/driver-login", {
-        // keep sending the same key the server expects; server will match against employeeId OR username
-        employeeId: employeeId,
+        // send trimmed identifier; server will match against employeeId OR username (case-insensitive)
+        employeeId: employeeId.trim(),
+        identifier: employeeId.trim(),
         password,
       });
 

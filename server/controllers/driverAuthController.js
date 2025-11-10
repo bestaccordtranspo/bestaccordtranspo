@@ -3,25 +3,31 @@ import Employee from "../models/Employee.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
+const escapeRegex = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /**
  * POST /api/driver/login
  * Logs in a driver/helper and returns a JWT
  */
 export const driverLogin = async (req, res) => {
-  // Accept either employeeId or username from the client (client currently sends the field named `employeeId`)
-  const identifier = req.body.employeeId || req.body.identifier;
+  // Accept either employeeId or username from the client
+  const identifierRaw = req.body.employeeId || req.body.identifier || "";
+  const identifier = (identifierRaw || "").trim();
   const { password } = req.body;
 
   try {
-    console.log("📩 Login attempt:", { identifier, password });
+    console.log("📩 Login attempt:", { identifier: identifier });
 
     if (!identifier || !password) {
       return res.status(400).json({ msg: "Please enter employee ID / username and password" });
     }
 
-    // Find employee by employeeId OR username
+    // Find employee by employeeId OR username (case-insensitive for username)
     const employee = await Employee.findOne({
-      $or: [{ employeeId: identifier }, { username: identifier }]
+      $or: [
+        { employeeId: identifier },
+        { username: { $regex: `^${escapeRegex(identifier)}$`, $options: "i" } }
+      ]
     });
 
     if (!employee) {
@@ -41,8 +47,21 @@ export const driverLogin = async (req, res) => {
       return res.status(403).json({ msg: "Access denied. Not a driver/helper." });
     }
 
-    // Plain-text password check (Note: In production, use bcrypt.compare)
-    if (employee.password !== password) {
+    // Compare password: try bcrypt.compare first, fallback to plain text compare
+    let passwordMatches = false;
+    if (employee.password) {
+      try {
+        passwordMatches = await bcrypt.compare(password, employee.password);
+      } catch (e) {
+        // ignore bcrypt errors and fallback
+      }
+      if (!passwordMatches) {
+        // fallback to plain compare in case stored as plain text
+        passwordMatches = employee.password === password;
+      }
+    }
+
+    if (!passwordMatches) {
       console.log("❌ Password mismatch for:", identifier);
       return res.status(400).json({ msg: "Invalid employee ID / username or password" });
     }

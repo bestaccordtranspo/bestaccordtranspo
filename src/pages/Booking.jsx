@@ -388,6 +388,18 @@ function Booking() {
       setEditBooking(null);
       setSelectedClient(null);
       setTripType('single');
+      setSelectedBranches([
+      {
+        branch: '',
+        address: '',
+        productName: '',
+        numberOfPackages: '',
+        unitPerPackage: '',
+        quantity: '',
+        grossWeight: '',
+        key: Date.now()
+      }
+    ]);
       setFormData({
         productName: "",
         quantity: "",
@@ -437,31 +449,43 @@ function Booking() {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => {
-      const newFormData = {
-        ...prev,
-        [name]: value
-      };
+  const { name, value } = e.target;
+  setFormData(prev => {
+    const newFormData = {
+      ...prev,
+      [name]: value
+    };
 
-      if (name === 'numberOfPackages' || name === 'unitPerPackage') {
-        const packages = name === 'numberOfPackages' ? parseInt(value) || 0 : parseInt(prev.numberOfPackages) || 0;
-        const unitsPerPackage = name === 'unitPerPackage' ? parseInt(value) || 0 : parseInt(prev.unitPerPackage) || 0;
-        newFormData.quantity = packages * unitsPerPackage;
-      }
+    if (name === 'numberOfPackages' || name === 'unitPerPackage') {
+      const packages = name === 'numberOfPackages' ? parseInt(value) || 0 : parseInt(prev.numberOfPackages) || 0;
+      const unitsPerPackage = name === 'unitPerPackage' ? parseInt(value) || 0 : parseInt(prev.unitPerPackage) || 0;
+      newFormData.quantity = packages * unitsPerPackage;
+    }
 
-      // ADDED: Sync with selectedBranches for single trips
-      if (tripType === 'single' && ['productName', 'numberOfPackages', 'unitPerPackage', 'quantity', 'grossWeight'].includes(name)) {
-        setSelectedBranches(prev => [{
+    return newFormData;
+  });
+  
+  // Sync with selectedBranches for single trips when product fields change
+  if (tripType === 'single') {
+    if (['productName', 'numberOfPackages', 'unitPerPackage', 'quantity', 'grossWeight'].includes(name)) {
+      setSelectedBranches(prev => {
+        const packages = name === 'numberOfPackages' ? parseInt(value) || 0 : parseInt(prev[0]?.numberOfPackages) || 0;
+        const units = name === 'unitPerPackage' ? parseInt(value) || 0 : parseInt(prev[0]?.unitPerPackage) || 0;
+        const calculatedQty = packages * units;
+
+        const updated = [{
           ...prev[0],
-          [name]: name === 'quantity' ? newFormData.quantity : value
-        }]);
-      }
-
-      return newFormData;
-    });
-    validateField(name, value);
-  };
+          [name]: value,
+          ...(name === 'numberOfPackages' || name === 'unitPerPackage' ? { quantity: calculatedQty } : {})
+        }];
+        console.log('🔄 Updated selectedBranches from product change:', updated);
+        return updated;
+      });
+    }
+  }
+  
+  validateField(name, value);
+};
 
   const handleCompanyChange = (e) => {
     const selectedCompanyName = e.target.value;
@@ -475,40 +499,39 @@ function Booking() {
   };
 
   const handleBranchChange = (e) => {
-    const selectedBranch = e.target.value;
-    const client = clients.find(c => c.clientBranch === selectedBranch && c.clientName === formData.companyName);
+  const selectedBranch = e.target.value;
+  const client = clients.find(c => c.clientBranch === selectedBranch && c.clientName === formData.companyName);
 
-    if (client) {
-      setSelectedClient(client);
+  if (client) {
+    setSelectedClient(client);
 
-      const fullAddress = [
-        client.address?.houseNumber,
-        client.address?.street,
-        client.address?.barangay,
-        client.address?.city,
-        client.address?.province,
-        client.address?.region
-      ].filter(Boolean).join(', ');
+    const fullAddress = [
+      client.address?.houseNumber,
+      client.address?.street,
+      client.address?.barangay,
+      client.address?.city,
+      client.address?.province,
+      client.address?.region
+    ].filter(Boolean).join(', ');
 
-      setFormData(prev => ({
-        ...prev,
-        customerEstablishmentName: selectedBranch,
-        destinationAddress: fullAddress || cleanCityName(client.address?.city || "")
-      }));
+    setFormData(prev => ({
+      ...prev,
+      customerEstablishmentName: selectedBranch,
+      destinationAddress: fullAddress || cleanCityName(client.address?.city || "")
+    }));
 
-      // Update SelectedBranches Single Trips
-      setSelectedBranches([{
+    // Update selectedBranches for single trips
+    setSelectedBranches(prev => {
+      const updated = [{
+        ...prev[0],
         branch: selectedBranch,
-        address: fullAddress || cleanCityName(client.address?.city || ""),
-        productName: formData.productName,
-        numberOfPackages: formData.numberOfPackages,
-        unitPerPackage: formData.unitPerPackage,
-        quantity: formData.quantity,
-        grossWeight: formData.grossWeight,
-        key: Date.now()
-      }]);
-    }
-  };
+        address: fullAddress || cleanCityName(client.address?.city || "")
+      }];
+      console.log('🔄 Updated selectedBranches from branch change:', updated);
+      return updated;
+    });
+  }
+};
 
   const handleEmployeeChange = (index, employeeId) => {
     const newEmployeeAssigned = [...formData.employeeAssigned];
@@ -641,8 +664,8 @@ function Booking() {
 
   try {
     console.log('🚀 Starting booking submission process...');
-    console.log('📝 Current formData:', formData);
-    console.log('📍 Current selectedBranches:', selectedBranches);
+    console.log('📝 Current formData:', JSON.stringify(formData, null, 2));
+    console.log('📍 Current selectedBranches:', JSON.stringify(selectedBranches, null, 2));
     console.log('🔄 Trip type:', tripType);
 
     // Build destinationDeliveries based on trip type
@@ -682,217 +705,180 @@ function Booking() {
         }
       }
 
-    const handleSubmit = async (e) => {
-      if (e) e.preventDefault();
+      destinationDeliveries = selectedBranches.map((branch, index) => ({
+        customerEstablishmentName: branch.branch,
+        destinationAddress: branch.address,
+        destinationIndex: index,
+        productName: branch.productName,
+        quantity: parseInt(branch.quantity) || 0,
+        grossWeight: parseFloat(branch.grossWeight) || 0,
+        unitPerPackage: parseInt(branch.unitPerPackage) || 0,
+        numberOfPackages: parseInt(branch.numberOfPackages) || 0,
+        status: 'pending'
+      }));
+    } else {
+      // Single trip - use formData as primary source, fallback to selectedBranches
+      console.log('🎯 Processing single destination...');
+      
+      const customerName = formData.customerEstablishmentName || selectedBranches[0]?.branch || '';
+      const destAddress = formData.destinationAddress || selectedBranches[0]?.address || '';
+      const prodName = formData.productName || selectedBranches[0]?.productName || '';
+      const numPackages = formData.numberOfPackages || selectedBranches[0]?.numberOfPackages || '';
+      const unitsPer = formData.unitPerPackage || selectedBranches[0]?.unitPerPackage || '';
+      const qty = formData.quantity || selectedBranches[0]?.quantity || '';
+      const weight = formData.grossWeight || selectedBranches[0]?.grossWeight || '';
 
-      if (currentStep !== 2) {
+      console.log('🔍 Single trip values:', {
+        customerName,
+        destAddress,
+        prodName,
+        numPackages,
+        unitsPer,
+        qty,
+        weight
+      });
+
+      // Validation
+      if (!customerName || customerName.trim() === '') {
+        alert('Please select a customer/establishment.');
+        return;
+      }
+      if (!destAddress || destAddress.trim() === '') {
+        alert('Please ensure destination address is populated.');
+        return;
+      }
+      if (!prodName || prodName.trim() === '') {
+        alert('Please fill in Product Name.');
+        return;
+      }
+      if (!numPackages || parseInt(numPackages) <= 0) {
+        alert('Please enter a valid number of packages.');
+        return;
+      }
+      if (!unitsPer || parseInt(unitsPer) <= 0) {
+        alert('Please enter valid units per package.');
+        return;
+      }
+      if (!weight || parseFloat(weight) <= 0) {
+        alert('Please enter a valid gross weight.');
         return;
       }
 
-      try {
-        // Build destinationDeliveries based on trip type
-        let destinationDeliveries = [];
-
-        if (tripType === 'multiple') {
-          // Validate multiple destinations
-          for (let i = 0; i < selectedBranches.length; i++) {
-            const branch = selectedBranches[i];
-            if (!branch.branch || branch.branch.trim() === '') {
-              alert(`Please select a branch for Stop ${i + 1}`);
-              return;
-            }
-            if (!branch.address || branch.address.trim() === '') {
-              alert(`Please ensure destination address is populated for Stop ${i + 1}`);
-              return;
-            }
-            if (!branch.productName || branch.productName.trim() === '') {
-              alert(`Please fill in Product Name for Stop ${i + 1}`);
-              return;
-            }
-            if (!branch.numberOfPackages || parseInt(branch.numberOfPackages) <= 0) {
-              alert(`Please fill in valid Number of Packages for Stop ${i + 1}`);
-              return;
-            }
-            if (!branch.unitPerPackage || parseInt(branch.unitPerPackage) <= 0) {
-              alert(`Please fill in valid Units per Package for Stop ${i + 1}`);
-              return;
-            }
-            if (!branch.grossWeight || parseFloat(branch.grossWeight) <= 0) {
-              alert(`Please fill in valid Gross Weight for Stop ${i + 1}`);
-              return;
-            }
-          }
-
-          destinationDeliveries = selectedBranches.map((branch, index) => ({
-            customerEstablishmentName: branch.branch,
-            destinationAddress: branch.address,
-            destinationIndex: index,
-            typeOfOrder: 'Delivery',
-            productName: branch.productName,
-            quantity: parseInt(branch.quantity) || 0,
-            grossWeight: parseFloat(branch.grossWeight) || 0,
-            unitPerPackage: parseInt(branch.unitPerPackage) || 0,
-            numberOfPackages: parseInt(branch.numberOfPackages) || 0,
-            status: 'pending'
-          }));
-        } else {
-          // Single trip validation
-          if (!formData.customerEstablishmentName || formData.customerEstablishmentName.trim() === '') {
-            alert('Please select a customer/establishment.');
-            return;
-          }
-          if (!formData.destinationAddress || formData.destinationAddress.trim() === '') {
-            alert('Please ensure destination address is populated.');
-            return;
-          }
-          if (!formData.productName || formData.productName.trim() === '') {
-            alert('Please fill in Product Name.');
-            return;
-          }
-          if (!formData.numberOfPackages || parseInt(formData.numberOfPackages) <= 0) {
-            alert('Please enter a valid number of packages.');
-            return;
-          }
-          if (!formData.unitPerPackage || parseInt(formData.unitPerPackage) <= 0) {
-            alert('Please enter valid units per package.');
-            return;
-          }
-          if (!formData.grossWeight || parseFloat(formData.grossWeight) <= 0) {
-            alert('Please enter a valid gross weight.');
-            return;
-          }
-
-          // For single trip, create destinationDeliveries from formData
-          destinationDeliveries = [
-            {
-              customerEstablishmentName: formData.customerEstablishmentName,
-              destinationAddress: formData.destinationAddress,
-              destinationIndex: 0,
-              typeOfOrder: 'Delivery',
-              productName: formData.productName,
-              quantity: parseInt(formData.quantity) || 0,
-              grossWeight: parseFloat(formData.grossWeight) || 0,
-              unitPerPackage: parseInt(formData.unitPerPackage) || 0,
-              numberOfPackages: parseInt(formData.numberOfPackages) || 0,
-              status: 'pending'
-            }
-          ];
+      destinationDeliveries = [
+        {
+          customerEstablishmentName: customerName,
+          destinationAddress: destAddress,
+          destinationIndex: 0,
+          productName: prodName,
+          quantity: parseInt(qty) || 0,
+          grossWeight: parseFloat(weight) || 0,
+          unitPerPackage: parseInt(unitsPer) || 0,
+          numberOfPackages: parseInt(numPackages) || 0,
+          status: 'pending'
         }
+      ];
+    }
 
-        // Common validation for both trip types
-        if (!formData.vehicleId || formData.vehicleId.trim() === '') {
-          alert('Please select a vehicle.');
-          return;
-        }
+    console.log('📦 Final destinationDeliveries:', JSON.stringify(destinationDeliveries, null, 2));
 
-        if (!formData.plateNumber || formData.plateNumber.trim() === '') {
-          alert('⚠️ Plate number is missing! Please go back to Step 1 and reselect the vehicle.');
-          return;
-        }
+    // Common validation for both trip types
+    if (!formData.vehicleId || formData.vehicleId.trim() === '') {
+      alert('Please select a vehicle.');
+      return;
+    }
 
-        const requiredFields = {
-          deliveryFee: 'Delivery Fee',
-          companyName: 'Company Name',
-          shipperConsignorName: 'Shipper/Consignor',
-          originAddress: 'Origin Address',
-          vehicleId: 'Vehicle',
-          vehicleType: 'Vehicle Type',
-          dateNeeded: 'Date Needed',
-          timeNeeded: 'Time Needed'
-        };
+    if (!formData.plateNumber || formData.plateNumber.trim() === '') {
+      alert('⚠️ Plate number is missing! Please go back to Step 1 and reselect the vehicle.');
+      return;
+    }
 
-        for (const [field, label] of Object.entries(requiredFields)) {
-          if (!formData[field] || formData[field].toString().trim() === '') {
-            alert(`Please fill in the ${label} field.`);
-            return;
-          }
-        }
-
-        const validEmployees = formData.employeeAssigned.filter(emp => emp && emp.trim() !== "");
-        if (validEmployees.length === 0) {
-          alert('Please assign at least one employee.');
-          return;
-        }
-
-        if (isNaN(formData.deliveryFee) || parseFloat(formData.deliveryFee) <= 0) {
-          alert('Please enter a valid delivery fee.');
-          return;
-        }
-
-        const selectedDate = new Date(formData.dateNeeded);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        if (selectedDate < today) {
-          alert('Please select a date that is today or in the future.');
-          return;
-        }
-
-        // SIMPLIFIED: Only use destinationDeliveries array
-        const submitData = {
-          // Basic booking info
-          companyName: formData.companyName,
-          shipperConsignorName: formData.shipperConsignorName,
-          originAddress: formData.originAddress,
-          
-          // Trip configuration
-          tripType: tripType,
-          numberOfStops: tripType === 'multiple' ? selectedBranches.length : 1,
-          
-          // Single source of truth for all delivery data
-          destinationDeliveries: destinationDeliveries,
-          
-          // Financial
-          deliveryFee: parseFloat(formData.deliveryFee) || 0,
-          
-          // Vehicle info
-          vehicleId: formData.vehicleId,
-          vehicleType: formData.vehicleType,
-          plateNumber: formData.plateNumber,
-          
-          // Scheduling
-          dateNeeded: new Date(formData.dateNeeded),
-          timeNeeded: formData.timeNeeded,
-          
-          // Staff assignment
-          employeeAssigned: Array.isArray(formData.employeeAssigned)
-            ? formData.employeeAssigned.filter(emp => emp !== "")
-            : [formData.employeeAssigned].filter(emp => emp !== ""),
-          roleOfEmployee: Array.isArray(formData.roleOfEmployee)
-            ? formData.roleOfEmployee.filter(role => role !== "")
-            : [formData.roleOfEmployee].filter(role => role !== ""),
-          
-          // Location data
-          originAddressDetails: originAddressDetails,
-          latitude: formData.latitude || null,
-          longitude: formData.longitude || null
-        };
-
-        console.log('📤 Simplified Submit Data:', JSON.stringify(submitData, null, 2));
-
-        if (editBooking) {
-          await axiosClient.put(
-            `/api/bookings/${editBooking._id}`,
-            submitData
-          );
-          alert('Booking updated successfully!');
-        } else {
-          await axiosClient.post("/api/bookings", submitData);
-          alert('Booking created successfully!');
-        }
-        closeModal();
-        fetchBookings();
-      } catch (err) {
-        console.error("Error:", err);
-        console.error("Error response:", err.response?.data);
-
-        if (err.response?.data?.message) {
-          alert(`Error: ${err.response.data.message}`);
-        } else {
-          alert("Error adding/updating booking. Please try again.");
-        }
-      }
+    const requiredFields = {
+      deliveryFee: 'Delivery Fee',
+      companyName: 'Company Name',
+      shipperConsignorName: 'Shipper/Consignor',
+      originAddress: 'Origin Address',
+      vehicleId: 'Vehicle',
+      vehicleType: 'Vehicle Type',
+      dateNeeded: 'Date Needed',
+      timeNeeded: 'Time Needed'
     };
+
+    for (const [field, label] of Object.entries(requiredFields)) {
+      if (!formData[field] || formData[field].toString().trim() === '') {
+        alert(`Please fill in the ${label} field.`);
+        return;
+      }
+    }
+
+    const validEmployees = formData.employeeAssigned.filter(emp => emp && emp.trim() !== "");
+    if (validEmployees.length === 0) {
+      alert('Please assign at least one employee.');
+      return;
+    }
+
+    if (isNaN(formData.deliveryFee) || parseFloat(formData.deliveryFee) <= 0) {
+      alert('Please enter a valid delivery fee.');
+      return;
+    }
+
+    const selectedDate = new Date(formData.dateNeeded);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (selectedDate < today) {
+      alert('Please select a date that is today or in the future.');
+      return;
+    }
+
+    // Build submit data
+    const submitData = {
+      companyName: formData.companyName,
+      shipperConsignorName: formData.shipperConsignorName,
+      originAddress: formData.originAddress,
+      tripType: tripType,
+      numberOfStops: tripType === 'multiple' ? selectedBranches.length : 1,
+      destinationDeliveries: destinationDeliveries,
+      deliveryFee: parseFloat(formData.deliveryFee) || 0,
+      vehicleId: formData.vehicleId,
+      vehicleType: formData.vehicleType,
+      plateNumber: formData.plateNumber,
+      dateNeeded: new Date(formData.dateNeeded),
+      timeNeeded: formData.timeNeeded,
+      employeeAssigned: Array.isArray(formData.employeeAssigned)
+        ? formData.employeeAssigned.filter(emp => emp !== "")
+        : [formData.employeeAssigned].filter(emp => emp !== ""),
+      roleOfEmployee: Array.isArray(formData.roleOfEmployee)
+        ? formData.roleOfEmployee.filter(role => role !== "")
+        : [formData.roleOfEmployee].filter(role => role !== ""),
+      latitude: formData.latitude || null,
+      longitude: formData.longitude || null
+    };
+
+    console.log('📤 Final Submit Data:', JSON.stringify(submitData, null, 2));
+
+    if (editBooking) {
+      await axiosClient.put(
+        `/api/bookings/${editBooking._id}`,
+        submitData
+      );
+      alert('Booking updated successfully!');
+    } else {
+      await axiosClient.post("/api/bookings", submitData);
+      alert('Booking created successfully!');
+    }
+    closeModal();
+    fetchBookings();
+  } catch (err) {
+    console.error("❌ Error:", err);
+    console.error("❌ Error response:", err.response?.data);
+
+    if (err.response?.data?.message) {
+      alert(`Error: ${err.response.data.message}`);
+    } else {
+      alert("Error adding/updating booking. Please try again.");
+    }
+  }
+};
 
 useEffect(() => {
   if (showModal) {

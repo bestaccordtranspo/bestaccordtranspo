@@ -612,118 +612,29 @@ function Booking() {
     }
   };
 
-  const const handleSubmit = async (e) => {
+ const handleSubmit = async (e) => {
   if (e) e.preventDefault();
 
   if (currentStep !== 2) {
     return;
   }
 
-  // Trip-specific validation
-  if (tripType === 'multiple') {
-    const emptyBranches = selectedBranches.filter(branch => !branch.branch.trim());
-    if (emptyBranches.length > 0) {
-      alert('Please select a branch for all destinations.');
-      return;
-    }
-
-    const emptyAddresses = selectedBranches.filter(branch => !branch.address.trim());
-    if (emptyAddresses.length > 0) {
-      alert('Some selected branches have missing address information.');
-      return;
-    }
-  } else {
-    // Single trip validation
-    if (!formData.customerEstablishmentName || formData.customerEstablishmentName.trim() === '') {
-      alert('Please select a customer/establishment.');
-      return;
-    }
-    if (!formData.destinationAddress || formData.destinationAddress.trim() === '') {
-      alert('Please ensure destination address is populated.');
-      return;
-    }
-  }
-
-  if (!formData.vehicleId || formData.vehicleId.trim() === '') {
-    alert('Please select a vehicle.');
-    return;
-  }
-
-  // Extra check for plateNumber
-  if (!formData.plateNumber || formData.plateNumber.trim() === '') {
-    alert('⚠️ Plate number is missing! Please go back to Step 1 and reselect the vehicle.');
-    console.error("Missing plateNumber in formData:", formData);
-    return;
-  }
-
-  const requiredFields = {
-    productName: 'Product Name',
-    numberOfPackages: 'Number of Packages',
-    unitPerPackage: 'Units per Package',
-    grossWeight: 'Gross Weight',
-    deliveryFee: 'Delivery Fee',
-    companyName: 'Company Name',
-    shipperConsignorName: 'Shipper/Consignor',
-    originAddress: 'Origin Address',
-    vehicleId: 'Vehicle',
-    vehicleType: 'Vehicle Type',
-    dateNeeded: 'Date Needed',
-    timeNeeded: 'Time Needed'
-  };
-
-  for (const [field, label] of Object.entries(requiredFields)) {
-    if (!formData[field] || formData[field].toString().trim() === '') {
-      alert(`Please fill in the ${label} field.`);
-      return;
-    }
-  }
-
-  const validEmployees = formData.employeeAssigned.filter(emp => emp && emp.trim() !== "");
-  if (validEmployees.length === 0) {
-    alert('Please assign at least one employee.');
-    return;
-  }
-
-  const validRoles = formData.roleOfEmployee.filter(role => role && role.trim() !== "");
-  if (validRoles.length !== validEmployees.length) {
-    alert('All assigned employees must have roles.');
-    return;
-  }
-
-  if (isNaN(formData.numberOfPackages) || parseInt(formData.numberOfPackages) <= 0) {
-    alert('Please enter a valid number of packages.');
-    return;
-  }
-  if (isNaN(formData.unitPerPackage) || parseInt(formData.unitPerPackage) <= 0) {
-    alert('Please enter valid units per package.');
-    return;
-  }
-  if (isNaN(formData.grossWeight) || parseFloat(formData.grossWeight) <= 0) {
-    alert('Please enter a valid gross weight.');
-    return;
-  }
-  if (isNaN(formData.deliveryFee) || parseFloat(formData.deliveryFee) <= 0) {
-    alert('Please enter a valid delivery fee.');
-    return;
-  }
-
-  const selectedDate = new Date(formData.dateNeeded);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  if (selectedDate < today) {
-    alert('Please select a date that is today or in the future.');
-    return;
-  }
-
   try {
-    // Build destinationDeliveries correctly for single vs multiple trips
-    let destinationDeliveries;
-    
+    // Build destinationDeliveries based on trip type
+    let destinationDeliveries = [];
+
     if (tripType === 'multiple') {
       // Validate multiple destinations
       for (let i = 0; i < selectedBranches.length; i++) {
         const branch = selectedBranches[i];
+        if (!branch.branch || branch.branch.trim() === '') {
+          alert(`Please select a branch for Stop ${i + 1}`);
+          return;
+        }
+        if (!branch.address || branch.address.trim() === '') {
+          alert(`Please ensure destination address is populated for Stop ${i + 1}`);
+          return;
+        }
         if (!branch.productName || branch.productName.trim() === '') {
           alert(`Please fill in Product Name for Stop ${i + 1}`);
           return;
@@ -746,7 +657,7 @@ function Booking() {
         customerEstablishmentName: branch.branch,
         destinationAddress: branch.address,
         destinationIndex: index,
-        typeOfOrder: branch.typeOfOrder || 'Delivery',
+        typeOfOrder: 'Delivery',
         productName: branch.productName,
         quantity: parseInt(branch.quantity) || 0,
         grossWeight: parseFloat(branch.grossWeight) || 0,
@@ -755,7 +666,33 @@ function Booking() {
         status: 'pending'
       }));
     } else {
-      // Single trip - use formData directly
+      // Single trip validation
+      if (!formData.customerEstablishmentName || formData.customerEstablishmentName.trim() === '') {
+        alert('Please select a customer/establishment.');
+        return;
+      }
+      if (!formData.destinationAddress || formData.destinationAddress.trim() === '') {
+        alert('Please ensure destination address is populated.');
+        return;
+      }
+      if (!formData.productName || formData.productName.trim() === '') {
+        alert('Please fill in Product Name.');
+        return;
+      }
+      if (!formData.numberOfPackages || parseInt(formData.numberOfPackages) <= 0) {
+        alert('Please enter a valid number of packages.');
+        return;
+      }
+      if (!formData.unitPerPackage || parseInt(formData.unitPerPackage) <= 0) {
+        alert('Please enter valid units per package.');
+        return;
+      }
+      if (!formData.grossWeight || parseFloat(formData.grossWeight) <= 0) {
+        alert('Please enter a valid gross weight.');
+        return;
+      }
+
+      // For single trip, create destinationDeliveries from formData
       destinationDeliveries = [
         {
           customerEstablishmentName: formData.customerEstablishmentName,
@@ -772,22 +709,70 @@ function Booking() {
       ];
     }
 
-    const destinationData = {
-      customerEstablishmentName: tripType === 'multiple'
-        ? selectedBranches.map(b => b.branch).join(' | ')
-        : formData.customerEstablishmentName,
-      destinationAddress: tripType === 'multiple'
-        ? selectedBranches.map(b => b.address)
-        : [formData.destinationAddress],
-      tripType: tripType,
-      numberOfStops: tripType === 'multiple' ? selectedBranches.length : 1,
-      destinationDeliveries: destinationDeliveries
+    // Common validation for both trip types
+    if (!formData.vehicleId || formData.vehicleId.trim() === '') {
+      alert('Please select a vehicle.');
+      return;
+    }
+
+    if (!formData.plateNumber || formData.plateNumber.trim() === '') {
+      alert('⚠️ Plate number is missing! Please go back to Step 1 and reselect the vehicle.');
+      return;
+    }
+
+    const requiredFields = {
+      deliveryFee: 'Delivery Fee',
+      companyName: 'Company Name',
+      shipperConsignorName: 'Shipper/Consignor',
+      originAddress: 'Origin Address',
+      vehicleId: 'Vehicle',
+      vehicleType: 'Vehicle Type',
+      dateNeeded: 'Date Needed',
+      timeNeeded: 'Time Needed'
     };
 
+    for (const [field, label] of Object.entries(requiredFields)) {
+      if (!formData[field] || formData[field].toString().trim() === '') {
+        alert(`Please fill in the ${label} field.`);
+        return;
+      }
+    }
+
+    const validEmployees = formData.employeeAssigned.filter(emp => emp && emp.trim() !== "");
+    if (validEmployees.length === 0) {
+      alert('Please assign at least one employee.');
+      return;
+    }
+
+    if (isNaN(formData.deliveryFee) || parseFloat(formData.deliveryFee) <= 0) {
+      alert('Please enter a valid delivery fee.');
+      return;
+    }
+
+    const selectedDate = new Date(formData.dateNeeded);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (selectedDate < today) {
+      alert('Please select a date that is today or in the future.');
+      return;
+    }
+
+    // Prepare the final submission data according to your schema
     const submitData = {
-      ...formData,
-      ...destinationData,
-      // For single trips, keep the original product details at the top level
+      // Basic booking info
+      companyName: formData.companyName,
+      shipperConsignorName: formData.shipperConsignorName,
+      originAddress: formData.originAddress,
+      
+      // Trip configuration
+      tripType: tripType,
+      numberOfStops: tripType === 'multiple' ? selectedBranches.length : 1,
+      
+      // Destination deliveries (required by schema)
+      destinationDeliveries: destinationDeliveries,
+      
+      // Legacy fields (will be auto-populated by pre-save middleware for single trips)
       productName: tripType === 'multiple' ? selectedBranches[0]?.productName : formData.productName,
       quantity: tripType === 'multiple' 
         ? parseInt(selectedBranches[0]?.quantity) || 0 
@@ -801,23 +786,55 @@ function Booking() {
       numberOfPackages: tripType === 'multiple'
         ? parseInt(selectedBranches[0]?.numberOfPackages) || 0
         : parseInt(formData.numberOfPackages) || 0,
+      customerEstablishmentName: tripType === 'multiple'
+        ? selectedBranches.map(b => b.branch).join(' | ')
+        : formData.customerEstablishmentName,
+      destinationAddress: tripType === 'multiple'
+        ? selectedBranches.map(b => b.address)
+        : [formData.destinationAddress],
+      
+      // Financial
       deliveryFee: parseFloat(formData.deliveryFee) || 0,
+      
+      // Vehicle info
+      vehicleId: formData.vehicleId,
+      vehicleType: formData.vehicleType,
+      plateNumber: formData.plateNumber,
+      
+      // Scheduling
+      dateNeeded: new Date(formData.dateNeeded),
+      timeNeeded: formData.timeNeeded,
+      
+      // Staff assignment
       employeeAssigned: Array.isArray(formData.employeeAssigned)
         ? formData.employeeAssigned.filter(emp => emp !== "")
         : [formData.employeeAssigned].filter(emp => emp !== ""),
       roleOfEmployee: Array.isArray(formData.roleOfEmployee)
         ? formData.roleOfEmployee.filter(role => role !== "")
         : [formData.roleOfEmployee].filter(role => role !== ""),
+      
+      // Location data
       originAddressDetails: originAddressDetails,
+      latitude: formData.latitude || null,
+      longitude: formData.longitude || null
     };
 
-    // Debug log to verify the data structure BEFORE sending
-    console.log('📤 FINAL Submit Data:', {
-      destinationDeliveries: submitData.destinationDeliveries,
-      tripType: submitData.tripType,
-      customerEstablishmentName: submitData.customerEstablishmentName
-    });
+    // Debug log to verify the data structure
+    console.log('📤 DESTINATION DELIVERIES:', destinationDeliveries);
     console.log('📤 COMPLETE Submit Data:', JSON.stringify(submitData, null, 2));
+
+    // Validate that destinationDeliveries has all required fields
+    const invalidDeliveries = destinationDeliveries.filter(delivery => 
+      !delivery.customerEstablishmentName || 
+      !delivery.destinationAddress || 
+      !delivery.productName
+    );
+
+    if (invalidDeliveries.length > 0) {
+      console.error('Invalid destination deliveries:', invalidDeliveries);
+      alert('Some destination deliveries are missing required fields. Please check the form.');
+      return;
+    }
 
     if (editBooking) {
       await axiosClient.put(

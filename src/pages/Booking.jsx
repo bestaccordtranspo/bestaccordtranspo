@@ -620,13 +620,22 @@ function Booking() {
   }
 
   try {
+    console.log('🚀 Starting booking submission process...');
+    console.log('📝 Current formData:', formData);
+    console.log('📍 Current selectedBranches:', selectedBranches);
+    console.log('🔄 Trip type:', tripType);
+
     // Build destinationDeliveries based on trip type
     let destinationDeliveries = [];
 
     if (tripType === 'multiple') {
+      console.log('🛣️ Processing multiple destinations...');
+      
       // Validate multiple destinations
       for (let i = 0; i < selectedBranches.length; i++) {
         const branch = selectedBranches[i];
+        console.log(`🔍 Validating branch ${i + 1}:`, branch);
+        
         if (!branch.branch || branch.branch.trim() === '') {
           alert(`Please select a branch for Stop ${i + 1}`);
           return;
@@ -653,19 +662,34 @@ function Booking() {
         }
       }
 
-      destinationDeliveries = selectedBranches.map((branch, index) => ({
-        customerEstablishmentName: branch.branch,
-        destinationAddress: branch.address,
-        destinationIndex: index,
-        typeOfOrder: 'Delivery',
-        productName: branch.productName,
-        quantity: parseInt(branch.quantity) || 0,
-        grossWeight: parseFloat(branch.grossWeight) || 0,
-        unitPerPackage: parseInt(branch.unitPerPackage) || 0,
-        numberOfPackages: parseInt(branch.numberOfPackages) || 0,
-        status: 'pending'
-      }));
+      destinationDeliveries = selectedBranches.map((branch, index) => {
+        const delivery = {
+          customerEstablishmentName: branch.branch,
+          destinationAddress: branch.address,
+          destinationIndex: index,
+          typeOfOrder: 'Delivery',
+          productName: branch.productName,
+          quantity: parseInt(branch.quantity) || 0,
+          grossWeight: parseFloat(branch.grossWeight) || 0,
+          unitPerPackage: parseInt(branch.unitPerPackage) || 0,
+          numberOfPackages: parseInt(branch.numberOfPackages) || 0,
+          status: 'pending'
+        };
+        console.log(`✅ Built delivery for stop ${index + 1}:`, delivery);
+        return delivery;
+      });
     } else {
+      console.log('📍 Processing single destination...');
+      console.log('📋 Single trip formData:', {
+        customerEstablishmentName: formData.customerEstablishmentName,
+        destinationAddress: formData.destinationAddress,
+        productName: formData.productName,
+        quantity: formData.quantity,
+        grossWeight: formData.grossWeight,
+        unitPerPackage: formData.unitPerPackage,
+        numberOfPackages: formData.numberOfPackages
+      });
+
       // Single trip validation
       if (!formData.customerEstablishmentName || formData.customerEstablishmentName.trim() === '') {
         alert('Please select a customer/establishment.');
@@ -707,6 +731,22 @@ function Booking() {
           status: 'pending'
         }
       ];
+      console.log('✅ Built single trip delivery:', destinationDeliveries[0]);
+    }
+
+    console.log('📦 Final destinationDeliveries:', destinationDeliveries);
+
+    // Validate that destinationDeliveries has all required fields
+    const invalidDeliveries = destinationDeliveries.filter(delivery => 
+      !delivery.customerEstablishmentName || 
+      !delivery.destinationAddress || 
+      !delivery.productName
+    );
+
+    if (invalidDeliveries.length > 0) {
+      console.error('❌ Invalid destination deliveries:', invalidDeliveries);
+      alert('Some destination deliveries are missing required fields. Please check the form.');
+      return;
     }
 
     // Common validation for both trip types
@@ -758,7 +798,7 @@ function Booking() {
       return;
     }
 
-    // Prepare the final submission data according to your schema
+    // Prepare the final submission data
     const submitData = {
       // Basic booking info
       companyName: formData.companyName,
@@ -769,10 +809,10 @@ function Booking() {
       tripType: tripType,
       numberOfStops: tripType === 'multiple' ? selectedBranches.length : 1,
       
-      // Destination deliveries (required by schema)
+      // Destination deliveries (CRITICAL - this must be populated)
       destinationDeliveries: destinationDeliveries,
       
-      // Legacy fields (will be auto-populated by pre-save middleware for single trips)
+      // Legacy fields
       productName: tripType === 'multiple' ? selectedBranches[0]?.productName : formData.productName,
       quantity: tripType === 'multiple' 
         ? parseInt(selectedBranches[0]?.quantity) || 0 
@@ -819,22 +859,29 @@ function Booking() {
       longitude: formData.longitude || null
     };
 
-    // Debug log to verify the data structure
-    console.log('📤 DESTINATION DELIVERIES:', destinationDeliveries);
-    console.log('📤 COMPLETE Submit Data:', JSON.stringify(submitData, null, 2));
+    // CRITICAL: Double-check the destinationDeliveries in submitData
+    console.log('🔍 FINAL CHECK - destinationDeliveries in submitData:', submitData.destinationDeliveries);
+    console.log('🔍 FINAL CHECK - First delivery object:', submitData.destinationDeliveries[0]);
+    console.log('🔍 FINAL CHECK - Required fields check:', {
+      customerEstablishmentName: !!submitData.destinationDeliveries[0]?.customerEstablishmentName,
+      destinationAddress: !!submitData.destinationDeliveries[0]?.destinationAddress,
+      productName: !!submitData.destinationDeliveries[0]?.productName
+    });
 
-    // Validate that destinationDeliveries has all required fields
-    const invalidDeliveries = destinationDeliveries.filter(delivery => 
-      !delivery.customerEstablishmentName || 
-      !delivery.destinationAddress || 
-      !delivery.productName
+    // Final validation before sending
+    const finalValidation = submitData.destinationDeliveries.every(delivery => 
+      delivery.customerEstablishmentName && 
+      delivery.destinationAddress && 
+      delivery.productName
     );
 
-    if (invalidDeliveries.length > 0) {
-      console.error('Invalid destination deliveries:', invalidDeliveries);
-      alert('Some destination deliveries are missing required fields. Please check the form.');
+    if (!finalValidation) {
+      console.error('❌ FINAL VALIDATION FAILED:', submitData.destinationDeliveries);
+      alert('Critical error: Destination deliveries are not properly formatted. Please contact support.');
       return;
     }
+
+    console.log('📤 Sending submitData to server:', JSON.stringify(submitData, null, 2));
 
     if (editBooking) {
       await axiosClient.put(
@@ -849,8 +896,12 @@ function Booking() {
     closeModal();
     fetchBookings();
   } catch (err) {
-    console.error("Full error object:", err);
-    console.error("Error response:", err.response?.data);
+    console.error("💥 Full error object:", err);
+    console.error("💥 Error response:", err.response?.data);
+
+    if (err.response?.data?.errors) {
+      console.error("💥 Detailed validation errors:", err.response.data.errors);
+    }
 
     if (err.response?.data?.message) {
       alert(`Error: ${err.response.data.message}`);
@@ -863,6 +914,20 @@ function Booking() {
     }
   }
 };
+
+useEffect(() => {
+  if (showModal) {
+    console.log('🔍 MODAL OPEN - Current form state:', {
+      tripType,
+      formData: {
+        customerEstablishmentName: formData.customerEstablishmentName,
+        destinationAddress: formData.destinationAddress,
+        productName: formData.productName
+      },
+      selectedBranches: selectedBranches
+    });
+  }
+}, [showModal, tripType, formData.customerEstablishmentName, formData.destinationAddress, formData.productName, selectedBranches]);
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to archive this booking?")) return;

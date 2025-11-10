@@ -347,10 +347,6 @@ function Booking() {
         setMarkerPosition(null);
       }
 
-      const hasMultipleDestinations = Array.isArray(booking.destinationAddresses) && booking.destinationAddresses.length > 1;
-
-      setTripType(hasMultipleDestinations ? 'multiple' : 'single');
-
       if (booking.destinationDeliveries && booking.destinationDeliveries.length > 0) {
         setSelectedBranches(
           booking.destinationDeliveries.map((dest, index) => ({
@@ -386,7 +382,6 @@ function Booking() {
     } else {
       setEditBooking(null);
       setSelectedClient(null);
-      setTripType('single');
       setSelectedBranches([
       {
         branch: '',
@@ -464,24 +459,24 @@ function Booking() {
     return newFormData;
   });
   
-  // Sync with selectedBranches for single trips when product fields change
-  if (tripType === 'single') {
-    if (['productName', 'numberOfPackages', 'unitPerPackage', 'quantity', 'grossWeight'].includes(name)) {
-      setSelectedBranches(prev => {
-        const packages = name === 'numberOfPackages' ? parseInt(value) || 0 : parseInt(prev[0]?.numberOfPackages) || 0;
-        const units = name === 'unitPerPackage' ? parseInt(value) || 0 : parseInt(prev[0]?.unitPerPackage) || 0;
-        const calculatedQty = packages * units;
-
-        const updated = [{
-          ...prev[0],
-          [name]: value,
-          ...(name === 'numberOfPackages' || name === 'unitPerPackage' ? { quantity: calculatedQty } : {})
-        }];
-        console.log('🔄 Updated selectedBranches from product change:', updated);
-        return updated;
-      });
-    }
-  }
+  // REMOVE THIS ENTIRE SECTION - no need to sync with selectedBranches for single trips
+  // if (tripType === 'single') {
+  //   if (['productName', 'numberOfPackages', 'unitPerPackage', 'quantity', 'grossWeight'].includes(name)) {
+  //     setSelectedBranches(prev => {
+  //       const packages = name === 'numberOfPackages' ? parseInt(value) || 0 : parseInt(prev[0]?.numberOfPackages) || 0;
+  //       const units = name === 'unitPerPackage' ? parseInt(value) || 0 : parseInt(prev[0]?.unitPerPackage) || 0;
+  //       const calculatedQty = packages * units;
+  //
+  //       const updated = [{
+  //         ...prev[0],
+  //         [name]: value,
+  //         ...(name === 'numberOfPackages' || name === 'unitPerPackage' ? { quantity: calculatedQty } : {})
+  //       }];
+  //       console.log('🔄 Updated selectedBranches from product change:', updated);
+  //       return updated;
+  //     });
+  //   }
+  // }
   
   validateField(name, value);
 };
@@ -519,7 +514,7 @@ function Booking() {
       destinationAddress: fullAddress || cleanCityName(client.address?.city || "")
     }));
 
-    // Update selectedBranches for single trips
+    // Update selectedBranches
     setSelectedBranches(prev => {
       const updated = [{
         ...prev[0],
@@ -823,7 +818,6 @@ function Booking() {
 useEffect(() => {
   if (showModal) {
     console.log('🔍 MODAL OPEN - Current form state:', {
-      tripType,
       formData: {
         customerEstablishmentName: formData.customerEstablishmentName,
         destinationAddress: formData.destinationAddress,
@@ -1785,7 +1779,7 @@ useEffect(() => {
                           </div>
                         </div>
 
-                        <div className={`gap-4 mt-4 ${tripType === 'single' ? 'grid grid-cols-1 md:grid-cols-2' : ''}`}>
+                        <div className="gap-4 mt-4">
                           {/* Destinations Section - Always show multiple drop interface */}
 <div>
   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1955,134 +1949,7 @@ useEffect(() => {
   </div>
 </div>
 
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {tripType === 'single' ? 'Destination/To *' : 'Destinations Preview'}
-                            </label>
-
-                            {tripType === 'single' && (
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  Destination/To *
-                                </label>
-                                <input
-                                  type="text"
-                                  name="destinationAddress"
-                                  value={formData.destinationAddress}
-                                  readOnly
-                                  placeholder="Select branch first"
-                                  className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50/50"
-                                />
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Multiple Destinations Preview - Moved below destinations */}
-                          {tripType === 'multiple' && (
-                            <div className="mt-6">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Destinations Preview
-                              </label>
-                              <div className="space-y-2 max-h-60 overflow-y-auto p-3 bg-gray-50 rounded-xl border border-indigo-200">
-                                {selectedBranches.map((branchData, index) => (
-                                  <div key={branchData.key} className="text-sm">
-                                    <div className="font-medium text-gray-700">Stop {index + 1}: {branchData.branch || 'Not selected'}</div>
-                                    {branchData.address && (
-                                      <div className="text-xs text-gray-500 truncate">{branchData.address}</div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    // {tripType === 'single' && (
-                    // <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100">
-                    //   <h3 className="text-lg font-semibold text-gray-900 mb-4">Product Details</h3>
-                    //   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    //     <div>
-                    //       <label className="block text-sm font-medium text-gray-700 mb-2">Product Name *</label>
-                    //       <input
-                    //         type="text"
-                    //         name="productName"
-                    //         value={formData.productName}
-                    //         onChange={handleChange}
-                    //         placeholder="Tasty Boy"
-                    //         required
-                    //         className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                    //       />
-                    //     </div>
-                    //     <div>
-                    //       <label className="block text-sm font-medium text-gray-700 mb-2">Number of Packages *</label>
-                    //       <input
-                    //         type="number"
-                    //         name="numberOfPackages"
-                    //         value={formData.numberOfPackages}
-                    //         onChange={handleChange}
-                    //         required
-                    //         min="1"
-                    //         placeholder="10"
-                    //         className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                    //       />
-                    //     </div>
-                    //     <div>
-                    //       <label className="block text-sm font-medium text-gray-700 mb-2">Units per Package *</label>
-                    //       <input
-                    //         type="number"
-                    //         name="unitPerPackage"
-                    //         value={formData.unitPerPackage}
-                    //         onChange={handleChange}
-                    //         required
-                    //         min="1"
-                    //         placeholder="200"
-                    //         className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                    //       />
-                    //     </div>
-                    //   </div>
-                    //   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                    //     <div>
-                    //       <label className="block text-sm font-medium text-gray-700 mb-2">Quantity (Auto) *</label>
-                    //       <input
-                    //         type="number"
-                    //         name="quantity"
-                    //         value={formData.quantity}
-                    //         readOnly
-                    //         placeholder="Auto-calculated"
-                    //         className="w-full px-4 py-2.5 border border-purple-200 rounded-xl bg-purple-50/50"
-                    //       />
-                    //     </div>
-                    //     <div>
-                    //       <label className="block text-sm font-medium text-gray-700 mb-2">Gross Weight (tons) *</label>
-                    //       <input
-                    //         type="number"
-                    //         name="grossWeight"
-                    //         value={formData.grossWeight}
-                    //         onChange={handleChange}
-                    //         placeholder="5"
-                    //         required
-                    //         min="0.1"
-                    //         step="0.1"
-                    //         className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                    //       />
-                    //     </div>
-                    //     <div>
-                    //       <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Fee (PHP) *</label>
-                    //       <input
-                    //         type="number"
-                    //         name="deliveryFee"
-                    //         value={formData.deliveryFee}
-                    //         onChange={handleChange}
-                    //         required
-                    //         placeholder="10000"
-                    //         className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                    //       />
-                    //     </div>
-                    //   </div>
-                    // </div>
-                  )}
+                    
 
 
                   {/* Area Rate & Vehicle Info */}

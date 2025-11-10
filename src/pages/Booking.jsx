@@ -71,7 +71,7 @@ function Booking() {
     grossWeight: "",
     unitPerPackage: "",
     numberOfPackages: "",
-    deliveryFee: "",
+    // deliveryFee: "",
     companyName: "",
     shipperConsignorName: "",
     customerEstablishmentName: "",
@@ -325,7 +325,7 @@ function Booking() {
         grossWeight: booking.grossWeight,
         unitPerPackage: booking.unitPerPackage,
         numberOfPackages: booking.numberOfPackages,
-        deliveryFee: booking.deliveryFee,
+        // deliveryFee: booking.deliveryFee,
         companyName: booking.companyName,
         shipperConsignorName: booking.shipperConsignorName,
         customerEstablishmentName: booking.customerEstablishmentName || "",
@@ -400,7 +400,7 @@ function Booking() {
         grossWeight: "",
         unitPerPackage: "",
         numberOfPackages: "",
-        deliveryFee: "",
+        // deliveryFee: "",
         companyName: "",
         shipperConsignorName: "",
         customerEstablishmentName: "",
@@ -693,7 +693,7 @@ function Booking() {
     }
 
     const requiredFields = {
-      deliveryFee: 'Delivery Fee',
+      // deliveryFee: 'Delivery Fee',
       companyName: 'Company Name',
       shipperConsignorName: 'Shipper/Consignor',
       originAddress: 'Origin Address',
@@ -716,10 +716,10 @@ function Booking() {
       return;
     }
 
-    if (isNaN(formData.deliveryFee) || parseFloat(formData.deliveryFee) <= 0) {
-      alert('Please enter a valid delivery fee.');
-      return;
-    }
+    // if (isNaN(formData.deliveryFee) || parseFloat(formData.deliveryFee) <= 0) {
+    //   alert('Please enter a valid delivery fee.');
+    //   return;
+    // }
 
     const selectedDate = new Date(formData.dateNeeded);
     const today = new Date();
@@ -744,7 +744,7 @@ function Booking() {
       destinationDeliveries: destinationDeliveries,
       
       // Financial
-      deliveryFee: parseFloat(formData.deliveryFee) || 0,
+      // deliveryFee: parseFloat(formData.deliveryFee) || 0,
       
       // Vehicle info
       vehicleId: formData.vehicleId,
@@ -1838,7 +1838,7 @@ useEffect(() => {
 
                         <div>
                           <label className="block text-xs font-semibold text-gray-700 mb-1">
-                            Gross Weight (tons) *
+                            Gross Weight (KG) *
                           </label>
                           <input
                             type="number"

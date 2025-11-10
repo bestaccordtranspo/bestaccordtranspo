@@ -717,63 +717,46 @@ function Booking() {
         status: 'pending'
       }));
     } else {
-      // Single trip - use formData as primary source, fallback to selectedBranches
+      // Single trip - USE FORMDATA DIRECTLY (not selectedBranches)
       console.log('🎯 Processing single destination...');
       
-      const customerName = formData.customerEstablishmentName || selectedBranches[0]?.branch || '';
-      const destAddress = formData.destinationAddress || selectedBranches[0]?.address || '';
-      const prodName = formData.productName || selectedBranches[0]?.productName || '';
-      const numPackages = formData.numberOfPackages || selectedBranches[0]?.numberOfPackages || '';
-      const unitsPer = formData.unitPerPackage || selectedBranches[0]?.unitPerPackage || '';
-      const qty = formData.quantity || selectedBranches[0]?.quantity || '';
-      const weight = formData.grossWeight || selectedBranches[0]?.grossWeight || '';
-
-      console.log('🔍 Single trip values:', {
-        customerName,
-        destAddress,
-        prodName,
-        numPackages,
-        unitsPer,
-        qty,
-        weight
-      });
-
-      // Validation
-      if (!customerName || customerName.trim() === '') {
+      // Single trip validation
+      if (!formData.customerEstablishmentName || formData.customerEstablishmentName.trim() === '') {
         alert('Please select a customer/establishment.');
         return;
       }
-      if (!destAddress || destAddress.trim() === '') {
+      if (!formData.destinationAddress || formData.destinationAddress.trim() === '') {
         alert('Please ensure destination address is populated.');
         return;
       }
-      if (!prodName || prodName.trim() === '') {
+      if (!formData.productName || formData.productName.trim() === '') {
         alert('Please fill in Product Name.');
         return;
       }
-      if (!numPackages || parseInt(numPackages) <= 0) {
+      if (!formData.numberOfPackages || parseInt(formData.numberOfPackages) <= 0) {
         alert('Please enter a valid number of packages.');
         return;
       }
-      if (!unitsPer || parseInt(unitsPer) <= 0) {
+      if (!formData.unitPerPackage || parseInt(formData.unitPerPackage) <= 0) {
         alert('Please enter valid units per package.');
         return;
       }
-      if (!weight || parseFloat(weight) <= 0) {
+      if (!formData.grossWeight || parseFloat(formData.grossWeight) <= 0) {
         alert('Please enter a valid gross weight.');
         return;
       }
 
+      // For single trip, create destinationDeliveries from formData
       destinationDeliveries = [
         {
-          customerEstablishmentName: customerName,
-          destinationAddress: destAddress,
+          customerEstablishmentName: formData.customerEstablishmentName,
+          destinationAddress: formData.destinationAddress,
           destinationIndex: 0,
-          productName: prodName,
-          quantity: parseInt(qty) || 0,
-          grossWeight: parseFloat(weight) || 0,
-          unitPerPackage: parseInt(unitsPer) || 0,
-          numberOfPackages: parseInt(numPackages) || 0,
+          productName: formData.productName,
+          quantity: parseInt(formData.quantity) || 0,
+          grossWeight: parseFloat(formData.grossWeight) || 0,
+          unitPerPackage: parseInt(formData.unitPerPackage) || 0,
+          numberOfPackages: parseInt(formData.numberOfPackages) || 0,
           status: 'pending'
         }
       ];
@@ -830,31 +813,46 @@ function Booking() {
       return;
     }
 
-    // Build submit data
+    // SIMPLIFIED: Only use destinationDeliveries array
     const submitData = {
+      // Basic booking info
       companyName: formData.companyName,
       shipperConsignorName: formData.shipperConsignorName,
       originAddress: formData.originAddress,
+      
+      // Trip configuration
       tripType: tripType,
       numberOfStops: tripType === 'multiple' ? selectedBranches.length : 1,
+      
+      // Single source of truth for all delivery data
       destinationDeliveries: destinationDeliveries,
+      
+      // Financial
       deliveryFee: parseFloat(formData.deliveryFee) || 0,
+      
+      // Vehicle info
       vehicleId: formData.vehicleId,
       vehicleType: formData.vehicleType,
       plateNumber: formData.plateNumber,
+      
+      // Scheduling
       dateNeeded: new Date(formData.dateNeeded),
       timeNeeded: formData.timeNeeded,
+      
+      // Staff assignment
       employeeAssigned: Array.isArray(formData.employeeAssigned)
         ? formData.employeeAssigned.filter(emp => emp !== "")
         : [formData.employeeAssigned].filter(emp => emp !== ""),
       roleOfEmployee: Array.isArray(formData.roleOfEmployee)
         ? formData.roleOfEmployee.filter(role => role !== "")
         : [formData.roleOfEmployee].filter(role => role !== ""),
+      
+      // Location data
       latitude: formData.latitude || null,
       longitude: formData.longitude || null
     };
 
-    console.log('📤 Final Submit Data:', JSON.stringify(submitData, null, 2));
+    console.log('📤 Simplified Submit Data:', JSON.stringify(submitData, null, 2));
 
     if (editBooking) {
       await axiosClient.put(
@@ -869,8 +867,8 @@ function Booking() {
     closeModal();
     fetchBookings();
   } catch (err) {
-    console.error("❌ Error:", err);
-    console.error("❌ Error response:", err.response?.data);
+    console.error("Error:", err);
+    console.error("Error response:", err.response?.data);
 
     if (err.response?.data?.message) {
       alert(`Error: ${err.response.data.message}`);

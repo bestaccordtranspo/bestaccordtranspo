@@ -49,7 +49,7 @@ export default function DashboardLayout() {
       {/* Sidebar */}
       <div
         className={`${isSidebarCollapsed ? "w-20" : "w-72"
-          } bg-purple-950 text-white flex flex-col transition-all duration-300 ease-in-out shrink-0 relative shadow-2xl border-r border-slate-700`}
+          } fixed left-0 top-0 bottom-0 z-40 bg-purple-950 text-white flex flex-col transition-all duration-300 ease-in-out shrink-0 shadow-2xl border-r border-slate-700`}
       >
         {/* Subtle background pattern overlay */}
         <div className="absolute inset-0 pointer-events-none"></div>
@@ -229,7 +229,7 @@ export default function DashboardLayout() {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 min-w-0 bg-gray-50 transition-all duration-300">
+      <div className={`${isSidebarCollapsed ? "ml-20" : "ml-72"} flex-1 min-w-0 bg-gray-50 transition-all duration-300 h-screen overflow-auto`}>
         <div className="p-8">
           <Outlet />
         </div>

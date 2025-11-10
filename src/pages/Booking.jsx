@@ -717,26 +717,38 @@ function Booking() {
     }
 
     try {
-      const destinationAddresses = tripType === 'multiple'
-        ? selectedBranches.map(branch => branch.address).filter(addr => addr && addr.trim() !== '')
-        : [selectedBranches[0]?.address || formData.destinationAddress];
-
-      console.log('🔍 Selected Branches:', selectedBranches);
-      console.log('🔍 Destination Addresses Array:', destinationAddresses);
-      console.log('🔍 Trip Type:', tripType);
-
-      const destinationDeliveries = selectedBranches.map((branch, index) => ({
-        customerEstablishmentName: branch.branch,
-        destinationAddress: branch.address,
-        destinationIndex: index,
-        typeOfOrder: branch.typeOfOrder,
-        productName: branch.productName,
-        quantity: parseInt(branch.quantity) || 0,
-        grossWeight: parseFloat(branch.grossWeight) || 0,
-        unitPerPackage: parseInt(branch.unitPerPackage) || 0,
-        numberOfPackages: parseInt(branch.numberOfPackages) || 0,
-        status: 'pending'
-      }));
+      // Build destinationDeliveries correctly for single vs multiple trips
+      let destinationDeliveries;
+      if (tripType === 'multiple') {
+        destinationDeliveries = selectedBranches.map((branch, index) => ({
+          customerEstablishmentName: branch.branch,
+          destinationAddress: branch.address,
+          destinationIndex: index,
+          typeOfOrder: branch.typeOfOrder || 'Delivery',
+          productName: branch.productName,
+          quantity: parseInt(branch.quantity) || 0,
+          grossWeight: parseFloat(branch.grossWeight) || 0,
+          unitPerPackage: parseInt(branch.unitPerPackage) || 0,
+          numberOfPackages: parseInt(branch.numberOfPackages) || 0,
+          status: 'pending'
+        }));
+      } else {
+        // single trip: use top-level formData values to ensure required fields exist
+        destinationDeliveries = [
+          {
+            customerEstablishmentName: formData.customerEstablishmentName || selectedBranches[0]?.branch || '',
+            destinationAddress: formData.destinationAddress || selectedBranches[0]?.address || '',
+            destinationIndex: 0,
+            typeOfOrder: selectedBranches[0]?.typeOfOrder || 'Delivery',
+            productName: formData.productName || '',
+            quantity: parseInt(formData.quantity) || parseInt(selectedBranches[0]?.quantity) || 0,
+            grossWeight: parseFloat(formData.grossWeight) || parseFloat(selectedBranches[0]?.grossWeight) || 0,
+            unitPerPackage: parseInt(formData.unitPerPackage) || parseInt(selectedBranches[0]?.unitPerPackage) || 0,
+            numberOfPackages: parseInt(formData.numberOfPackages) || parseInt(selectedBranches[0]?.numberOfPackages) || 0,
+            status: 'pending'
+          }
+        ];
+      }
 
       const destinationData = {
         customerEstablishmentName: tripType === 'multiple'
@@ -2061,7 +2073,7 @@ function Booking() {
                             name="quantity"
                             value={formData.quantity}
                             readOnly
-                            placeholder="2000"
+                            placeholder="Auto-calculated"
                             className="w-full px-4 py-2.5 border border-purple-200 rounded-xl bg-purple-50/50"
                           />
                         </div>

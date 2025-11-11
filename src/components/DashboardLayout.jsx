@@ -118,7 +118,7 @@ export default function DashboardLayout() {
                   <div key={item.name} className={`relative ${isOpen ? "" : ""}`}>
                     <button
                       onClick={() => toggleDropdown(item.name)}
-                      className={`group flex items-center transition-all duration-300 rounded-xl ${isSidebarCollapsed ? "p-3 justify-center" : "p-4"
+                      className={`group flex items-center transition-all duration-300 rounded-xl w-full ${isSidebarCollapsed ? "p-3 justify-center" : "p-4"
                         } ${isOpen
                           ? "bg-purple-500 shadow-lg shadow-purple-500/25 text-white"
                           : "hover:bg-white/10 hover:shadow-lg hover:shadow-black/20 text-slate-300 hover:text-white"

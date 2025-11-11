@@ -971,7 +971,15 @@ useEffect(() => {
                   </td>
                   <td className="px-6 py-4 text-sm font-mono text-indigo-700 font-semibold">{booking.tripNumber}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">{booking.companyName}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{booking.productName}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {Array.isArray(booking.destinationDeliveries) && booking.destinationDeliveries.length > 0
+                      ? booking.destinationDeliveries
+                          .map(d => d.productName)
+                          .filter(Boolean)
+                          .join(", ")
+                      : (booking.productName || booking.destinationDeliveries?.[0]?.productName || "N/A")
+                    }
+                  </td>
                   <td className="px-6 py-4 text-sm text-gray-900">{getVehicleDisplayName(booking.vehicleType)}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">
                     {new Date(booking.dateNeeded).toLocaleDateString()}

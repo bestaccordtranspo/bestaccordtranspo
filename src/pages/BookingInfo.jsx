@@ -50,9 +50,15 @@ function BookingInfo() {
         );
     }
 
-    // Check if booking has multiple destinations
-    const isMultipleDestinations = Array.isArray(booking.destinationAddress) && booking.destinationAddress.length > 1;
-    const destinations = Array.isArray(booking.destinationAddress) ? booking.destinationAddress : [booking.destinationAddress];
+    // Use destinationDeliveries as source of truth
+    const deliveries = Array.isArray(booking.destinationDeliveries) && booking.destinationDeliveries.length > 0
+        ? booking.destinationDeliveries
+        : [];
+
+    const isMultipleDestinations = deliveries.length > 1;
+
+    // Fallback for customer/establishment name shown in header (use top-level if present, else first delivery)
+    const customerEstablishmentName = booking.customerEstablishmentName || deliveries[0]?.customerEstablishmentName || "N/A";
 
     return (
         <div className="p-6">
@@ -87,7 +93,7 @@ function BookingInfo() {
                 <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-4 rounded-lg">
                     <h3 className="text-sm font-medium opacity-90">Trip Type</h3>
                     <p className="text-2xl font-bold">
-                        {isMultipleDestinations ? `${destinations.length} Stops` : 'Single Drop'}
+                        {isMultipleDestinations ? `${deliveries.length} Stops` : 'Single Drop'}
                     </p>
                 </div>
             </div>
@@ -100,32 +106,70 @@ function BookingInfo() {
                         <Package className="text-blue-600" size={20} />
                         Product Information
                     </h2>
-                    <div className="space-y-3">
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Product Name:</span>
-                            <span className="font-semibold">{booking.productName}</span>
+
+                    {deliveries.length === 0 ? (
+                        <div className="text-sm text-gray-600">No product/delivery details available.</div>
+                    ) : isMultipleDestinations ? (
+                        <div className="space-y-3">
+                            {deliveries.map((d, idx) => (
+                                <div key={idx} className="p-3 border rounded-lg bg-gray-50">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-700 font-medium">Stop {d.destinationIndex + 1 || idx + 1} - {d.customerEstablishmentName || 'N/A'}</span>
+                                        <span className="text-sm text-gray-500">{d.destinationAddress}</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+                                        <div>
+                                            <div className="text-gray-600">Product</div>
+                                            <div className="font-semibold">{d.productName || 'N/A'}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-gray-600">Quantity</div>
+                                            <div className="font-semibold">{d.quantity ?? 'N/A'}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-gray-600">Gross Weight (kg)</div>
+                                            <div className="font-semibold">{d.grossWeight ?? 'N/A'}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-gray-600">Units / Packages</div>
+                                            <div className="font-semibold">{`${d.unitPerPackage ?? 'N/A'} / ${d.numberOfPackages ?? 'N/A'}`}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Quantity:</span>
-                            <span className="font-semibold">{booking.quantity}</span>
+                    ) : (
+                        // Single drop - show first delivery's details
+                        <div className="space-y-3">
+                            {(() => {
+                                const d = deliveries[0];
+                                return (
+                                    <>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Product Name:</span>
+                                            <span className="font-semibold">{d.productName || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Quantity:</span>
+                                            <span className="font-semibold">{d.quantity ?? 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Gross Weight:</span>
+                                            <span className="font-semibold">{d.grossWeight ?? 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Units per Package:</span>
+                                            <span className="font-semibold">{d.unitPerPackage ?? 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Number of Packages:</span>
+                                            <span className="font-semibold">{d.numberOfPackages ?? 'N/A'}</span>
+                                        </div>
+                                    </>
+                                );
+                            })()}
                         </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Gross Weight:</span>
-                            <span className="font-semibold">{booking.grossWeight}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Units per Package:</span>
-                            <span className="font-semibold">{booking.unitPerPackage}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Number of Packages:</span>
-                            <span className="font-semibold">{booking.numberOfPackages}</span>
-                        </div>
-                        <div className="flex justify-between border-t pt-3">
-                            <span className="text-gray-600">Delivery Fee:</span>
-                            <span className="font-semibold text-green-600">{booking.deliveryFee}</span>
-                        </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* Company Information */}
@@ -140,17 +184,13 @@ function BookingInfo() {
                             <span className="font-semibold">{booking.companyName}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-gray-600">Shipper/Consignor:</span>
-                            <span className="font-semibold">{booking.shipperConsignorName}</span>
-                        </div>
-                        <div className="flex justify-between">
                             <span className="text-gray-600">Customer/Establishment:</span>
-                            <span className="font-semibold">{booking.customerEstablishmentName}</span>
+                            <span className="font-semibold">{customerEstablishmentName}</span>
                         </div>
                     </div>
                 </div>
 
-                {/* Route Information - Updated for multiple destinations */}
+                {/* Route Information */}
                 <div className={`bg-white rounded-xl shadow-lg p-6 ${isMultipleDestinations ? 'lg:col-span-2' : ''}`}>
                     <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
                         <MapPin className="text-blue-600" size={20} />
@@ -160,31 +200,50 @@ function BookingInfo() {
                         <div>
                             <span className="text-gray-600 block mb-1">Origin Address:</span>
                             <div className="bg-blue-50 p-3 rounded-lg">
-                                <span className="font-semibold">{booking.originAddress}</span>
+                                <span className="font-semibold">{booking.originAddress || 'N/A'}</span>
                             </div>
                         </div>
 
-                        {isMultipleDestinations ? (
+                        {deliveries.length > 0 ? (
                             <div>
-                                <span className="text-gray-600 block mb-2">Destination Addresses:</span>
+                                <span className="text-gray-600 block mb-2">Destination Stops:</span>
                                 <div className="space-y-2">
-                                    {destinations.map((address, index) => (
-                                        <div key={index} className="bg-green-50 p-3 rounded-lg flex items-start gap-3">
-                                            <span className="bg-green-600 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[28px] text-center">
-                                                {index + 1}
-                                            </span>
-                                            <span className="font-semibold flex-1">{address}</span>
+                                    {deliveries.map((d, index) => (
+                                        <div key={index} className="bg-green-50 p-3 rounded-lg flex flex-col gap-2">
+                                            <div className="flex items-start gap-3">
+                                                <span className="bg-green-600 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[28px] text-center">
+                                                    {d.destinationIndex + 1 || index + 1}
+                                                </span>
+                                                <div className="flex-1">
+                                                    <div className="font-semibold">{d.customerEstablishmentName || 'N/A'}</div>
+                                                    <div className="text-xs text-gray-600 truncate">{d.destinationAddress}</div>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                                <div>
+                                                    <div className="text-gray-600">Product</div>
+                                                    <div className="font-semibold">{d.productName || 'N/A'}</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-gray-600">Quantity</div>
+                                                    <div className="font-semibold">{d.quantity ?? 'N/A'}</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-gray-600">Gross Weight</div>
+                                                    <div className="font-semibold">{d.grossWeight ?? 'N/A'}</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-gray-600">Packages</div>
+                                                    <div className="font-semibold">{d.numberOfPackages ?? 'N/A'}</div>
+                                                </div>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         ) : (
-                            <div>
-                                <span className="text-gray-600 block mb-1">Destination Address:</span>
-                                <div className="bg-green-50 p-3 rounded-lg">
-                                    <span className="font-semibold">{destinations[0]}</span>
-                                </div>
-                            </div>
+                            <div className="text-sm text-gray-600">No destination stops available.</div>
                         )}
                     </div>
                 </div>
@@ -218,14 +277,14 @@ function BookingInfo() {
                             <span className="text-gray-600">Date Needed:</span>
                             <span className="font-semibold flex items-center gap-2">
                                 <Calendar size={16} />
-                                {new Date(booking.dateNeeded).toLocaleDateString()}
+                                {booking.dateNeeded ? new Date(booking.dateNeeded).toLocaleDateString() : ""}
                             </span>
                         </div>
                         <div className="flex justify-between">
                             <span className="text-gray-600">Time Needed:</span>
                             <span className="font-semibold flex items-center gap-2">
                                 <Clock size={16} />
-                                {booking.timeNeeded}
+                                {booking.timeNeeded || ""}
                             </span>
                         </div>
                     </div>

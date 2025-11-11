@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, X, MapPin, Search, Eye, Pencil, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { axiosClient } from "../api/axiosClient";
 import axios from "axios";
 
 export default function Branch() {
+  const navigate = useNavigate();
   const [clients, setClients] = useState([]);
   const [branches, setBranches] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -548,6 +550,15 @@ export default function Branch() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-center gap-2">
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => navigate(`/dashboard/branch/${b._id}`)}
+                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                        title="View branch"
+                      >
+                        <Eye size={18} />
+                      </motion.button>
                       <motion.button
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}

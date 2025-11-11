@@ -40,7 +40,7 @@ function Booking() {
   const [sortBy, setSortBy] = useState("date"); // default sort key
   const [sortDir, setSortDir] = useState("asc"); // "asc" | "desc"
 
-  // Unique filter lists (prevent "not defined" errors)
+  // Unique filter lists (prevent "not defined" errors) 
   const [uniqueReservationIds, setUniqueReservationIds] = useState([]);
   const [uniqueCompanyNames, setUniqueCompanyNames] = useState([]);
   const [uniqueProductNames, setUniqueProductNames] = useState([]);

@@ -145,10 +145,6 @@ function ClientInfo() {
                                 <td className="px-6 py-3">{client.clientName}</td>
                             </tr>
                             <tr className="border-b">
-                                <th className="px-6 py-3 font-semibold bg-gray-100">Branch</th>
-                                <td className="px-6 py-3">{client.clientBranch}</td>
-                            </tr>
-                            <tr className="border-b">
                                 <th className="px-6 py-3 font-semibold bg-gray-100">Location</th>
                                 <td className="px-6 py-3">{[client.address?.barangay, client.address?.city, client.address?.province, client.address?.region]
                                     .filter(Boolean)

@@ -712,78 +712,35 @@ function Booking() {
       status: 'pending'
     }));
 
-    // Common validation
-    if (!formData.vehicleId || formData.vehicleId.trim() === '') {
-      alert('Please select a vehicle.');
-      return;
-    }
-
-    if (!formData.plateNumber || formData.plateNumber.trim() === '') {
-      alert('⚠️ Plate number is missing! Please go back to Step 1 and reselect the vehicle.');
-      return;
-    }
-
-    const requiredFields = {
-      // deliveryFee: 'Delivery Fee',
-      companyName: 'Company Name',
-      originAddress: 'Origin Address',
-      vehicleId: 'Vehicle',
-      vehicleType: 'Vehicle Type',
-      dateNeeded: 'Date Needed',
-      timeNeeded: 'Time Needed'
-    };
-
-    for (const [field, label] of Object.entries(requiredFields)) {
-      if (!formData[field] || formData[field].toString().trim() === '') {
-        alert(`Please fill in the ${label} field.`);
-        return;
-      }
-    }
-
-    const validEmployees = formData.employeeAssigned.filter(emp => emp && emp.trim() !== "");
-    if (validEmployees.length === 0) {
-      alert('Please assign at least one employee.');
-      return;
-    }
-
-    // if (isNaN(formData.deliveryFee) || parseFloat(formData.deliveryFee) <= 0) {
-    //   alert('Please enter a valid delivery fee.');
-    //   return;
-    // }
-
-    const selectedDate = new Date(formData.dateNeeded);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (selectedDate < today) {
-      alert('Please select a date that is today or in the future.');
-      return;
-    }
+    // Ensure originAddressDetails exists (build from selectedClient or fallback to originAddress)
+    const originAddressDetails = selectedClient
+      ? { ...(selectedClient.address || {}), formattedAddress: formData.originAddress || selectedClient.formattedAddress || "" }
+      : (formData.originAddress ? { formattedAddress: formData.originAddress } : null);
 
     // Simplified submit data - always use multiple drop structure
     const submitData = {
       // Basic booking info
       companyName: formData.companyName,
       originAddress: formData.originAddress,
-      
+
       // Trip configuration - single drop is just multiple drop with 1 stop
       numberOfStops: selectedBranches.length,
-      
+
       // All delivery data
       destinationDeliveries: destinationDeliveries,
-      
+
       // Financial
       // deliveryFee: parseFloat(formData.deliveryFee) || 0,
-      
+
       // Vehicle info
       vehicleId: formData.vehicleId,
       vehicleType: formData.vehicleType,
       plateNumber: formData.plateNumber,
-      
+
       // Scheduling
       dateNeeded: new Date(formData.dateNeeded),
       timeNeeded: formData.timeNeeded,
-      
+
       // Staff assignment
       employeeAssigned: Array.isArray(formData.employeeAssigned)
         ? formData.employeeAssigned.filter(emp => emp !== "")
@@ -791,7 +748,7 @@ function Booking() {
       roleOfEmployee: Array.isArray(formData.roleOfEmployee)
         ? formData.roleOfEmployee.filter(role => role !== "")
         : [formData.roleOfEmployee].filter(role => role !== ""),
-      
+
       // Location data
       originAddressDetails: originAddressDetails,
       latitude: formData.latitude || null,

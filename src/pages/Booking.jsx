@@ -35,9 +35,18 @@ function Booking() {
   const [searchDate, setSearchDate] = useState("");
   const [generalSearch, setGeneralSearch] = useState("");
   const [searchStatus, setSearchStatus] = useState("");
+
   // Sorting state
   const [sortBy, setSortBy] = useState("date"); // default sort key
   const [sortDir, setSortDir] = useState("asc"); // "asc" | "desc"
+
+  // Unique filter lists (prevent "not defined" errors)
+  const [uniqueReservationIds, setUniqueReservationIds] = useState([]);
+  const [uniqueCompanyNames, setUniqueCompanyNames] = useState([]);
+  const [uniqueProductNames, setUniqueProductNames] = useState([]);
+  const [uniqueVehicleTypes, setUniqueVehicleTypes] = useState([]);
+  const [uniqueStatuses, setUniqueStatuses] = useState([]);
+  const [uniqueDates, setUniqueDates] = useState([]);
 
   const handleSort = (key) => {
     if (sortBy === key) {

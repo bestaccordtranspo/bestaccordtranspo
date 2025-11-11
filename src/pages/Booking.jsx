@@ -1172,25 +1172,25 @@ useEffect(() => {
 
         {/* Customer Details & Shipment Route */}
         <div className="bg-gradient-to-r from-indigo-50 to-violet-50 p-6 rounded-2xl border border-indigo-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Customer Details & Shipment Route</h3>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select Company *</label>
-            <select
-              name="companyName"
-              value={formData.companyName}
-              onChange={handleCompanyChange}
-              required
-              className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-            >
-              <option value="">Select from existing records</option>
-              {getUniqueClientNames().map((clientName, index) => (
-                <option key={index} value={clientName}>
-                  {clientName}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Customer Details & Shipment Route</h3> 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Company *</label>
+              <select
+                name="companyName"
+                value={formData.companyName}
+                onChange={handleCompanyChange}
+                required
+                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+              >
+                <option value="">Select from existing records</option>
+                {getUniqueClientNames().map((clientName, index) => (
+                  <option key={index} value={clientName}>
+                    {clientName}
+                  </option>
+                ))}
+              </select>
+            </div>
              <div>
                <label className="block text-sm font-medium text-gray-700 mb-2">Origin/From *</label>
                <input

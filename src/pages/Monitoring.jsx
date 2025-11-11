@@ -34,6 +34,8 @@ const calculateETA = (durationMinutes) => {
 export default function Monitoring() {
   const [bookings, setBookings] = useState([]);
   const [routeInfo, setRouteInfo] = useState(null);
+  const [lastMapUpdate, setLastMapUpdate] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [filteredBookings, setFilteredBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
@@ -305,40 +307,59 @@ export default function Monitoring() {
 
   // Fetch bookings data from MongoDB
   const fetchBookings = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      console.log("🔄 Fetching bookings from API...");
+  setLoading(true);
+  setError("");
+  try {
+    console.log("🔄 Fetching bookings from API...", new Date().toLocaleTimeString());
 
-      const response = await fetch(`${baseURL}/api/bookings`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+    const response = await fetch(`${baseURL}/api/bookings`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log("✅ Fetched bookings data:", data);
-
-      // Handle both array response and object with bookings array
-      const bookingsArray = Array.isArray(data) ? data : (data.bookings || []);
-
-      setBookings(bookingsArray);
-      setFilteredBookings(bookingsArray);
-
-      console.log("📊 Total bookings loaded:", bookingsArray.length);
-
-    } catch (err) {
-      console.error("❌ Error fetching bookings:", err);
-      setError(`Failed to load bookings: ${err.message}`);
-    } finally {
-      setLoading(false);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  };
+
+    const data = await response.json();
+    console.log("✅ Fetched bookings data:", data);
+
+    const bookingsArray = Array.isArray(data) ? data : (data.bookings || []);
+
+    // Log bookings with driver locations
+    const tripsInProgress = bookingsArray.filter(b => 
+      b.status === "In Transit" || b.status === "On Trip"
+    );
+    
+    console.log(`📊 Total bookings: ${bookingsArray.length}`);
+    console.log(`🚛 Trips in progress: ${tripsInProgress.length}`);
+    
+    tripsInProgress.forEach(booking => {
+      if (booking.driverLocation) {
+        console.log(`📍 Trip ${booking.tripNumber} location:`, {
+          lat: booking.driverLocation.latitude,
+          lng: booking.driverLocation.longitude,
+          lastUpdated: booking.driverLocation.lastUpdated,
+          accuracy: booking.driverLocation.accuracy
+        });
+      } else {
+        console.warn(`⚠️ Trip ${booking.tripNumber} has no driver location`);
+      }
+    });
+
+    setBookings(bookingsArray);
+    setFilteredBookings(bookingsArray);
+    setLastMapUpdate(new Date());
+
+  } catch (err) {
+    console.error("❌ Error fetching bookings:", err);
+    setError(`Failed to load bookings: ${err.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // FIXED: Initialize map with proper marker handling
   const initializeMap = async () => {
@@ -989,10 +1010,81 @@ const getRoute = async (start, end) => {
 
   // Initial load and auto-refresh
   useEffect(() => {
+  fetchBookings();
+  
+  // Refresh every 30 seconds
+  const interval = setInterval(() => {
+    console.log("🔄 Auto-refreshing bookings...");
     fetchBookings();
-    const interval = setInterval(fetchBookings, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  }, 30000); // 30 seconds
+  
+  return () => clearInterval(interval);
+}, []);
+
+// Force map re-initialization when booking data changes
+useEffect(() => {
+  if (showModal && selectedBooking && mapRef.current) {
+    console.log("🗺️ Re-initializing map due to data update");
+    
+    // Small delay to ensure DOM is ready
+    setTimeout(() => {
+      initializeMap();
+    }, 100);
+  }
+}, [showModal, selectedBooking, lastMapUpdate]);
+
+const handleManualRefresh = async () => {
+  console.log("🔄 Manual refresh triggered");
+  setRefreshing(true);
+  
+  try {
+    // Refresh the bookings list
+    await fetchBookings();
+    
+    // If modal is open with a selected booking, refresh that specific booking
+    if (showModal && selectedBooking) {
+      console.log("🔄 Refreshing booking data for:", selectedBooking._id);
+      
+      const response = await fetch(`${baseURL}/api/bookings/${selectedBooking._id}`);
+      
+      if (response.ok) {
+        const updatedBooking = await response.json();
+        console.log("✅ Updated booking data:", updatedBooking);
+        
+        // Check if driver location exists
+        if (updatedBooking.driverLocation) {
+          console.log("📍 Driver location found:", updatedBooking.driverLocation);
+        } else {
+          console.warn("⚠️ No driver location in updated booking");
+        }
+        
+        setSelectedBooking(updatedBooking);
+        setLastMapUpdate(new Date());
+        
+        // Force map refresh after a small delay
+        setTimeout(() => {
+          console.log("🗺️ Re-initializing map with fresh data");
+          initializeMap();
+        }, 200);
+        
+        // Show success message
+        const successMsg = updatedBooking.driverLocation 
+          ? `Location updated! Last seen: ${new Date(updatedBooking.driverLocation.lastUpdated).toLocaleTimeString()}`
+          : "Data refreshed (no active location tracking)";
+        
+        // Optional: Use a toast notification instead of alert if you have one
+        alert(successMsg);
+      } else {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    }
+  } catch (err) {
+    console.error("❌ Error refreshing:", err);
+    alert(`Failed to refresh: ${err.message}`);
+  } finally {
+    setRefreshing(false);
+  }
+};
 
   // Get unique statuses
   const uniqueStatuses = ["All", ...new Set(bookings.map(b => b.status || "Pending"))];
@@ -1414,18 +1506,58 @@ const getRoute = async (start, end) => {
             >
               {/* Modal Header */}
               <div className="flex items-center justify-between px-6 py-4 bg-gray-50 border-b">
-                <div>
+                <div className="flex-1">
                   <h3 className="text-xl font-bold text-gray-900">Trip Monitoring</h3>
-                  <p className="text-sm text-gray-600">Track and manage ongoing trips and delivery status</p>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                    <span>Track and manage ongoing trips and delivery status</span>
+                    {lastMapUpdate && (
+                      <>
+                        <span className="text-gray-400">•</span>
+                        <span className="text-xs text-gray-500 font-medium">
+                          Last updated: {lastMapUpdate.toLocaleTimeString()}
+                        </span>
+                      </>
+                    )}
+                    {selectedBooking?.driverLocation?.lastUpdated && (
+                      <>
+                        <span className="text-gray-400">•</span>
+                        <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                          <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                          Live tracking active
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <motion.button
-                  onClick={closeModal}
-                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  <X className="w-5 h-5" />
-                </motion.button>
+                
+                <div className="flex items-center gap-2">
+                  {/* Refresh Button */}
+                  <motion.button
+                    onClick={handleManualRefresh}
+                    disabled={refreshing}
+                    className={`p-2 transition-colors rounded-lg ${
+                      refreshing 
+                        ? 'text-gray-300 cursor-not-allowed' 
+                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                    }`}
+                    whileHover={!refreshing ? { scale: 1.1 } : {}}
+                    whileTap={!refreshing ? { scale: 0.9 } : {}}
+                    title={refreshing ? "Refreshing..." : "Refresh location data"}
+                  >
+                    <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+                  </motion.button>
+                  
+                  {/* Close Button */}
+                  <motion.button
+                    onClick={closeModal}
+                    className="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100"
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    title="Close"
+                  >
+                    <X className="w-5 h-5" />
+                  </motion.button>
+                </div>
               </div>
 
               {/* Modal Body - Scrollable */}

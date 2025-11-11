@@ -60,6 +60,28 @@ function BookingInfo() {
     // Fallback for customer/establishment name shown in header (use top-level if present, else first delivery)
     const customerEstablishmentName = booking.customerEstablishmentName || deliveries[0]?.customerEstablishmentName || "N/A";
 
+    // helper to format address objects or strings
+    const formatAddress = (addr) => {
+        if (!addr) return "";
+        if (typeof addr === "string") return addr;
+        if (addr.formattedAddress) return addr.formattedAddress;
+        const parts = [
+            addr.houseNumber,
+            addr.street,
+            addr.barangay,
+            addr.city,
+            addr.province,
+            addr.region,
+            addr.fullAddress
+        ].filter(Boolean);
+        return parts.join(", ");
+    };
+
+    // Use server-enriched details when available
+    const client = booking.clientDetails || null;
+    const branchDetails = Array.isArray(booking.branchDetails) ? booking.branchDetails : [];
+    const deliveriesSource = deliveries; // deliveries already from booking.destinationDeliveries
+
     return (
         <div className="p-6">
             {/* Header */}
@@ -183,10 +205,62 @@ function BookingInfo() {
                             <span className="text-gray-600">Company Name:</span>
                             <span className="font-semibold">{booking.companyName}</span>
                         </div>
+
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Client Address:</span>
+                            <span className="font-semibold">
+                                {client?.formattedAddress
+                                    || formatAddress(client?.address)
+                                    || booking.originAddressDetails?.formattedAddress
+                                    || booking.originAddress
+                                    || "N/A"}
+                            </span>
+                        </div>
+
                         <div className="flex justify-between">
                             <span className="text-gray-600">Customer/Establishment:</span>
                             <span className="font-semibold">{customerEstablishmentName}</span>
                         </div>
+
+                        {/* When multiple drops, show branch list with address & contacts */}
+                        {deliveriesSource.length > 1 && (
+                            <div className="mt-4">
+                                <h4 className="text-sm font-medium text-gray-700 mb-2">Selected Branches</h4>
+                                <div className="space-y-2">
+                                    {(branchDetails.length > 0 ? branchDetails : deliveriesSource).map((b, i) => {
+                                        const name = b.branchName || b.customerEstablishmentName || deliveriesSource[i]?.customerEstablishmentName || `Stop ${i+1}`;
+                                        const addr = formatAddress(b.address) || b.destinationAddress || deliveriesSource[i]?.destinationAddress || "No address";
+                                        const contactPerson = b.contactPerson || deliveriesSource[i]?.contactPerson || "N/A";
+                                        const contactNumber = b.contactNumber || deliveriesSource[i]?.contactNumber || "N/A";
+                                        const email = b.email || deliveriesSource[i]?.email || "N/A";
+                                        return (
+                                            <div key={b._id || i} className="p-3 border rounded-lg bg-gray-50">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <div className="font-semibold text-gray-800">{name}</div>
+                                                        <div className="text-xs text-gray-600">{addr}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3 text-sm">
+                                                    <div>
+                                                        <div className="text-gray-600">Contact Person</div>
+                                                        <div className="font-semibold">{contactPerson}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-gray-600">Contact Number</div>
+                                                        <div className="font-semibold">{contactNumber}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-gray-600">Email</div>
+                                                        <div className="font-semibold">{email}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 

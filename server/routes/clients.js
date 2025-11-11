@@ -1,6 +1,7 @@
 import express from "express";
 import Client from "../models/Client.js";
 import Booking from "../models/Booking.js";
+import Branch from "../models/Branch.js";
 
 const router = express.Router();
 
@@ -143,6 +144,21 @@ router.get("/:id/bookings", async (req, res) => {
     res.json(bookings);
   } catch (err) {
     console.error("Error fetching client history:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET branches for a specific client
+router.get("/:id/branches", async (req, res) => {
+  try {
+    const clientId = req.params.id;
+    const client = await Client.findById(clientId);
+    if (!client) return res.status(404).json({ message: "Client not found" });
+
+    const branches = await Branch.find({ client: clientId, isArchived: false }).sort({ createdAt: -1 });
+    res.json(branches);
+  } catch (err) {
+    console.error("Error fetching client branches:", err);
     res.status(500).json({ message: err.message });
   }
 });

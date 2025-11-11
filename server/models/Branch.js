@@ -1,8 +1,13 @@
 import mongoose from "mongoose";
 
-const clientSchema = new mongoose.Schema(
+const branchSchema = new mongoose.Schema(
   {
-    clientName: { type: String, required: true },
+    branchName: { type: String, required: true },
+    client: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Client",
+      required: true
+    },
     address: {
       houseNumber: { type: String },
       street: { type: String },
@@ -14,13 +19,16 @@ const clientSchema = new mongoose.Schema(
       longitude: { type: Number, default: null },
       fullAddress: { type: String }
     },
+    contactPerson: { type: String },
+    contactNumber: { type: String },
+    email: { type: String },
     isArchived: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
 
 // Virtual for formatted address
-clientSchema.virtual('formattedAddress').get(function() {
+branchSchema.virtual('formattedAddress').get(function() {
   if (!this.address) return '';
   
   const parts = [
@@ -35,7 +43,11 @@ clientSchema.virtual('formattedAddress').get(function() {
   return parts.join(', ');
 });
 
-clientSchema.set('toJSON', { virtuals: true });
-clientSchema.set('toObject', { virtuals: true });
+// Index for better query performance
+branchSchema.index({ client: 1 });
+branchSchema.index({ isArchived: 1 });
 
-export default mongoose.model("Client", clientSchema);
+branchSchema.set('toJSON', { virtuals: true });
+branchSchema.set('toObject', { virtuals: true });
+
+export default mongoose.model("Branch", branchSchema);

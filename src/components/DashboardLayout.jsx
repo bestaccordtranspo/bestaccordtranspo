@@ -12,13 +12,19 @@ import {
   Menu,
   Package,
   UserRoundCheck,
+  ChevronDown,
 } from "lucide-react";
 import logo from "../assets/bestaccord_logo.png";
 
 export default function DashboardLayout() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState(null);
   const role = localStorage.getItem("role");
+
+  const toggleDropdown = (name) => {
+    setOpenDropdown((prev) => (prev === name ? null : name));
+  };
 
   const menuItems = [
     { name: "Dashboard", path: "/dashboard", icon: <LayoutDashboard size={20} /> },
@@ -31,7 +37,15 @@ export default function DashboardLayout() {
     menuItems.push(
       { name: "Vehicle", path: "/dashboard/vehicle", icon: <Truck size={20} /> },
       { name: "Driver/Helper", path: "/dashboard/employee", icon: <Users size={20} /> },
-      { name: "Client", path: "/dashboard/client", icon: <User size={20} /> },
+      // Client becomes a dropdown with Clients and Branches
+      {
+        name: "Client",
+        icon: <User size={20} />,
+        subItems: [
+          { name: "Clients", path: "/dashboard/client", icon: <User size={16} /> },
+          { name: "Branches", path: "/dashboard/branch", icon: <Package size={16} /> },
+        ],
+      },
       { name: "Staff", path: "/dashboard/staff", icon: <UserRoundCheck size={20} /> },
       { name: "Archive", path: "/dashboard/archive", icon: <Archive size={20} /> },
       // { name: "Pending Staff", path: "/dashboard/pending-staff", icon: <Users size={20} /> }
@@ -96,62 +110,125 @@ export default function DashboardLayout() {
             className={`space-y-2 transition-all duration-300 ${isSidebarCollapsed ? "px-3 pb-4" : "px-4 pb-4"
               }`}
           >
-            {menuItems.map((item) => (
-              <NavLink
-                key={item.name}
-                to={item.path}
-                end={item.path === "/dashboard"}
-                className={({ isActive }) =>
-                  `group flex items-center transition-all duration-300 rounded-xl relative overflow-hidden ${isSidebarCollapsed ? "p-3 justify-center" : "p-4"
-                  } ${isActive
-                    ? "bg-purple-500 shadow-lg shadow-purple-500/25 text-white"
-                    : "hover:bg-white/10 hover:shadow-lg hover:shadow-black/20 text-slate-300 hover:text-white"
-                  }`
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    {/* Active indicator */}
-                    {isActive && !isSidebarCollapsed && (
-                      <div className="absolute left-0 top-0 h-full w-1 bg-white rounded-r-full"></div>
-                    )}
-
-                    {/* Icon container */}
-                    <div
-                      className={`flex-shrink-0 relative ${isActive ? "text-white" : "group-hover:text-white"
-                        } transition-all duration-300 ${isSidebarCollapsed && isActive ? "text-blue-400" : ""
+            {menuItems.map((item) => {
+              // Dropdown item (Client)
+              if (item.subItems) {
+                const isOpen = openDropdown === item.name;
+                return (
+                  <div key={item.name} className={`relative ${isOpen ? "" : ""}`}>
+                    <button
+                      onClick={() => toggleDropdown(item.name)}
+                      className={`group flex items-center transition-all duration-300 rounded-xl ${isSidebarCollapsed ? "p-3 justify-center" : "p-4"
+                        } ${isOpen
+                          ? "bg-purple-500 shadow-lg shadow-purple-500/25 text-white"
+                          : "hover:bg-white/10 hover:shadow-lg hover:shadow-black/20 text-slate-300 hover:text-white"
                         }`}
                     >
-                      {item.icon}
-                      {/* Pulse animation for active collapsed items */}
-                      {isActive && isSidebarCollapsed && (
-                        <div className="absolute inset-0 rounded-full bg-blue-400/30 animate-ping"></div>
+                      <div className={`flex-shrink-0 relative ${isOpen ? "text-white" : "group-hover:text-white"}`}>
+                        {item.icon}
+                      </div>
+
+                      {!isSidebarCollapsed && (
+                        <>
+                          <span className={`ml-4 text-sm font-medium whitespace-nowrap ${isOpen ? "text-white" : "text-slate-300 group-hover:text-white"}`}>
+                            {item.name}
+                          </span>
+                          <ChevronDown
+                            size={16}
+                            className={`ml-auto transition-transform duration-200 ${isOpen ? "rotate-180 text-white" : "text-slate-300 group-hover:text-white"}`}
+                          />
+                        </>
                       )}
-                    </div>
 
-                    {/* Text with smooth transitions */}
-                    {!isSidebarCollapsed && (
-                      <span
-                        className={`ml-4 text-sm font-medium whitespace-nowrap transition-all duration-300 ${isActive
-                          ? "text-white"
-                          : "text-slate-300 group-hover:text-white"
-                          }`}
-                      >
-                        {item.name}
-                      </span>
-                    )}
+                      {isSidebarCollapsed && (
+                        <div className="absolute left-full ml-4 px-3 py-2 bg-purple-950 text-white text-sm rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 whitespace-nowrap z-50 border border-slate-600">
+                          {item.name}
+                          <div className="absolute left-0 top-1/2 transform -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-800 rotate-45 border-l border-b border-slate-600"></div>
+                        </div>
+                      )}
+                    </button>
 
-                    {/* Tooltip for collapsed state */}
-                    {isSidebarCollapsed && (
-                      <div className="absolute left-full ml-4 px-3 py-2 bg-purple-950 text-white text-sm rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 whitespace-nowrap z-50 border border-slate-600">
-                        {item.name}
-                        <div className="absolute left-0 top-1/2 transform -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-800 rotate-45 border-l border-b border-slate-600"></div>
+                    {/* Subitems */}
+                    {!isSidebarCollapsed && isOpen && (
+                      <div className="ml-6 mt-2 space-y-1">
+                        {item.subItems.map((sub) => (
+                          <NavLink
+                            key={sub.name}
+                            to={sub.path}
+                            className={({ isActive }) =>
+                              `block px-3 py-2 rounded-lg text-sm transition-colors ${isActive ? "bg-white/10 text-white" : "text-slate-300 hover:bg-white/5 hover:text-white"}`
+                            }
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="opacity-80">{sub.icon}</div>
+                              <div>{sub.name}</div>
+                            </div>
+                          </NavLink>
+                        ))}
                       </div>
                     )}
-                  </>
-                )}
-              </NavLink>
-            ))}
+                  </div>
+                );
+              }
+
+              // Normal menu item
+              return (
+                <NavLink
+                  key={item.name}
+                  to={item.path}
+                  end={item.path === "/dashboard"}
+                  className={({ isActive }) =>
+                    `group flex items-center transition-all duration-300 rounded-xl relative overflow-hidden ${isSidebarCollapsed ? "p-3 justify-center" : "p-4"
+                    } ${isActive
+                      ? "bg-purple-500 shadow-lg shadow-purple-500/25 text-white"
+                      : "hover:bg-white/10 hover:shadow-lg hover:shadow-black/20 text-slate-300 hover:text-white"
+                      }`
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      {/* Active indicator */}
+                      {isActive && !isSidebarCollapsed && (
+                        <div className="absolute left-0 top-0 h-full w-1 bg-white rounded-r-full"></div>
+                      )}
+
+                      {/* Icon container */}
+                      <div
+                        className={`flex-shrink-0 relative ${isActive ? "text-white" : "group-hover:text-white"
+                          } transition-all duration-300 ${isSidebarCollapsed && isActive ? "text-blue-400" : ""
+                          }`}
+                      >
+                        {item.icon}
+                        {/* Pulse animation for active collapsed items */}
+                        {isActive && isSidebarCollapsed && (
+                          <div className="absolute inset-0 rounded-full bg-blue-400/30 animate-ping"></div>
+                        )}
+                      </div>
+
+                      {/* Text with smooth transitions */}
+                      {!isSidebarCollapsed && (
+                        <span
+                          className={`ml-4 text-sm font-medium whitespace-nowrap transition-all duration-300 ${isActive
+                            ? "text-white"
+                            : "text-slate-300 group-hover:text-white"
+                            }`}
+                        >
+                          {item.name}
+                        </span>
+                      )}
+
+                      {/* Tooltip for collapsed state */}
+                      {isSidebarCollapsed && (
+                        <div className="absolute left-full ml-4 px-3 py-2 bg-purple-950 text-white text-sm rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 whitespace-nowrap z-50 border border-slate-600">
+                          {item.name}
+                          <div className="absolute left-0 top-1/2 transform -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-800 rotate-45 border-l border-b border-slate-600"></div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              );
+            })}
           </nav>
         </div>
 

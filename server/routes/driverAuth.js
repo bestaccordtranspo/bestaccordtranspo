@@ -9,7 +9,7 @@ import {
   updateBookingStatus, 
   getDriverBookingCount,
   updateDriverLocation,
-  markDestinationDelivered  // ✨ NEW - Import the destination delivery function
+  markDestinationDelivered
 } from "../controllers/driverBookingsController.js";
 import driverAuth from "../middleware/driverAuth1.js";
 
@@ -29,10 +29,10 @@ router.get("/bookings", driverAuth, getDriverBookings);
 router.get("/bookings/:id", driverAuth, getDriverBookingById);
 router.put("/bookings/:id/status", driverAuth, updateBookingStatus);
 
-// 🚚 Location tracking route
+// Location tracking route
 router.put("/bookings/:id/location", driverAuth, updateDriverLocation);
 
-// ✨ NEW: Mark individual destination as delivered
+// Mark individual destination as delivered
 router.put("/bookings/:id/deliver-destination", driverAuth, markDestinationDelivered);
 
 export default router;

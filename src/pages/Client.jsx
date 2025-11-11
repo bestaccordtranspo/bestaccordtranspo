@@ -3,7 +3,6 @@ import { Eye, Pencil, Trash2, Plus, X, MapPin, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { axiosClient } from "../api/axiosClient";
 import axios from 'axios';
-
 import { motion, AnimatePresence } from "framer-motion";
 
 function Client() {
@@ -17,22 +16,19 @@ function Client() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Search states
+  // Search states (removed branch-specific filter)
   const [searchName, setSearchName] = useState("");
   const [searchCity, setSearchCity] = useState("");
-  const [searchBranch, setSearchBranch] = useState("");
   const [searchDate, setSearchDate] = useState("");
   const [generalSearch, setGeneralSearch] = useState("");
 
   // Unique filter values
   const [uniqueNames, setUniqueNames] = useState([]);
-  const [uniqueBranches, setUniqueBranches] = useState([]);
   const [uniqueCities, setUniqueCities] = useState([]);
   const [uniqueDates, setUniqueDates] = useState([]);
 
   const [formData, setFormData] = useState({
     clientName: "",
-    clientBranch: "",
     houseNumber: "",
     street: "",
     location: "",
@@ -209,7 +205,6 @@ function Client() {
       setFilteredClients(activeClients);
 
       setUniqueNames([...new Set(activeClients.map((c) => c.clientName))]);
-      setUniqueBranches([...new Set(activeClients.map((c) => c.clientBranch))]);
 
       const cities = activeClients
         .map((c) => c.address?.city)
@@ -232,7 +227,7 @@ function Client() {
     fetchClients();
   }, []);
 
-  // Filter function
+  // Filter function — removed branch-based filtering
   useEffect(() => {
     let results = clients;
 
@@ -241,9 +236,6 @@ function Client() {
     }
     if (searchCity) {
       results = results.filter((client) => client.address?.city === searchCity);
-    }
-    if (searchBranch) {
-      results = results.filter((client) => client.clientBranch === searchBranch);
     }
     if (searchDate) {
       results = results.filter(
@@ -260,7 +252,6 @@ function Client() {
           client.address?.city
             ?.toLowerCase()
             .includes(generalSearch.toLowerCase()) ||
-          client.clientBranch?.toLowerCase().includes(generalSearch.toLowerCase()) ||
           new Date(client.createdAt)
             .toLocaleDateString()
             .includes(generalSearch)
@@ -269,7 +260,7 @@ function Client() {
 
     setFilteredClients(results);
     setCurrentPage(1);
-  }, [searchName, searchBranch, searchCity, searchDate, generalSearch, clients]);
+  }, [searchName, searchCity, searchDate, generalSearch, clients]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
@@ -279,7 +270,7 @@ function Client() {
     startIndex + itemsPerPage
   );
 
-  // Modal handlers
+  // Modal handlers — removed clientBranch usage
   const openModal = (client = null) => {
     if (client) {
       setEditClient(client);
@@ -287,14 +278,13 @@ function Client() {
       const lng = client.address?.longitude || null;
       setFormData({
         clientName: client.clientName || "",
-        clientBranch: client.clientBranch || "",
         houseNumber: client.address?.houseNumber || "",
         street: client.address?.street || "",
         location: client.location || "",
-        region: client.region || "",
-        province: client.province || "",
-        city: client.city || "",
-        barangay: client.barangay || "",
+        region: client.address?.region || "",
+        province: client.address?.province || "",
+        city: client.address?.city || "",
+        barangay: client.address?.barangay || "",
         latitude: lat,
         longitude: lng,
       });
@@ -309,7 +299,6 @@ function Client() {
       setEditClient(null);
       setFormData({
         clientName: "",
-        clientBranch: "",
         houseNumber: "",
         street: "",
         location: "",
@@ -514,7 +503,7 @@ function Client() {
         longitude: formData.longitude,
       };
       const payload = {
-        ...formData,
+        clientName: formData.clientName,
         address,
       };
       if (editClient) {
@@ -588,7 +577,7 @@ function Client() {
         className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-purple-100 p-6"
       >
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Filters</h3>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <select
             value={searchName}
             onChange={(e) => setSearchName(e.target.value)}
@@ -598,19 +587,6 @@ function Client() {
             {uniqueNames.map((name, i) => (
               <option key={i} value={name}>
                 {name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={searchBranch}
-            onChange={(e) => setSearchBranch(e.target.value)}
-            className="px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent bg-white/50 text-sm"
-          >
-            <option value="">All Branches</option>
-            {uniqueBranches.map((branch, i) => (
-              <option key={i} value={branch}>
-                {branch}
               </option>
             ))}
           </select>
@@ -663,7 +639,6 @@ function Client() {
               <tr>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">No</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Client Name</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Branch</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Address</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Date Added</th>
                 <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Actions</th>
@@ -680,7 +655,6 @@ function Client() {
                 >
                   <td className="px-6 py-4 text-sm text-gray-900">{startIndex + index + 1}</td>
                   <td className="px-6 py-4 text-sm font-semibold text-gray-900">{client.clientName}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{client.clientBranch}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">
                     {[client.address?.houseNumber, client.address?.street, client.address?.barangay, client.address?.city, client.address?.province, client.address?.region]
                       .filter(Boolean)
@@ -804,17 +778,6 @@ function Client() {
                           type="text"
                           name="clientName"
                           value={formData.clientName}
-                          onChange={handleChange}
-                          required
-                          className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Client Branch *</label>
-                        <input
-                          type="text"
-                          name="clientBranch"
-                          value={formData.clientBranch}
                           onChange={handleChange}
                           required
                           className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"

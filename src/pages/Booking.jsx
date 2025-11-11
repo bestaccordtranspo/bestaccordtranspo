@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Eye, Pencil, Trash2, Plus, ChevronLeft, ChevronRight, X, MapPin, Search } from "lucide-react";
+import { Eye, Pencil, Trash2, Plus, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { axiosClient } from "../api/axiosClient";
 import axios from 'axios';
@@ -18,6 +18,7 @@ function Booking() {
 
   // Data for dropdowns
   const [clients, setClients] = useState([]);
+  const [clientBranches, setClientBranches] = useState([]); // branches for selected client
   const [vehicles, setVehicles] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -73,7 +74,6 @@ function Booking() {
     numberOfPackages: "",
     // deliveryFee: "",
     companyName: "",
-    shipperConsignorName: "",
     customerEstablishmentName: "",
     originAddress: "",
     destinationAddress: "",
@@ -107,9 +107,9 @@ function Booking() {
     return uniqueNames;
   };
 
-  // Get branches for selected client
-  const getClientBranches = (clientName) => {
-    return clients.filter(client => client.clientName === clientName);
+  // Get branches for selected client (clientBranches state)
+  const getClientBranches = () => {
+    return clientBranches || [];
   };
 
   //helper functions for multiple branch selections
@@ -156,20 +156,17 @@ function Booking() {
 
   // Handle branch selection for multiple destinations
   const handleMultipleBranchChange = (index, branchName) => {
-    const client = clients.find(c =>
-      c.clientName === formData.companyName &&
-      c.clientBranch === branchName
-    );
+    const branch = clientBranches.find(b => b.branchName === branchName);
 
     let fullAddress = '';
-    if (client) {
+    if (branch) {
       fullAddress = [
-        client.address?.houseNumber,
-        client.address?.street,
-        client.address?.barangay,
-        client.address?.city,
-        client.address?.province,
-        client.address?.region
+        branch.address?.houseNumber,
+        branch.address?.street,
+        branch.address?.barangay,
+        branch.address?.city,
+        branch.address?.province,
+        branch.address?.region
       ].filter(Boolean).join(', ');
     }
 
@@ -327,7 +324,6 @@ function Booking() {
         numberOfPackages: booking.numberOfPackages,
         // deliveryFee: booking.deliveryFee,
         companyName: booking.companyName,
-        shipperConsignorName: booking.shipperConsignorName,
         customerEstablishmentName: booking.customerEstablishmentName || "",
         originAddress: booking.originAddress,
         destinationAddress: booking.destinationAddress || "",
@@ -402,7 +398,6 @@ function Booking() {
         numberOfPackages: "",
         // deliveryFee: "",
         companyName: "",
-        shipperConsignorName: "",
         customerEstablishmentName: "",
         originAddress: "",
         destinationAddress: "",
@@ -462,51 +457,77 @@ function Booking() {
   validateField(name, value);
 };
 
-  const handleCompanyChange = (e) => {
+  const handleCompanyChange = async (e) => {
     const selectedCompanyName = e.target.value;
     setFormData(prev => ({
       ...prev,
       companyName: selectedCompanyName,
-      shipperConsignorName: "",
-      originAddress: ""
+      // originAddress will be auto-populated below
     }));
-    setSelectedClient(null);
+
+    const client = clients.find(c => c.clientName === selectedCompanyName);
+    if (client) {
+      const fullAddress = client.formattedAddress || [
+        client.address?.houseNumber,
+        client.address?.street,
+        client.address?.barangay,
+        client.address?.city,
+        client.address?.province,
+        client.address?.region
+      ].filter(Boolean).join(', ');
+
+      setFormData(prev => ({
+        ...prev,
+        originAddress: fullAddress || "",
+        latitude: client.address?.latitude || null,
+        longitude: client.address?.longitude || null
+      }));
+
+      setSelectedClient(client);
+      await fetchBranchesForClient(client._id);
+    } else {
+      setFormData(prev => ({ ...prev, originAddress: "", latitude: null, longitude: null }));
+      setSelectedClient(null);
+      setClientBranches([]);
+    }
   };
 
   const handleBranchChange = (e) => {
-  const selectedBranch = e.target.value;
-  const client = clients.find(c => c.clientBranch === selectedBranch && c.clientName === formData.companyName);
+    const selectedBranchName = e.target.value;
+    const branch = clientBranches.find(b => b.branchName === selectedBranchName);
 
-  if (client) {
-    setSelectedClient(client);
+    if (branch) {
+      // set the selected client if not already
+      if (!selectedClient) {
+        const client = clients.find(c => c._id === branch.client || c._id === (branch.client?._id));
+        if (client) setSelectedClient(client);
+      }
 
-    const fullAddress = [
-      client.address?.houseNumber,
-      client.address?.street,
-      client.address?.barangay,
-      client.address?.city,
-      client.address?.province,
-      client.address?.region
-    ].filter(Boolean).join(', ');
+      const fullAddress = branch.address
+        ? [
+            branch.address.houseNumber,
+            branch.address.street,
+            branch.address.barangay,
+            branch.address.city,
+            branch.address.province,
+            branch.address.region
+          ].filter(Boolean).join(', ')
+        : "";
 
-    setFormData(prev => ({
-      ...prev,
-      customerEstablishmentName: selectedBranch,
-      destinationAddress: fullAddress || cleanCityName(client.address?.city || "")
-    }));
+      setFormData(prev => ({
+        ...prev,
+        customerEstablishmentName: selectedBranchName,
+        destinationAddress: fullAddress || cleanCityName(branch.address?.city || "")
+      }));
 
-    // Update selectedBranches
-    setSelectedBranches(prev => {
-      const updated = [{
+      // Update single selectedBranches slot (first stop)
+      setSelectedBranches(prev => [{
         ...prev[0],
-        branch: selectedBranch,
-        address: fullAddress || cleanCityName(client.address?.city || "")
-      }];
-      console.log('🔄 Updated selectedBranches from branch change:', updated);
-      return updated;
-    });
-  }
-};
+        branch: selectedBranchName,
+        address: fullAddress || cleanCityName(branch.address?.city || "")
+      }]);
+    }
+  };
 
   const handleEmployeeChange = (index, employeeId) => {
     const newEmployeeAssigned = [...formData.employeeAssigned];
@@ -695,7 +716,6 @@ function Booking() {
     const requiredFields = {
       // deliveryFee: 'Delivery Fee',
       companyName: 'Company Name',
-      shipperConsignorName: 'Shipper/Consignor',
       originAddress: 'Origin Address',
       vehicleId: 'Vehicle',
       vehicleType: 'Vehicle Type',
@@ -734,7 +754,6 @@ function Booking() {
     const submitData = {
       // Basic booking info
       companyName: formData.companyName,
-      shipperConsignorName: formData.shipperConsignorName,
       originAddress: formData.originAddress,
       
       // Trip configuration - single drop is just multiple drop with 1 stop
@@ -826,465 +845,6 @@ useEffect(() => {
   const viewBooking = (booking) => {
     navigate(`/dashboard/booking/${booking._id}`);
   };
-
-  const handleAddressChange = (e) => {
-    const { name, value } = e.target;
-
-    // Update addressFormData for UI
-    setAddressFormData(prev => {
-      if (name === "region") {
-        // If NCR is selected, automatically set province to "Metro Manila"
-        if (value === "130000000") {
-          return { ...prev, region: value, province: "Metro Manila", city: "", barangay: "" };
-        }
-        return { ...prev, region: value, province: "", city: "", barangay: "" };
-      } else if (name === "province") {
-        return { ...prev, province: value, city: "", barangay: "" };
-      } else if (name === "city") {
-        return { ...prev, city: value, barangay: "" };
-      } else if (name === "barangay") {
-        return { ...prev, barangay: value };
-      } else {
-        return { ...prev, [name]: value };
-      }
-    });
-
-    // Update formData to trigger useEffect for data fetching
-    if (name === "region" || name === "province" || name === "city" || name === "barangay") {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value,
-        ...(name === "region" && {
-          province: value === "130000000" ? "Metro Manila" : "",
-          city: "",
-          barangay: ""
-        }),
-        ...(name === "province" && { city: "", barangay: "" }),
-        ...(name === "city" && { barangay: "" })
-      }));
-    }
-  };
-
-  // Address Modal States
-  const [showOriginAddressModal, setShowOriginAddressModal] = useState(false);
-  const [originAddressDetails, setOriginAddressDetails] = useState({
-    street: '',
-    barangay: '',
-    city: '',
-    province: '',
-    region: '',
-    fullAddress: ''
-  });
-
-  const [addressFormData, setAddressFormData] = useState({
-    street: '',
-    region: '',
-    province: '',
-    city: '',
-    barangay: ''
-  });
-
-  // Helper function to format address preview
-  const formatAddressPreview = () => {
-    const { street, barangay, city, province, region } = addressFormData;
-
-    if (!street && !barangay && !city && !province && !region) {
-      return "No address selected";
-    }
-
-    const barangayName = barangays.find(b => b.code === barangay)?.name || '';
-    const cityName = cities.find(c => c.code === city)?.name || '';
-    const provinceName = provinces.find(p => p.code === province)?.name || '';
-    const regionName = regions.find(r => r.code === region)?.name || '';
-
-    const parts = [
-      street,
-      barangayName,
-      cityName,
-      provinceName,
-      regionName
-    ].filter(Boolean);
-
-    return parts.join(', ') || "Please complete all address fields";
-  };
-
-  // Check if address form is valid
-  const isAddressFormValid = () => {
-    const { street, region, province, city, barangay } = addressFormData;
-    return street && region && province && city && barangay;
-  };
-
-  // Clear address form
-  const clearAddressForm = () => {
-    setAddressFormData({
-      street: '',
-      region: '',
-      province: '',
-      city: '',
-      barangay: ''
-    });
-  };
-
-  // Save origin address
-  const saveOriginAddress = () => {
-    if (!isAddressFormValid()) {
-      alert('Please complete all address fields');
-      return;
-    }
-
-    const barangayName = barangays.find(b => b.code === addressFormData.barangay)?.name || '';
-    const cityName = cities.find(c => c.code === addressFormData.city)?.name || '';
-    const provinceName = provinces.find(p => p.code === addressFormData.province)?.name || '';
-    const regionName = regions.find(r => r.code === addressFormData.region)?.name || '';
-
-    const fullAddress = [
-      addressFormData.street,
-      barangayName,
-      cityName,
-      provinceName,
-      regionName
-    ].filter(Boolean).join(', ');
-
-    // Update the origin address details
-    setOriginAddressDetails({
-      street: addressFormData.street,
-      barangay: barangayName,
-      city: cityName,
-      province: provinceName,
-      region: regionName,
-      fullAddress: fullAddress
-    });
-
-    // Update the main form data
-    setFormData(prev => ({
-      ...prev,
-      originAddress: fullAddress
-    }));
-
-    // Close the modal
-    setShowOriginAddressModal(false);
-  };
-
-  // Initialize address form when opening modal
-  const openAddressModal = () => {
-    // If we already have origin address details, pre-fill the form
-    if (originAddressDetails.fullAddress) {
-      setAddressFormData({
-        street: originAddressDetails.street || '',
-        region: '',
-        province: '',
-        city: '',
-        barangay: ''
-      });
-    } else {
-      clearAddressForm();
-    }
-    setAddressSearch('');
-    setShowOriginAddressModal(true);
-  };
-
-
-
-  // Address dropdown states
-  const [regions, setRegions] = useState([]);
-  const [provinces, setProvinces] = useState([]);
-  const [cities, setCities] = useState([]);
-  const [barangays, setBarangays] = useState([]);
-
-  // Fetch regions on mount
-  useEffect(() => {
-    const fetchRegions = async () => {
-      try {
-        const res = await axios.get("https://psgc.gitlab.io/api/regions/");
-        setRegions(res.data);
-      } catch (err) {
-        console.error("Failed to fetch regions", err);
-      }
-    };
-    fetchRegions();
-  }, []);
-
-  // Fetch provinces when region changes
-  useEffect(() => {
-    if (!formData.region) {
-      setProvinces([]);
-      return;
-    }
-    const fetchProvinces = async () => {
-      try {
-        if (formData.region === "130000000") {
-          const districtsRes = await axios.get("https://psgc.gitlab.io/api/regions/130000000/districts/");
-          const districts = districtsRes.data;
-          let allProvinces = [];
-          for (const district of districts) {
-            try {
-              const provRes = await axios.get(`https://psgc.gitlab.io/api/districts/${district.code}/provinces/`);
-              allProvinces = allProvinces.concat(provRes.data);
-            } catch (err) {
-              if (err.response && err.response.status === 404) {
-                continue;
-              } else {
-                console.error(`Error fetching provinces for district ${district.code}`, err);
-              }
-            }
-          }
-          setProvinces(allProvinces);
-        } else {
-          const res = await axios.get(`https://psgc.gitlab.io/api/regions/${formData.region}/provinces/`);
-          setProvinces(res.data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch provinces", err);
-      }
-    };
-    fetchProvinces();
-  }, [formData.region]);
-
-  // Fetch cities/municipalities when province changes
-  useEffect(() => {
-    if (formData.region === "130000000") {
-      const fetchNcrCities = async () => {
-        try {
-          const districtsRes = await axios.get("https://psgc.gitlab.io/api/regions/130000000/districts/");
-          const districts = districtsRes.data;
-          let allCities = [];
-          for (const district of districts) {
-            let districtHasProvinces = true;
-            let provinces = [];
-            try {
-              const provRes = await axios.get(`https://psgc.gitlab.io/api/districts/${district.code}/provinces/`);
-              provinces = provRes.data;
-            } catch (err) {
-              if (err.response && err.response.status === 404) {
-                districtHasProvinces = false;
-              } else {
-                console.error(`Error fetching provinces for district ${district.code}`, err);
-              }
-            }
-            if (districtHasProvinces && provinces.length > 0) {
-              for (const province of provinces) {
-                try {
-                  const cityRes = await axios.get(`https://psgc.gitlab.io/api/provinces/${province.code}/cities-municipalities/`);
-                  allCities = allCities.concat(cityRes.data);
-                } catch (err) {
-                  if (err.response && err.response.status === 404) {
-                    continue;
-                  } else {
-                    console.error(`Error fetching cities for province ${province.code}`, err);
-                  }
-                }
-              }
-            } else {
-              try {
-                const cityRes = await axios.get(`https://psgc.gitlab.io/api/districts/${district.code}/cities-municipalities/`);
-                allCities = allCities.concat(cityRes.data);
-              } catch (err) {
-                if (err.response && err.response.status === 404) {
-                  continue;
-                } else {
-                  console.error(`Error fetching cities for district ${district.code}`, err);
-                }
-              }
-            }
-          }
-          setCities(allCities);
-        } catch (err) {
-          console.error("Failed to fetch NCR cities/municipalities", err);
-        }
-      };
-      fetchNcrCities();
-      return;
-    }
-    if (!formData.province) {
-      setCities([]);
-      return;
-    }
-    const fetchCities = async () => {
-      try {
-        const res = await axios.get(`https://psgc.gitlab.io/api/provinces/${formData.province}/cities-municipalities/`);
-        setCities(res.data);
-      } catch (err) {
-        console.error("Failed to fetch cities/municipalities", err);
-      }
-    };
-    fetchCities();
-  }, [formData.province, formData.region]);
-
-  // Fetch barangays when city/municipality changes
-  useEffect(() => {
-    if (!formData.city) {
-      setBarangays([]);
-      return;
-    }
-    const fetchBarangays = async () => {
-      try {
-        const res = await axios.get(`https://psgc.gitlab.io/api/cities-municipalities/${formData.city}/barangays/`);
-        setBarangays(res.data);
-      } catch (err) {
-        console.error("Failed to fetch barangays", err);
-      }
-    };
-    fetchBarangays();
-  }, [formData.city]);
-
-  // Initialize map when modal opens
-  useEffect(() => {
-    if (!showOriginAddressModal) {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-        markerRef.current = null;
-      }
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      const mapElement = document.getElementById('location-map');
-      if (!mapElement) return;
-
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-        markerRef.current = null;
-      }
-
-      if (!document.getElementById('leaflet-css')) {
-        const link = document.createElement('link');
-        link.id = 'leaflet-css';
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        document.head.appendChild(link);
-      }
-
-      if (!window.L) {
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        script.onload = initializeMap;
-        document.body.appendChild(script);
-      } else {
-        initializeMap();
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [showOriginAddressModal]);
-
-  const initializeMap = () => {
-    const mapElement = document.getElementById('location-map');
-    if (!mapElement || mapRef.current) return;
-
-    const map = window.L.map('location-map').setView(mapCenter, 13);
-    mapRef.current = map;
-
-    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
-
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 100);
-
-    // Add marker if position exists
-    if (markerPosition) {
-      const marker = window.L.marker(markerPosition, { draggable: true }).addTo(map);
-      markerRef.current = marker;
-
-      marker.on('dragend', function (e) {
-        const pos = e.target.getLatLng();
-        setMarkerPosition([pos.lat, pos.lng]);
-        setFormData(prev => ({
-          ...prev,
-          latitude: pos.lat,
-          longitude: pos.lng
-        }));
-      });
-    }
-
-    // Add click event to place/move marker
-    map.on('click', function (e) {
-      const { lat, lng } = e.latlng;
-
-      if (markerRef.current) {
-        markerRef.current.setLatLng([lat, lng]);
-      } else {
-        const marker = window.L.marker([lat, lng], { draggable: true }).addTo(map);
-        markerRef.current = marker;
-
-        marker.on('dragend', function (e) {
-          const pos = e.target.getLatLng();
-          setMarkerPosition([pos.lat, pos.lng]);
-          setFormData(prev => ({
-            ...prev,
-            latitude: pos.lat,
-            longitude: pos.lng
-          }));
-        });
-      }
-
-      setMarkerPosition([lat, lng]);
-      setFormData(prev => ({
-        ...prev,
-        latitude: lat,
-        longitude: lng
-      }));
-    });
-  };
-
-  // Search address function
-  const handleAddressSearch = async () => {
-    if (!addressSearch.trim()) return;
-
-    try {
-      const response = await axios.get('https://nominatim.openstreetmap.org/search', {
-        params: {
-          q: addressSearch + ', Philippines',
-          format: 'json',
-          limit: 1
-        }
-      });
-
-      if (response.data && response.data.length > 0) {
-        const { lat, lon } = response.data[0];
-        const newCenter = [parseFloat(lat), parseFloat(lon)];
-
-        setMapCenter(newCenter);
-        setMarkerPosition(newCenter);
-        setFormData(prev => ({
-          ...prev,
-          latitude: parseFloat(lat),
-          longitude: parseFloat(lon)
-        }));
-
-        // Update map view
-        if (mapRef.current) {
-          mapRef.current.setView(newCenter, 15);
-
-          if (markerRef.current) {
-            markerRef.current.setLatLng(newCenter);
-          } else {
-            const marker = window.L.marker(newCenter, { draggable: true }).addTo(mapRef.current);
-            markerRef.current = marker;
-
-            marker.on('dragend', function (e) {
-              const pos = e.target.getLatLng();
-              setMarkerPosition([pos.lat, pos.lng]);
-              setFormData(prev => ({
-                ...prev,
-                latitude: pos.lat,
-                longitude: pos.lng
-              }));
-            });
-          }
-        }
-      } else {
-        alert('Address not found. Please try a different search.');
-      }
-    } catch (err) {
-      console.error('Error searching address:', err);
-      alert('Failed to search address. Please try again.');
-    }
-  };
-
 
   return (
     <div className="space-y-8">
@@ -1678,29 +1238,18 @@ useEffect(() => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Origin/From *</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  name="originAddress"
-                  value={formData.originAddress}
-                  readOnly
-                  required
-                  placeholder="Select origin address"
-                  className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50/50"
-                />
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  type="button"
-                  onClick={openAddressModal}
-                  className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium whitespace-nowrap"
-                >
-                  Select Address
-                </motion.button>
-              </div>
+              <input
+                type="text"
+                name="originAddress"
+                value={formData.originAddress}
+                readOnly
+                required
+                placeholder="Origin will be auto-populated from selected company"
+                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50/50"
+              />
               {formData.originAddress && (
                 <p className="text-xs text-green-600 mt-1">
-                  ✓ Address selected: {formData.originAddress}
+                  ✓ Origin populated: {formData.originAddress}
                 </p>
               )}
             </div>
@@ -1745,14 +1294,14 @@ useEffect(() => {
                         className="w-full px-4 py-2.5 border-2 border-indigo-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 font-medium"
                       >
                         <option value="">Select branch</option>
-                        {formData.companyName && getClientBranches(formData.companyName).map((client) => (
+                        {formData.companyName && getClientBranches().map((b) => (
                           <option
-                            key={client.clientBranch}
-                            value={client.clientBranch}
-                            disabled={selectedBranches.some((b, i) => i !== index && b.branch === client.clientBranch)}
+                            key={b._id}
+                            value={b.branchName}
+                            disabled={selectedBranches.some((sb, i) => i !== index && sb.branch === b.branchName)}
                           >
-                            {client.clientBranch}
-                            {selectedBranches.some((b, i) => i !== index && b.branch === client.clientBranch) ? ' (Selected)' : ''}
+                            {b.branchName}
+                            {selectedBranches.some((sb, i) => i !== index && sb.branch === b.branchName) ? ' (Selected)' : ''}
                           </option>
                         ))}
                       </select>
@@ -2286,7 +1835,7 @@ useEffect(() => {
               whileTap={{ scale: 0.95 }}
               type="button"
               onClick={handleAddressSearch}
-              className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-300 inline-flex items-center gap-2"
+              className="px-4 py-2.5 bg-gradient-to-r frompurple-600 to-violet-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-300 inline-flex items-center gap-2"
             >
               <Search size={18} />
               Search

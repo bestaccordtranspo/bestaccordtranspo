@@ -196,13 +196,19 @@ export default function Monitoring() {
   ];
 
   // Helper function to get destinations array
+  // Use destinationDeliveries (new model) as source of truth for destinations.
+  // Fallback to legacy destinationAddress field when destinationDeliveries is missing.
   const getDestinations = (booking) => {
+    if (!booking) return [];
+    if (Array.isArray(booking.destinationDeliveries) && booking.destinationDeliveries.length > 0) {
+      return booking.destinationDeliveries.map(d => d.destinationAddress || "");
+    }
     if (!booking.destinationAddress) return [];
     return Array.isArray(booking.destinationAddress)
       ? booking.destinationAddress
       : [booking.destinationAddress];
   };
-
+  
   // Helper function to format destinations display
   const formatDestinations = (booking) => {
     const destinations = getDestinations(booking);
@@ -831,42 +837,42 @@ const getRoute = async (start, end) => {
         console.error('Error creating map markers:', error);
       }
 
-      // Add legend
-      const legend = L.control({ position: 'bottomright' });
-      legend.onAdd = function () {
-        const div = L.DomUtil.create('div', 'info legend');
-        div.style.backgroundColor = 'white';
-        div.style.padding = '10px';
-        div.style.borderRadius = '8px';
-        div.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+      // // Add legend
+      // const legend = L.control({ position: 'bottomright' });
+      // legend.onAdd = function () {
+      //   const div = L.DomUtil.create('div', 'info legend');
+      //   div.style.backgroundColor = 'white';
+      //   div.style.padding = '10px';
+      //   div.style.borderRadius = '8px';
+      //   div.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
 
-        let legendHtml = `
-          <div style="font-size: 11px;">
-            <strong>Map Legend</strong><br/>
-            <span style="color: #10b981;">●</span> Origin<br/>
-            <span style="color: #ef4444;">●</span> Active Destination<br/>
-            <span style="color: #f59e0b;">●</span> Pending Stops<br/>
-        `;
+      //   let legendHtml = `
+      //     <div style="font-size: 11px;">
+      //       <strong>Map Legend</strong><br/>
+      //       <span style="color: #10b981;">●</span> Origin<br/>
+      //       <span style="color: #ef4444;">●</span> Active Destination<br/>
+      //       <span style="color: #f59e0b;">●</span> Pending Stops<br/>
+      //   `;
 
-        if (selectedBooking.driverLocation?.latitude && selectedBooking.driverLocation?.longitude) {
-          legendHtml += `<span style="color: #F97316;">🚚</span> Driver Location<br/>`;
-          legendHtml += `<span style="color: #F97316;">─</span> Active Route<br/>`;
-        }
+      //   if (selectedBooking.driverLocation?.latitude && selectedBooking.driverLocation?.longitude) {
+      //     legendHtml += `<span style="color: #F97316;">🚚</span> Driver Location<br/>`;
+      //     legendHtml += `<span style="color: #F97316;">─</span> Active Route<br/>`;
+      //   }
 
-        legendHtml += `
-            <hr style="margin: 5px 0;"/>
-            <div style="font-size: 10px; color: #6b7280;">
-              ✓ Exact match<br/>
-              ⚠️ Approximate<br/>
-              📍 City center
-            </div>
-          </div>
-        `;
+      //   legendHtml += `
+      //       <hr style="margin: 5px 0;"/>
+      //       <div style="font-size: 10px; color: #6b7280;">
+      //         ✓ Exact match<br/>
+      //         ⚠️ Approximate<br/>
+      //         📍 City center
+      //       </div>
+      //     </div>
+      //   `;
 
-        div.innerHTML = legendHtml;
-        return div;
-      };
-      legend.addTo(map);
+      //   div.innerHTML = legendHtml;
+      //   return div;
+      // };
+      // legend.addTo(map);
 
       mapInstance.current = map;
 
@@ -1711,14 +1717,33 @@ const getRoute = async (start, end) => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5, delay: 0.3 }}
                       >
-                        <div className="grid grid-cols-2 gap-6">
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-600 mb-2">Customer Name</h4>
-                            <p className="text-gray-900">{selectedBooking.customerEstablishmentName || selectedBooking.shipperConsignorName || 'N/A'}</p>
-                          </div>
+                        <div className="space-y-3">
                           <div>
                             <h4 className="text-sm font-medium text-gray-600 mb-2">Company</h4>
-                            <p className="text-gray-900">{selectedBooking.companyName}</p>
+                            <p className="text-gray-900">{selectedBooking.companyName || "N/A"}</p>
+                          </div>
+
+                          {/* Primary customer/establishment for single-drop bookings.
+                              For multiple drops customer names are shown per-destination in Route Timeline. */}
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-600 mb-2">Customer / Establishment</h4>
+                            <p className="text-gray-900">
+                              {Array.isArray(selectedBooking.destinationDeliveries) && selectedBooking.destinationDeliveries.length > 0
+                                ? selectedBooking.destinationDeliveries[0].customerEstablishmentName || 'N/A'
+                                : selectedBooking.customerEstablishmentName || selectedBooking.shipperConsignorName || 'N/A'}
+                            </p>
+                          </div>
+
+                          {/* Show client address if available (clientDetails or originAddressDetails or originAddress) */}
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-600 mb-2">Client Address</h4>
+                            <p className="text-gray-900">
+                              {selectedBooking.clientDetails?.formattedAddress
+                                || (selectedBooking.clientDetails?.address ? `${selectedBooking.clientDetails.address.street || ''} ${selectedBooking.clientDetails.address.city || ''}`.trim() : '')
+                                || selectedBooking.originAddressDetails?.formattedAddress
+                                || selectedBooking.originAddress
+                                || "N/A"}
+                            </p>
                           </div>
                         </div>
                       </motion.div>
@@ -1730,32 +1755,73 @@ const getRoute = async (start, end) => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: 0.2 }}
                       >
-                        <div className="grid grid-cols-2 gap-6">
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-600 mb-2">Item</h4>
-                            <p className="text-gray-900">{selectedBooking.productName}</p>
+                        <h4 className="text-sm font-medium text-gray-600 mb-4">Product Details</h4>
+
+                        {/* If destinationDeliveries exists, list each stop's product details */}
+                        {Array.isArray(selectedBooking.destinationDeliveries) && selectedBooking.destinationDeliveries.length > 0 ? (
+                          <div className="space-y-3">
+                            {selectedBooking.destinationDeliveries.map((d, idx) => (
+                              <div key={idx} className="p-3 rounded border bg-gray-50">
+                                <div className="flex justify-between items-center mb-2">
+                                  <div className="text-sm font-medium text-gray-800">{`Stop ${d.destinationIndex + 1 || idx + 1} — ${d.customerEstablishmentName || 'N/A'}`}</div>
+                                  <div className="text-xs text-gray-500">{d.destinationAddress}</div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                  <div>
+                                    <div className="text-gray-600">Product</div>
+                                    <div className="font-semibold">{d.productName || 'N/A'}</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-gray-600">Quantity</div>
+                                    <div className="font-semibold">{d.quantity?.toLocaleString() ?? 'N/A'}</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-gray-600">Gross Weight</div>
+                                    <div className="font-semibold">{d.grossWeight ?? 'N/A'}</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-gray-600">Units / Packages</div>
+                                    <div className="font-semibold">{`${d.unitPerPackage ?? 'N/A'} / ${d.numberOfPackages ?? 'N/A'}`}</div>
+                                  </div>
+                                  {d.notes && (
+                                    <div className="col-span-2 text-sm text-gray-600">
+                                      <div className="text-gray-600">Notes</div>
+                                      <div>{d.notes}</div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-600 mb-2">Quantity</h4>
-                            <p className="text-gray-900">{selectedBooking.quantity?.toLocaleString()} pcs</p>
+                        ) : (
+                          // Fallback to legacy single-product fields
+                          <div className="grid grid-cols-2 gap-6">
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-600 mb-2">Item</h4>
+                              <p className="text-gray-900">{selectedBooking.productName || "N/A"}</p>
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-600 mb-2">Quantity</h4>
+                              <p className="text-gray-900">{selectedBooking.quantity?.toLocaleString() || "N/A"} pcs</p>
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-600 mb-2">Gross Weight</h4>
+                              <p className="text-gray-900">{selectedBooking.grossWeight || "N/A"}</p>
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-600 mb-2">Units per package</h4>
+                              <p className="text-gray-900">{selectedBooking.unitPerPackage || "N/A"} pcs/box</p>
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-600 mb-2">Number of Package</h4>
+                              <p className="text-gray-900">{selectedBooking.numberOfPackages || "N/A"} box</p>
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-600 mb-2">Delivery Fee</h4>
+                              <p className="text-gray-900">₱{selectedBooking.deliveryFee?.toLocaleString() || "0"}</p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-600 mb-2">Gross Weight</h4>
-                            <p className="text-gray-900">{selectedBooking.grossWeight} tons</p>
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-600 mb-2">Units per package</h4>
-                            <p className="text-gray-900">{selectedBooking.unitPerPackage}pcs/box</p>
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-600 mb-2">Number of Package</h4>
-                            <p className="text-gray-900">{selectedBooking.numberOfPackages} box</p>
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-600 mb-2">Delivery Fee</h4>
-                            <p className="text-gray-900">₱{selectedBooking.deliveryFee?.toLocaleString()} PHP</p>
-                          </div>
-                        </div>
+                        )}
                       </motion.div>
 
                       {/* Vehicle Information */}

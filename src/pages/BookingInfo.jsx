@@ -134,7 +134,7 @@ function BookingInfo() {
                     ) : isMultipleDestinations ? (
                         <div className="space-y-3">
                             {deliveries.map((d, idx) => (
-                                <div key={idx} className="p-3 border rounded-lg bg-gray-50">
+                                <div key={idx} className="p-3 rounded-lg bg-gray-50">
                                     <div className="flex justify-between">
                                         <span className="text-gray-700 font-medium">Stop {d.destinationIndex + 1 || idx + 1} - {d.customerEstablishmentName || 'N/A'}</span>
                                         <span className="text-sm text-gray-500">{d.destinationAddress}</span>
@@ -217,11 +217,6 @@ function BookingInfo() {
                             </span>
                         </div>
 
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Customer/Establishment:</span>
-                            <span className="font-semibold">{customerEstablishmentName}</span>
-                        </div>
-
                         {/* When multiple drops, show branch list with address & contacts */}
                         {deliveriesSource.length > 1 && (
                             <div className="mt-4">
@@ -234,7 +229,7 @@ function BookingInfo() {
                                         const contactNumber = b.contactNumber || deliveriesSource[i]?.contactNumber || "N/A";
                                         const email = b.email || deliveriesSource[i]?.email || "N/A";
                                         return (
-                                            <div key={b._id || i} className="p-3 border rounded-lg bg-gray-50">
+                                            <div key={b._id || i} className="p-3 rounded-lg bg-gray-50">
                                                 <div className="flex justify-between items-start">
                                                     <div>
                                                         <div className="font-semibold text-gray-800">{name}</div>

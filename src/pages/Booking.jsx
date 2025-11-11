@@ -82,8 +82,8 @@ function Booking() {
     plateNumber: "",
     dateNeeded: "",
     timeNeeded: "",
-    employeeAssigned: [],
-    roleOfEmployee: [],
+    employeeAssigned: [""],
+    roleOfEmployee: [""],
   });
 
   useEffect(() => {
@@ -112,15 +112,12 @@ function Booking() {
     return clientBranches || [];
   };
 
-  //helper functions for multiple branch selections
-  // Get available branches that haven't been selected yet
+  // Get available branches that haven't been selected yet (for selected company)
   const getAvailableBranches = () => {
     if (!formData.companyName) return [];
-
-    const allBranches = getClientBranches(formData.companyName);
     const selectedBranchNames = selectedBranches.map(b => b.branch).filter(Boolean);
-
-    return allBranches.filter(client => !selectedBranchNames.includes(client.clientBranch));
+    // branchName is the field in Branch model
+    return (clientBranches || []).filter(b => !selectedBranchNames.includes(b.branchName));
   };
 
   // Check if there are available branches to add
@@ -228,6 +225,19 @@ function Booking() {
       setClients(activeClients);
     } catch (err) {
       console.error("Error fetching clients:", err);
+    }
+  };
+
+  // Fetch branches for a specific client and set clientBranches
+  const fetchBranchesForClient = async (clientId) => {
+    try {
+      // adjust endpoint if your API uses a different path
+      const res = await axiosClient.get(`/api/branches?client=${clientId}`);
+      const activeBranches = Array.isArray(res.data) ? res.data.filter(b => !b.isArchived) : [];
+      setClientBranches(activeBranches);
+    } catch (err) {
+      console.error("Error fetching branches for client:", err);
+      setClientBranches([]);
     }
   };
 
@@ -1224,36 +1234,24 @@ useEffect(() => {
             </select>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Shipper/Consignor *</label>
-              <input
-                type="text"
-                name="shipperConsignorName"
-                value={formData.shipperConsignorName}
-                onChange={handleChange}
-                required
-                placeholder="Enter Shipper/Consignor Name"
-                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Origin/From *</label>
-              <input
-                type="text"
-                name="originAddress"
-                value={formData.originAddress}
-                readOnly
-                required
-                placeholder="Origin will be auto-populated from selected company"
-                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50/50"
-              />
-              {formData.originAddress && (
-                <p className="text-xs text-green-600 mt-1">
-                  ✓ Origin populated: {formData.originAddress}
-                </p>
-              )}
-            </div>
-          </div>
+             <div>
+               <label className="block text-sm font-medium text-gray-700 mb-2">Origin/From *</label>
+               <input
+                 type="text"
+                 name="originAddress"
+                 value={formData.originAddress}
+                 readOnly
+                 required
+                 placeholder="Origin will be auto-populated from selected company"
+                 className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50/50"
+               />
+               {formData.originAddress && (
+                 <p className="text-xs text-green-600 mt-1">
+                   ✓ Origin populated: {formData.originAddress}
+                 </p>
+               )}
+             </div>
+           </div>
 
           <div className="gap-4 mt-4">
             {/* Destinations Section - Always show multiple drop interface */}
@@ -1646,14 +1644,11 @@ useEffect(() => {
           </div>
             </motion.div>
     </motion.div>
-  )
-}
-      </AnimatePresence >
-
-  {/* Origin Address Selection Modal */ }
-
-    </div >
-  );
+    )
+  }
+</AnimatePresence >
+</div >
+);
 }
 
 export default Booking;

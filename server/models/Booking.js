@@ -6,7 +6,6 @@ const bookingSchema = new mongoose.Schema({
     
     // Company and shipment info (shared across all stops)
     companyName: { type: String, required: true },
-    shipperConsignorName: { type: String, required: true },
     originAddress: { type: String, required: true },
     
     // Trip configuration

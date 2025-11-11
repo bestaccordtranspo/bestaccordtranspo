@@ -20,7 +20,8 @@ import DriverSchedule from "./pages/DriverSchedule";
 import BookingInfo from "./pages/BookingInfo";
 import PendingStaff from "./pages/PendingStaff";
 import Staff from "./pages/Staff";
-import Branch from "./pages/Branch"; // <-- added import
+import Branch from "./pages/Branch";
+import BranchInfo from "./pages/BranchInfo";
 
 // Admin/Staff Private Route
 function PrivateRoute({ children, roles }) {
@@ -176,7 +177,14 @@ export default function App() {
             </PrivateRoute>
           }
         />
-
+        <Route
+          path="branch/:id"
+          element={
+            <PrivateRoute roles={["admin"]}>
+              <BranchInfo />
+            </PrivateRoute>
+          }
+        />
         <Route
           path="staff"
           element={

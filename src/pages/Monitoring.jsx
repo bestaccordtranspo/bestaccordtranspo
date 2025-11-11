@@ -46,9 +46,40 @@ export default function Monitoring() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [error, setError] = useState("");
   const [updating, setUpdating] = useState(false);
+  // sorting state
+  const [sortBy, setSortBy] = useState("schedule"); // default sort
+  const [sortDir, setSortDir] = useState("asc"); // "asc" | "desc"
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
+  
+  // helper to toggle sort
+  const handleSort = (key) => {
+    if (sortBy === key) {
+      setSortDir(prev => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(key);
+      setSortDir("asc");
+    }
+  };
 
+  // return comparable value for sorting
+  const getSortValue = (booking, key) => {
+    switch (key) {
+      case "trip":
+        return (booking.tripNumber || "").toString().toLowerCase();
+      case "route":
+        return (getDestinations(booking).join(", ") || booking.originAddress || "").toString().toLowerCase();
+      case "status":
+        return (booking.status || "").toString().toLowerCase();
+      case "schedule":
+        return booking.dateNeeded ? new Date(booking.dateNeeded).getTime() : 0;
+      case "team":
+        return (Array.isArray(booking.employeeAssigned) ? booking.employeeAssigned.join(", ") : booking.employeeAssigned || "").toString().toLowerCase();
+      default:
+        return "";
+    }
+  };
+  
   const baseURL = import.meta.env.VITE_API_BASE_URL;
 
   // Animation variants (keeping your existing ones)
@@ -903,8 +934,26 @@ const getRoute = async (start, end) => {
       filtered = filtered.filter(booking => booking.status === statusFilter);
     }
 
-    setFilteredBookings(filtered);
-  }, [searchTerm, statusFilter, bookings]);
+    // Apply sorting
+    if (sortBy) {
+      filtered = [...filtered].sort((a, b) => {
+        const va = getSortValue(a, sortBy);
+        const vb = getSortValue(b, sortBy);
+
+        // numeric compare for schedule (timestamp)
+        if (sortBy === "schedule") {
+          return sortDir === "asc" ? va - vb : vb - va;
+        }
+
+        // fallback string compare
+        if (va < vb) return sortDir === "asc" ? -1 : 1;
+        if (va > vb) return sortDir === "asc" ? 1 : -1;
+       return 0;
+     });
+    }
+ 
+     setFilteredBookings(filtered);
+   }, [searchTerm, statusFilter, bookings, sortBy, sortDir]);
 
   // Open booking details
   const openBookingDetails = (booking) => {
@@ -1151,12 +1200,52 @@ const getRoute = async (start, end) => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trip Info</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Route</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Schedule</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Team</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
+                      onClick={() => handleSort("trip")}
+                    >
+                      <div className="flex items-center gap-2">
+                        Trip Info
+                        {sortBy === "trip" && <span className="text-xs">{sortDir === "asc" ? "▲" : "▼"}</span>}
+                      </div>
+                    </th>
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
+                      onClick={() => handleSort("route")}
+                    >
+                      <div className="flex items-center gap-2">
+                        Route
+                        {sortBy === "route" && <span className="text-xs">{sortDir === "asc" ? "▲" : "▼"}</span>}
+                      </div>
+                    </th>
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
+                      onClick={() => handleSort("status")}
+                    >
+                      <div className="flex items-center gap-2">
+                        Status
+                        {sortBy === "status" && <span className="text-xs">{sortDir === "asc" ? "▲" : "▼"}</span>}
+                      </div>
+                    </th>
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
+                      onClick={() => handleSort("schedule")}
+                    >
+                      <div className="flex items-center gap-2">
+                        Schedule
+                        {sortBy === "schedule" && <span className="text-xs">{sortDir === "asc" ? "▲" : "▼"}</span>}
+                      </div>
+                    </th>
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
+                      onClick={() => handleSort("team")}
+                    >
+                      <div className="flex items-center gap-2">
+                        Team
+                        {sortBy === "team" && <span className="text-xs">{sortDir === "asc" ? "▲" : "▼"}</span>}
+                      </div>
+                    </th>
+                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -1723,20 +1812,9 @@ const getRoute = async (start, end) => {
                             <p className="text-gray-900">{selectedBooking.companyName || "N/A"}</p>
                           </div>
 
-                          {/* Primary customer/establishment for single-drop bookings.
-                              For multiple drops customer names are shown per-destination in Route Timeline. */}
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-600 mb-2">Customer / Establishment</h4>
-                            <p className="text-gray-900">
-                              {Array.isArray(selectedBooking.destinationDeliveries) && selectedBooking.destinationDeliveries.length > 0
-                                ? selectedBooking.destinationDeliveries[0].customerEstablishmentName || 'N/A'
-                                : selectedBooking.customerEstablishmentName || selectedBooking.shipperConsignorName || 'N/A'}
-                            </p>
-                          </div>
-
                           {/* Show client address if available (clientDetails or originAddressDetails or originAddress) */}
                           <div>
-                            <h4 className="text-sm font-medium text-gray-600 mb-2">Client Address</h4>
+                            <h4 className="text-sm font-medium text-gray-600 mb-2">Company Address</h4>
                             <p className="text-gray-900">
                               {selectedBooking.clientDetails?.formattedAddress
                                 || (selectedBooking.clientDetails?.address ? `${selectedBooking.clientDetails.address.street || ''} ${selectedBooking.clientDetails.address.city || ''}`.trim() : '')
@@ -1755,9 +1833,7 @@ const getRoute = async (start, end) => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: 0.2 }}
                       >
-                        <h4 className="text-sm font-medium text-gray-600 mb-4">Product Details</h4>
-
-                        {/* If destinationDeliveries exists, list each stop's product details */}
+                        <h4 className="text-sm font-medium text-gray-600 mb-4">Product Details</h4>                       
                         {Array.isArray(selectedBooking.destinationDeliveries) && selectedBooking.destinationDeliveries.length > 0 ? (
                           <div className="space-y-3">
                             {selectedBooking.destinationDeliveries.map((d, idx) => (

@@ -207,7 +207,7 @@ function BookingInfo() {
                         </div>
 
                         <div className="flex justify-between">
-                            <span className="text-gray-600 font-semibold">Client Address:</span>
+                            <span className="text-gray-600 font-semibold">Company Address:</span>
                             <span className="text-sm">
                                 {client?.formattedAddress
                                     || formatAddress(client?.address)

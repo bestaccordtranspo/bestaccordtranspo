@@ -35,14 +35,46 @@ function Booking() {
   const [searchDate, setSearchDate] = useState("");
   const [generalSearch, setGeneralSearch] = useState("");
   const [searchStatus, setSearchStatus] = useState("");
+  // Sorting state
+  const [sortBy, setSortBy] = useState("date"); // default sort key
+  const [sortDir, setSortDir] = useState("asc"); // "asc" | "desc"
 
-  // Unique filter values
-  const [uniqueReservationIds, setUniqueReservationIds] = useState([]);
-  const [uniqueCompanyNames, setUniqueCompanyNames] = useState([]);
-  const [uniqueProductNames, setUniqueProductNames] = useState([]);
-  const [uniqueVehicleTypes, setUniqueVehicleTypes] = useState([]);
-  const [uniqueStatuses, setUniqueStatuses] = useState([]);
-  const [uniqueDates, setUniqueDates] = useState([]);
+  const handleSort = (key) => {
+    if (sortBy === key) {
+      setSortDir(prev => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(key);
+      setSortDir("asc");
+    }
+  };
+
+  const getSortValue = (booking, key) => {
+    switch (key) {
+      case "reservation":
+        return (booking.reservationId || "").toString().toLowerCase();
+      case "trip":
+        return (booking.tripNumber || "").toString().toLowerCase();
+      case "company":
+        return (booking.companyName || "").toString().toLowerCase();
+      case "product":
+        // join multiple stop products for comparison
+        return (Array.isArray(booking.destinationDeliveries) && booking.destinationDeliveries.length > 0)
+          ? booking.destinationDeliveries.map(d => (d.productName || "")).join(", ").toLowerCase()
+          : (booking.productName || "").toString().toLowerCase();
+      case "vehicle":
+        return (booking.vehicleType || "").toString().toLowerCase();
+      case "date":
+        return booking.dateNeeded ? new Date(booking.dateNeeded).getTime() : 0;
+      case "status":
+        return (booking.status || "").toString().toLowerCase();
+      case "employee":
+        return Array.isArray(booking.employeeAssigned)
+          ? booking.employeeAssigned.join(" ").toLowerCase()
+          : (booking.employeeAssigned || "").toString().toLowerCase();
+      default:
+        return "";
+    }
+  };
 
   // Trip type state
   const [selectedBranches, setSelectedBranches] = useState([
@@ -309,9 +341,26 @@ function Booking() {
       });
     }
 
+    // Apply sorting
+    if (sortBy) {
+      results = [...results].sort((a, b) => {
+        const va = getSortValue(a, sortBy);
+        const vb = getSortValue(b, sortBy);
+
+        // numeric compare for date
+        if (sortBy === "date") {
+          return sortDir === "asc" ? va - vb : vb - va;
+        }
+
+        if (va < vb) return sortDir === "asc" ? -1 : 1;
+        if (va > vb) return sortDir === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
     setFilteredBookings(results);
     setCurrentPage(1);
-  }, [searchReservationId, searchCompanyName, searchProductName, searchVehicleType, searchDate, generalSearch, searchStatus, bookings]);
+  }, [searchReservationId, searchCompanyName, searchProductName, searchVehicleType, searchDate, generalSearch, searchStatus, bookings, sortBy, sortDir]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
@@ -938,14 +987,54 @@ useEffect(() => {
             <thead className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-100">
               <tr>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">No</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Reservation ID</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Trip Number</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Company</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Product</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Vehicle</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Date</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Status</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Employee</th>
+                <th
+                  className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer"
+                  onClick={() => handleSort("reservation")}
+                >
+                  Reservation ID {sortBy === "reservation" && (sortDir === "asc" ? "▲" : "▼")}
+                </th>
+                <th
+                  className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer"
+                  onClick={() => handleSort("trip")}
+                >
+                  Trip Number {sortBy === "trip" && (sortDir === "asc" ? "▲" : "▼")}
+                </th>
+                <th
+                  className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer"
+                  onClick={() => handleSort("company")}
+                >
+                  Company {sortBy === "company" && (sortDir === "asc" ? "▲" : "▼")}
+                </th>
+                <th
+                  className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer"
+                  onClick={() => handleSort("product")}
+                >
+                  Product {sortBy === "product" && (sortDir === "asc" ? "▲" : "▼")}
+                </th>
+                <th
+                  className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer"
+                  onClick={() => handleSort("vehicle")}
+                >
+                  Vehicle {sortBy === "vehicle" && (sortDir === "asc" ? "▲" : "▼")}
+                </th>
+                <th
+                  className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer"
+                  onClick={() => handleSort("date")}
+                >
+                  Date {sortBy === "date" && (sortDir === "asc" ? "▲" : "▼")}
+                </th>
+                <th
+                  className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer"
+                  onClick={() => handleSort("status")}
+                >
+                  Status {sortBy === "status" && (sortDir === "asc" ? "▲" : "▼")}
+                </th>
+                <th
+                  className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer"
+                  onClick={() => handleSort("employee")}
+                >
+                  Employee {sortBy === "employee" && (sortDir === "asc" ? "▲" : "▼")}
+                </th>
                 <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Actions</th>
               </tr>
             </thead>

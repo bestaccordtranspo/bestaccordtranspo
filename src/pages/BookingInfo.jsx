@@ -9,6 +9,25 @@ function BookingInfo() {
     const [booking, setBooking] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // New state to hold client and branch details
+    const [clientDetails, setClientDetails] = useState(null);
+    const [branchDetails, setBranchDetails] = useState([]); // parallel to deliveries when found
+    const formatAddress = (obj) => {
+        if (!obj) return "";
+        if (typeof obj === "string") return obj;
+        if (obj.formattedAddress) return obj.formattedAddress;
+        const parts = [
+            obj.houseNumber,
+            obj.street,
+            obj.barangay,
+            obj.city,
+            obj.province,
+            obj.region,
+            obj.fullAddress
+        ].filter(Boolean);
+        return parts.join(", ");
+    };
+
     const fetchBooking = async () => {
         try {
             const res = await axiosClient.get(`/api/bookings/${id}`);
@@ -19,10 +38,80 @@ function BookingInfo() {
             setLoading(false);
         }
     };
-
+    
+    // After booking loads, try to fetch client record and branch records for deliveries
     useEffect(() => {
-        fetchBooking();
-    }, [id]);
+        if (!booking) return;
+
+        const fetchClientAndBranches = async () => {
+            try {
+                // Try fetch client by companyName
+                let client = null;
+                if (booking.companyName) {
+                    // endpoint expects query param; adjust if your API differs
+                    const clientRes = await axiosClient.get(`/api/clients?clientName=${encodeURIComponent(booking.companyName)}`);
+                    if (Array.isArray(clientRes.data) && clientRes.data.length > 0) client = clientRes.data[0];
+                    else if (clientRes.data && clientRes.data._id) client = clientRes.data;
+                }
+                // fallback: if booking.originAddressDetails contains client-like info
+                if (!client && booking.originAddressDetails && booking.originAddressDetails._id) {
+                    const clientRes = await axiosClient.get(`/api/clients/${booking.originAddressDetails._id}`);
+                    if (clientRes.data) client = clientRes.data;
+                }
+                setClientDetails(client);
+
+                // For each delivery try to fetch branch by name (and client if available)
+                const deliveries = Array.isArray(booking.destinationDeliveries) ? booking.destinationDeliveries : [];
+                const branchesFound = await Promise.all(deliveries.map(async (d) => {
+                    const branchName = d.customerEstablishmentName || d.branch || d.branchName;
+                    if (!branchName) return {
+                        name: branchName || "Unknown",
+                        address: d.destinationAddress || "",
+                        contactPerson: d.contactPerson || "",
+                        contactNumber: d.contactNumber || "",
+                        email: d.email || ""
+                    };
+
+                    // try by name + client
+                    try {
+                        const clientQuery = client ? `&client=${client._id}` : "";
+                        const res = await axiosClient.get(`/api/branches?branchName=${encodeURIComponent(branchName)}${clientQuery}`);
+                        let b = null;
+                        if (Array.isArray(res.data) && res.data.length > 0) b = res.data[0];
+                        else if (res.data && res.data._id) b = res.data;
+                        if (b) {
+                            return {
+                                _id: b._id,
+                                name: b.branchName || branchName,
+                                address: formatAddress(b.address) || d.destinationAddress || "",
+                                contactPerson: b.contactPerson || d.contactPerson || "",
+                                contactNumber: b.contactNumber || d.contactNumber || "",
+                                email: b.email || d.email || ""
+                            };
+                        }
+                    } catch (err) {
+                        // ignore per-branch errors and fallback to delivery fields
+                        console.warn("branch fetch failed for", branchName, err);
+                    }
+
+                    // fallback to using delivery's stored info
+                    return {
+                        name: branchName,
+                        address: d.destinationAddress || "",
+                        contactPerson: d.contactPerson || "",
+                        contactNumber: d.contactNumber || "",
+                        email: d.email || ""
+                    };
+                }));
+
+                setBranchDetails(branchesFound);
+            } catch (err) {
+                console.error("Error fetching client/branches:", err);
+            }
+        };
+
+        fetchClientAndBranches();
+    }, [booking]);
 
     const goBack = () => {
         navigate("/dashboard/booking");
@@ -183,10 +272,56 @@ function BookingInfo() {
                             <span className="text-gray-600">Company Name:</span>
                             <span className="font-semibold">{booking.companyName}</span>
                         </div>
+
+                        {/* Client address (from fetched client record or originAddressDetails or booking.originAddress) */}
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Client Address:</span>
+                            <span className="font-semibold">
+                                {clientDetails?.formattedAddress
+                                    || (clientDetails?.address ? `${clientDetails.address.street || ''} ${clientDetails.address.city || ''}`.trim() : '')
+                                    || booking.originAddressDetails?.formattedAddress
+                                    || booking.originAddress
+                                    || "N/A"}
+                            </span>
+                        </div>
+
                         <div className="flex justify-between">
                             <span className="text-gray-600">Customer/Establishment:</span>
                             <span className="font-semibold">{customerEstablishmentName}</span>
                         </div>
+
+                        {/* When multiple drops: list selected branches with address + contact */}
+                        {deliveries.length > 1 && (
+                            <div className="mt-4">
+                                <h4 className="text-sm font-medium text-gray-700 mb-2">Selected Branches</h4>
+                                <div className="space-y-2">
+                                    {branchDetails.map((b, i) => (
+                                        <div key={b._id || i} className="p-3 border rounded-lg bg-gray-50">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <div className="font-semibold text-gray-800">{b.name || deliveries[i]?.customerEstablishmentName || `Stop ${i+1}`}</div>
+                                                    <div className="text-xs text-gray-600">{b.address || deliveries[i]?.destinationAddress || "No address"}</div>
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3 text-sm">
+                                                <div>
+                                                    <div className="text-gray-600">Contact Person</div>
+                                                    <div className="font-semibold">{b.contactPerson || "N/A"}</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-gray-600">Contact Number</div>
+                                                    <div className="font-semibold">{b.contactNumber || "N/A"}</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-gray-600">Email</div>
+                                                    <div className="font-semibold">{b.email || "N/A"}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 

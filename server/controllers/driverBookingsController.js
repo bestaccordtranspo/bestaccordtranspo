@@ -461,13 +461,14 @@ export const updateDriverLocation = async (req, res) => {
       });
     }
 
-    if (booking.status !== "In Transit") {
+    if (booking.status !== "In Transit" && booking.status !== "On Trip") {
       return res.status(400).json({
         success: false,
         msg: "Location can only be updated for trips that are In Transit"
       });
     }
 
+    // Update location with proper structure
     booking.driverLocation = {
       latitude: parseFloat(latitude),
       longitude: parseFloat(longitude),
@@ -475,9 +476,13 @@ export const updateDriverLocation = async (req, res) => {
       accuracy: accuracy ? parseFloat(accuracy) : null
     };
 
+    // IMPORTANT: Mark the field as modified to ensure Mongoose saves it
+    booking.markModified('driverLocation');
+
     await booking.save();
 
     console.log(`✅ Driver location updated for booking ${booking.reservationId}`);
+    console.log(`📍 New location:`, booking.driverLocation);
 
     res.json({
       success: true,

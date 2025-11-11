@@ -95,6 +95,11 @@ const updateLocationOnServer = async (bookingId, location) => {
   try {
     const token = localStorage.getItem("driverToken");
     
+    console.log("📍 Updating location on server:", {
+      bookingId,
+      location
+    });
+    
     const response = await axiosClient.put(
       `/api/driver/bookings/${bookingId}/location`,
       {
@@ -110,13 +115,27 @@ const updateLocationOnServer = async (bookingId, location) => {
     );
 
     if (response.data.success) {
-      console.log("✅ Location updated on server:", response.data.location);
+      console.log("✅ Location updated successfully on server:", response.data.location);
       setDriverLocation(location);
       setLocationError(null);
+      
+      // UPDATE LOCAL STATE so monitoring can see it
+      setSelectedBooking(prev => ({
+        ...prev,
+        driverLocation: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          lastUpdated: new Date(),
+          accuracy: location.accuracy
+        }
+      }));
+      
+      return true;
     }
   } catch (err) {
     console.error("❌ Error updating location:", err);
     setLocationError(err.response?.data?.msg || "Failed to update location");
+    return false;
   }
 };
 
@@ -124,25 +143,41 @@ const updateLocationOnServer = async (bookingId, location) => {
 const startLocationTracking = async (bookingId) => {
   console.log("📍 Starting location tracking for booking:", bookingId);
   
-  // Get initial location
   try {
+    // Get initial location immediately
     const location = await getCurrentLocation();
-    await updateLocationOnServer(bookingId, location);
+    console.log("📍 Initial location obtained:", location);
+    
+    // Update server immediately
+    const success = await updateLocationOnServer(bookingId, location);
+    
+    if (!success) {
+      console.warn("⚠️ Initial location update failed");
+    }
+    
+    // Clear any existing interval
+    if (locationIntervalRef.current) {
+      clearInterval(locationIntervalRef.current);
+    }
     
     // Set up periodic updates every 5 minutes (300000 ms)
     locationIntervalRef.current = setInterval(async () => {
       try {
+        console.log("📍 Periodic location update triggered");
         const newLocation = await getCurrentLocation();
         await updateLocationOnServer(bookingId, newLocation);
       } catch (err) {
         console.error("❌ Error in periodic location update:", err);
         setLocationError(err.message);
       }
-    }, 300000); // 5 minutes = 300000 milliseconds
+    }, 300000); // 5 minutes
+    
+    console.log("✅ Location tracking started successfully");
     
   } catch (err) {
     console.error("❌ Error getting initial location:", err);
     setLocationError(err.message);
+    alert(`Location Error: ${err.message}\n\nPlease enable location permissions in your browser settings.`);
   }
 };
 
@@ -618,6 +653,7 @@ const startTrip = async () => {
   try {
     const token = localStorage.getItem("driverToken");
 
+    // First update the booking status
     const response = await axiosClient.put(
       `/api/driver/bookings/${selectedBooking._id}/status`,
       { status: "In Transit" },
@@ -629,6 +665,7 @@ const startTrip = async () => {
     );
 
     if (response.data.success) {
+      // Update local state
       setBookings(prevBookings =>
         prevBookings.map(booking =>
           booking._id === selectedBooking._id
@@ -642,9 +679,9 @@ const startTrip = async () => {
         status: "In Transit"
       }));
 
-      console.log("✅ Trip started successfully");
+      console.log("✅ Trip started successfully, now starting location tracking...");
       
-      // Start location tracking when trip begins
+      // Start location tracking AFTER status update succeeds
       await startLocationTracking(selectedBooking._id);
       
       alert("Trip started! Your location will be tracked and updated every 5 minutes.");
@@ -928,6 +965,37 @@ const fetchBookings = async () => {
   useEffect(() => {
     fetchBookings();
   }, []);
+
+  useEffect(() => {
+  // Check location permission on mount
+  const checkLocationPermission = async () => {
+    if (!navigator.geolocation) {
+      console.warn("⚠️ Geolocation not supported");
+      return;
+    }
+
+    try {
+      // Try to get permission early
+      const permission = await navigator.permissions.query({ name: 'geolocation' });
+      console.log("📍 Location permission status:", permission.state);
+      
+      if (permission.state === 'denied') {
+        alert('Location access is blocked. Please enable it in your browser settings to track trips.');
+      }
+    } catch (err) {
+      console.log("Could not check location permission:", err);
+    }
+  };
+
+  checkLocationPermission();
+}, []);
+
+useEffect(() => {
+  return () => {
+    console.log("🧹 Cleaning up location tracking");
+    stopLocationTracking();
+  };
+}, []);
 
   useEffect(() => {
     return () => {

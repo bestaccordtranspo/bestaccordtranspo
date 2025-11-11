@@ -31,7 +31,12 @@ function BookingInfo() {
     const fetchBooking = async () => {
         try {
             const res = await axiosClient.get(`/api/bookings/${id}`);
-            setBooking(res.data);
+            const data = res.data || {};
+            // booking object remains the main payload
+            setBooking(data);
+            // if server returned enriched details, populate local states
+            if (data.clientDetails) setClientDetails(data.clientDetails);
+            if (data.branchDetails) setBranchDetails(data.branchDetails);
             setLoading(false);
         } catch (err) {
             console.error("Error fetching booking:", err);
@@ -39,80 +44,6 @@ function BookingInfo() {
         }
     };
     
-    // After booking loads, try to fetch client record and branch records for deliveries
-    useEffect(() => {
-        if (!booking) return;
-
-        const fetchClientAndBranches = async () => {
-            try {
-                // Try fetch client by companyName
-                let client = null;
-                if (booking.companyName) {
-                    // endpoint expects query param; adjust if your API differs
-                    const clientRes = await axiosClient.get(`/api/clients?clientName=${encodeURIComponent(booking.companyName)}`);
-                    if (Array.isArray(clientRes.data) && clientRes.data.length > 0) client = clientRes.data[0];
-                    else if (clientRes.data && clientRes.data._id) client = clientRes.data;
-                }
-                // fallback: if booking.originAddressDetails contains client-like info
-                if (!client && booking.originAddressDetails && booking.originAddressDetails._id) {
-                    const clientRes = await axiosClient.get(`/api/clients/${booking.originAddressDetails._id}`);
-                    if (clientRes.data) client = clientRes.data;
-                }
-                setClientDetails(client);
-
-                // For each delivery try to fetch branch by name (and client if available)
-                const deliveries = Array.isArray(booking.destinationDeliveries) ? booking.destinationDeliveries : [];
-                const branchesFound = await Promise.all(deliveries.map(async (d) => {
-                    const branchName = d.customerEstablishmentName || d.branch || d.branchName;
-                    if (!branchName) return {
-                        name: branchName || "Unknown",
-                        address: d.destinationAddress || "",
-                        contactPerson: d.contactPerson || "",
-                        contactNumber: d.contactNumber || "",
-                        email: d.email || ""
-                    };
-
-                    // try by name + client
-                    try {
-                        const clientQuery = client ? `&client=${client._id}` : "";
-                        const res = await axiosClient.get(`/api/branches?branchName=${encodeURIComponent(branchName)}${clientQuery}`);
-                        let b = null;
-                        if (Array.isArray(res.data) && res.data.length > 0) b = res.data[0];
-                        else if (res.data && res.data._id) b = res.data;
-                        if (b) {
-                            return {
-                                _id: b._id,
-                                name: b.branchName || branchName,
-                                address: formatAddress(b.address) || d.destinationAddress || "",
-                                contactPerson: b.contactPerson || d.contactPerson || "",
-                                contactNumber: b.contactNumber || d.contactNumber || "",
-                                email: b.email || d.email || ""
-                            };
-                        }
-                    } catch (err) {
-                        // ignore per-branch errors and fallback to delivery fields
-                        console.warn("branch fetch failed for", branchName, err);
-                    }
-
-                    // fallback to using delivery's stored info
-                    return {
-                        name: branchName,
-                        address: d.destinationAddress || "",
-                        contactPerson: d.contactPerson || "",
-                        contactNumber: d.contactNumber || "",
-                        email: d.email || ""
-                    };
-                }));
-
-                setBranchDetails(branchesFound);
-            } catch (err) {
-                console.error("Error fetching client/branches:", err);
-            }
-        };
-
-        fetchClientAndBranches();
-    }, [booking]);
-
     const goBack = () => {
         navigate("/dashboard/booking");
     };

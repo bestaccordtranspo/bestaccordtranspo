@@ -113,12 +113,71 @@ router.get("/trip/:tripNumber", async (req, res) => {
   }
 });
 
-// GET single booking
+// GET single booking (ENRICHED: includes clientDetails and branchDetails)
 router.get("/:id", async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ message: "Booking not found" });
-    res.json(booking);
+
+    // Try to enrich with client and branch info (best-effort, non-blocking)
+    const Client = (await import("../models/Client.js")).default;
+    const Branch = (await import("../models/Branch.js")).default;
+
+    let clientDetails = null;
+    if (booking.companyName) {
+      clientDetails = await Client.findOne({ clientName: booking.companyName }).lean();
+    } else if (booking.originAddressDetails && booking.originAddressDetails._id) {
+      clientDetails = await Client.findById(booking.originAddressDetails._id).lean();
+    }
+
+    const deliveries = Array.isArray(booking.destinationDeliveries) ? booking.destinationDeliveries : [];
+    const branchDetails = await Promise.all(deliveries.map(async (d) => {
+      const branchName = d.customerEstablishmentName || d.branch || d.branchName;
+      if (!branchName) {
+        return {
+          branchName: branchName || "Unknown",
+          address: d.destinationAddress || "",
+          contactPerson: d.contactPerson || "",
+          contactNumber: d.contactNumber || "",
+          email: d.email || ""
+        };
+      }
+
+      // Try find branch by name and client (if available), fallback to name-only
+      let b = null;
+      if (clientDetails && clientDetails._id) {
+        b = await Branch.findOne({ branchName: branchName, client: clientDetails._id }).lean();
+      }
+      if (!b) {
+        b = await Branch.findOne({ branchName: branchName }).lean();
+      }
+
+      if (b) {
+        return {
+          _id: b._id,
+          branchName: b.branchName,
+          address: b.address || {},
+          contactPerson: b.contactPerson || "",
+          contactNumber: b.contactNumber || "",
+          email: b.email || ""
+        };
+      }
+
+      // Fallback to delivery-stored fields
+      return {
+        branchName,
+        address: d.destinationAddress || "",
+        contactPerson: d.contactPerson || "",
+        contactNumber: d.contactNumber || "",
+        email: d.email || ""
+      };
+    }));
+
+    const result = booking.toObject();
+    result.clientDetails = clientDetails;
+    result.branchDetails = branchDetails;
+
+    res.json(result);
   } catch (err) {
     console.error("Error fetching booking:", err);
     res.status(500).json({ message: err.message });

@@ -685,6 +685,54 @@ function Booking() {
     return getEmployeeDisplayName(employeeAssigned);
   };
 
+    // Calculate total route distance using OSRM
+  const calculateTotalRouteDistance = async (origin, destinations, vehicleRate) => {
+    setCalculatingRoute(true);
+    try {
+      let totalDistance = 0;
+      
+      // Start from origin
+      let currentPoint = origin;
+      
+      // Calculate distance from origin to each destination in sequence
+      for (let i = 0; i < destinations.length; i++) {
+        const destination = destinations[i];
+        
+        if (currentPoint && destination) {
+          // Use OSRM to get actual road distance
+          const url = `https://router.project-osrm.org/route/v1/driving/${currentPoint[1]},${currentPoint[0]};${destination[1]},${destination[0]}?overview=false`;
+          const response = await fetch(url);
+          const data = await response.json();
+          
+          if (data.routes && data.routes.length > 0) {
+            const distanceInKm = data.routes[0].distance / 1000; // Convert meters to km
+            totalDistance += distanceInKm;
+            console.log(`📏 Distance from point ${i} to ${i + 1}: ${distanceInKm.toFixed(2)} km`);
+          }
+          
+          // Update current point to this destination for next iteration
+          currentPoint = destination;
+        }
+      }
+      
+      console.log(`📊 Total route distance: ${totalDistance.toFixed(2)} km`);
+      
+      // Calculate delivery fee
+      const calculatedFee = totalDistance * vehicleRate;
+      console.log(`💰 Delivery fee: ₱${calculatedFee.toFixed(2)} (${totalDistance.toFixed(2)} km × ₱${vehicleRate}/km)`);
+      
+      setRouteDistance(totalDistance);
+      setDeliveryFee(calculatedFee);
+      
+      return { distance: totalDistance, fee: calculatedFee };
+    } catch (error) {
+      console.error('Error calculating route distance:', error);
+      return { distance: 0, fee: 0 };
+    } finally {
+      setCalculatingRoute(false);
+    }
+  };
+
     const nextStep = async () => {
       if (currentStep === 1 && !selectedVehicle) {
         alert("Please select a vehicle before proceeding");
@@ -861,55 +909,6 @@ function Booking() {
   const viewBooking = (booking) => {
     navigate(`/dashboard/booking/${booking._id}`);
   };
-
-  // Calculate total route distance using OSRM
-const calculateTotalRouteDistance = async (origin, destinations, vehicleRate) => {
-  setCalculatingRoute(true);
-  try {
-    let totalDistance = 0;
-    
-    // Start from origin
-    let currentPoint = origin;
-    
-    // Calculate distance from origin to each destination in sequence
-    for (let i = 0; i < destinations.length; i++) {
-      const destination = destinations[i];
-      
-      if (currentPoint && destination) {
-        // Use OSRM to get actual road distance
-        const url = `https://router.project-osrm.org/route/v1/driving/${currentPoint[1]},${currentPoint[0]};${destination[1]},${destination[0]}?overview=false`;
-        const response = await fetch(url);
-        const data = await response.json();
-        
-        if (data.routes && data.routes.length > 0) {
-          const distanceInKm = data.routes[0].distance / 1000; // Convert meters to km
-          totalDistance += distanceInKm;
-          console.log(`📏 Distance from point ${i} to ${i + 1}: ${distanceInKm.toFixed(2)} km`);
-        }
-        
-        // Update current point to this destination for next iteration
-        currentPoint = destination;
-      }
-    }
-    
-    console.log(`📊 Total route distance: ${totalDistance.toFixed(2)} km`);
-    
-    // Calculate delivery fee
-    const calculatedFee = totalDistance * vehicleRate;
-    console.log(`💰 Delivery fee: ₱${calculatedFee.toFixed(2)} (${totalDistance.toFixed(2)} km × ₱${vehicleRate}/km)`);
-    
-    setRouteDistance(totalDistance);
-    setDeliveryFee(calculatedFee);
-    
-    return { distance: totalDistance, fee: calculatedFee };
-  } catch (error) {
-    console.error('Error calculating route distance:', error);
-    return { distance: 0, fee: 0 };
-  } finally {
-    setCalculatingRoute(false);
-  }
-};
-
 
   return (
     <div className="space-y-8">

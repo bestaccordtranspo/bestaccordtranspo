@@ -42,6 +42,7 @@ router.get("/client/:clientId", async (req, res) => {
   }
 });
 
+
 // POST create branch
 router.post("/", async (req, res) => {
   try {

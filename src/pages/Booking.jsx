@@ -282,30 +282,61 @@ function Booking() {
     );
   };
 
-  // Geocode address to get coordinates
-  const geocodeAddressForRoute = async (address) => {
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1100)); // Rate limiting
-      
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Philippines')}&countrycodes=ph&limit=1`,
-        {
-          headers: {
-            'User-Agent': 'BestAccord-Booking-App'
+    // Geocode address to get coordinates with multiple fallback attempts
+    const geocodeAddressForRoute = async (address) => {
+      try {
+        console.log(`🔍 Attempting to geocode: "${address}"`);
+        
+        // First, try to get coordinates from Branch database
+        try {
+          const response = await axiosClient.get(`/api/branches/by-address?address=${encodeURIComponent(address)}`);
+          if (response.data && response.data.address?.latitude && response.data.address?.longitude) {
+            console.log(`✅ Found in branch database:`, [response.data.address.latitude, response.data.address.longitude]);
+            return [response.data.address.latitude, response.data.address.longitude];
           }
+        } catch (err) {
+          console.log('No branch found in database, trying geocoding...');
         }
-      );
-      const data = await response.json();
-      
-      if (data && data.length > 0) {
-        return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+        
+        // Fallback to geocoding with multiple attempts
+        const attempts = [
+          `${address}, Philippines`, // Full address
+          address.split(',').slice(-3).join(',') + ', Philippines', // Last 3 parts + Philippines
+          address.split(',').slice(-2).join(',') + ', Philippines', // Last 2 parts (city, province)
+          address.match(/City of [^,]+|Taguig|Makati|Manila|Quezon City|Pasig|Mandaluyong/i)?.[0] + ', Metro Manila, Philippines' // Just the city
+        ].filter(Boolean);
+        
+        for (let i = 0; i < attempts.length; i++) {
+          const query = attempts[i];
+          console.log(`  Attempt ${i + 1}: "${query}"`);
+          
+          await new Promise(resolve => setTimeout(resolve, 1200)); // Rate limiting
+          
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=ph&limit=1`,
+            {
+              headers: {
+                'User-Agent': 'BestAccord-Booking-App'
+              }
+            }
+          );
+          const data = await response.json();
+          
+          if (data && data.length > 0) {
+            const coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+            console.log(`  ✅ Success on attempt ${i + 1}:`, coords);
+            return coords;
+          }
+          console.log(`  ⚠️ Attempt ${i + 1} failed`);
+        }
+        
+        console.warn(`❌ All geocoding attempts failed for: "${address}"`);
+        return null;
+      } catch (error) {
+        console.error('❌ Geocoding error:', error);
+        return null;
       }
-      return null;
-    } catch (error) {
-      console.error('Geocoding error:', error);
-      return null;
-    }
-  };
+    };
 
   const fetchBookings = async () => {
     try {

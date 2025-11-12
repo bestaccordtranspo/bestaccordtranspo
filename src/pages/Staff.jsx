@@ -20,7 +20,7 @@ export default function Staff() {
 
     const fetchStaff = async () => {
         try {
-            const res = await axiosClient.get("/api/staff");
+            const res = await axiosClient.get("/api/staffs");
             const activeStaff = res.data.filter(s => !s.isArchived);
             setStaff(activeStaff);
             setFilteredStaff(activeStaff);
@@ -106,11 +106,11 @@ export default function Staff() {
                 if (!dataToSend.password) {
                     delete dataToSend.password; // Don't update password if empty
                 }
-                await axiosClient.put(`/api/staff/${editStaff._id}`, dataToSend);
+                await axiosClient.put(`/api/staffs/${editStaff._id}`, dataToSend);
                 alert("Staff updated successfully!");
             } else {
                 // Create new staff
-                await axiosClient.post("/api/staff", formData);
+                await axiosClient.post("/api/staffs", formData);
                 alert("Staff created successfully!");
             }
             closeModal();
@@ -130,7 +130,7 @@ export default function Staff() {
         if (!window.confirm(`Are you sure you want to ${action} this staff member's login?`)) return;
 
         try {
-            await axiosClient.patch(`/api/staff/${id}/toggle-status`, {
+            await axiosClient.patch(`/api/staffs/${id}/toggle-status`, {
                 isEnabled: !currentStatus
             });
             alert(`Staff ${action}d successfully!`);
@@ -145,7 +145,7 @@ export default function Staff() {
         if (!window.confirm("Are you sure you want to archive this staff member?")) return;
 
         try {
-            await axiosClient.patch(`/api/staff/${id}/archive`, {
+            await axiosClient.patch(`/api/staffs/${id}/archive`, {
                 isArchived: true
             });
             alert("Staff archived successfully!");

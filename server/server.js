@@ -43,7 +43,7 @@ app.use("/api/clients", clientRoutes);
 app.use("/api/branches", branchesRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/driver", driverAuthRoutes);
-app.use("/api/staff", staffRoutes);
+app.use("/api/staffs", staffRoutes);
 app.use("/api/archive", archiveRoutes);
 app.use('/api/trip-reports', tripReportsRoutes);
 

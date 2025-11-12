@@ -8,7 +8,7 @@ export default function PendingStaff() {
 
   const fetchPending = async () => {
     try {
-      const res = await axiosClient.get("/api/staff/pending");
+      const res = await axiosClient.get("/api/staffs/pending");
       setStaff(res.data);
     } catch (err) {
       console.error(err);
@@ -19,7 +19,7 @@ export default function PendingStaff() {
 
   const approveStaff = async (id) => {
     try {
-      await axiosClient.put(`/api/staff/approve/${id}`);
+      await axiosClient.put(`/api/staffs/approve/${id}`);
       setStaff(staff.filter((s) => s._id !== id));
       alert("Staff approved successfully!");
     } catch (err) {

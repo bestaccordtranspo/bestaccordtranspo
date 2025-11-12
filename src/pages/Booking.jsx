@@ -201,20 +201,27 @@ function Booking() {
   };
 
   const getClientBranches = () => {
-      return clientBranches || [];
-      if (!selectedClient) return [];
-      // clientBranches may contain either client ObjectId or populated client object
-      return (clientBranches || []).filter(b => {
-        const branchClientId = b.client && (typeof b.client === 'string' ? b.client : (b.client._id || b.client));
-        const selectedId = selectedClient._id || selectedClient;
-        return String(branchClientId) === String(selectedId);
-      });
-    };
+    return clientBranches || [];
+  };
 
   const getAvailableBranches = () => {
-    if (!formData.companyName) return [];
+    if (!formData.companyName || !selectedClient) {
+      console.log('⚠️ No company selected or client not found');
+      return [];
+    }
+    
     const selectedBranchNames = selectedBranches.map(b => b.branch).filter(Boolean);
-    return (clientBranches || []).filter(b => !selectedBranchNames.includes(b.branchName));
+    
+    const available = (clientBranches || []).filter(b => {
+      const notSelected = !selectedBranchNames.includes(b.branchName);
+      const belongsToClient = b.client === selectedClient._id || b.client?._id === selectedClient._id;
+      
+      return notSelected && belongsToClient;
+    });
+    
+    console.log('📍 Available branches for selection:', available.length);
+    
+    return available;
   };
 
   const hasAvailableBranches = () => {
@@ -430,11 +437,40 @@ const geocodeAddressForRoute = async (address) => {
 
   const fetchBranchesForClient = async (clientId) => {
     try {
-      const res = await axiosClient.get(`/api/branches?client=${clientId}`);
-      const activeBranches = Array.isArray(res.data) ? res.data.filter(b => !b.isArchived) : [];
+      console.log('🔍 Fetching branches for client ID:', clientId);
+      
+      // Fetch branches for the specific client using client ID as query parameter
+      const res = await axiosClient.get(`/api/branches`, {
+        params: { clientId: clientId }
+      });
+      
+      console.log('📦 Raw branches response:', res.data);
+      
+      // Filter branches:
+      // 1. Must not be archived
+      // 2. Must belong to the selected client (match client field)
+      const activeBranches = Array.isArray(res.data) 
+        ? res.data.filter(b => {
+            const isNotArchived = !b.isArchived;
+            const belongsToClient = b.client === clientId || b.client?._id === clientId;
+            
+            console.log(`Branch "${b.branchName}":`, {
+              isNotArchived,
+              belongsToClient,
+              branchClientId: b.client,
+              searchClientId: clientId
+            });
+            
+            return isNotArchived && belongsToClient;
+          })
+        : [];
+      
+      console.log('✅ Filtered branches for this client:', activeBranches.length);
+      console.log('📋 Branch names:', activeBranches.map(b => b.branchName));
+      
       setClientBranches(activeBranches);
     } catch (err) {
-      console.error("Error fetching branches for client:", err);
+      console.error("❌ Error fetching branches for client:", err);
       setClientBranches([]);
     }
   };
@@ -643,37 +679,55 @@ const geocodeAddressForRoute = async (address) => {
 
   const handleCompanyChange = async (e) => {
     const selectedCompanyName = e.target.value;
+    
+    console.log('🏢 Company selected:', selectedCompanyName);
+    
     setFormData(prev => ({
       ...prev,
       companyName: selectedCompanyName,
     }));
 
+    // Find the full client object
     const client = clients.find(c => c.clientName === selectedCompanyName);
-    if (client) {
-      const fullAddress = client.formattedAddress || [
-        client.address?.houseNumber,
-        client.address?.street,
-        client.address?.barangay,
-        client.address?.city,
-        client.address?.province,
-        client.address?.region
-      ].filter(Boolean).join(', ');
+      
+      if (client) {
+        console.log('✅ Client found:', {
+          id: client._id,
+          name: client.clientName
+        });
+        
+        const fullAddress = client.formattedAddress || [
+          client.address?.houseNumber,
+          client.address?.street,
+          client.address?.barangay,
+          client.address?.city,
+          client.address?.province,
+          client.address?.region
+        ].filter(Boolean).join(', ');
 
-      setFormData(prev => ({
-        ...prev,
-        originAddress: fullAddress || "",
-        latitude: client.address?.latitude || null,
-        longitude: client.address?.longitude || null
-      }));
+        setFormData(prev => ({
+          ...prev,
+          originAddress: fullAddress || "",
+          latitude: client.address?.latitude || null,
+          longitude: client.address?.longitude || null
+        }));
 
-      setSelectedClient(client);
-      await fetchBranchesForClient(client._id);
-    } else {
-      setFormData(prev => ({ ...prev, originAddress: "", latitude: null, longitude: null }));
-      setSelectedClient(null);
-      setClientBranches([]);
-    }
-  };
+        setSelectedClient(client);
+        
+        // IMPORTANT: Use client._id (MongoDB ObjectId) to fetch branches
+        await fetchBranchesForClient(client._id);
+      } else {
+        console.warn('⚠️ No client found for company name:', selectedCompanyName);
+        setFormData(prev => ({ 
+          ...prev, 
+          originAddress: "", 
+          latitude: null, 
+          longitude: null 
+        }));
+        setSelectedClient(null);
+        setClientBranches([]);
+      }
+    };
 
   const handleEmployeeChange = (index, employeeId) => {
     const newEmployeeAssigned = [...formData.employeeAssigned];

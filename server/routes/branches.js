@@ -4,10 +4,24 @@ import Client from "../models/Client.js";
 
 const router = express.Router();
 
-// GET all branches (populates client)
+// GET all branches (optionally filtered by clientId)
 router.get("/", async (req, res) => {
   try {
-    const branches = await Branch.find().populate("client").sort({ createdAt: -1 });
+    const { clientId } = req.query;
+    const query = { isArchived: { $ne: true } };
+
+    if (clientId) {
+      console.log("🔍 Filtering branches for client:", clientId);
+      // Accept either string id or populated client object
+      query.client = clientId;
+    }
+
+    const branches = await Branch.find(query)
+      .populate("client", "clientName")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    console.log("📦 Found branches:", branches.length);
     res.json(branches);
   } catch (err) {
     console.error("Error fetching branches:", err);
@@ -15,7 +29,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET single branch
+// GET single branch,
 router.get("/:id", async (req, res) => {
   try {
     const branch = await Branch.findById(req.params.id).populate("client");
@@ -27,14 +41,14 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// GET branches for a specific client
+// GET branches for a specific client (legacy route kept if used)
 router.get("/client/:clientId", async (req, res) => {
   try {
     const clientId = req.params.clientId;
     const client = await Client.findById(clientId);
     if (!client) return res.status(404).json({ message: "Client not found" });
 
-    const branches = await Branch.find({ client: clientId, isArchived: false }).sort({ createdAt: -1 });
+    const branches = await Branch.find({ client: clientId, isArchived: false }).sort({ createdAt: -1 }).lean();
     res.json(branches);
   } catch (err) {
     console.error("Error fetching branches for client:", err);
@@ -42,6 +56,26 @@ router.get("/client/:clientId", async (req, res) => {
   }
 });
 
+// GET branches by address (keep your existing geocoding endpoint)
+router.get("/by-address", async (req, res) => {
+  try {
+    const { address } = req.query;
+    if (!address) return res.status(400).json({ message: "Address parameter is required" });
+
+    const branch = await Branch.findOne({
+      $or: [
+        { 'address.fullAddress': { $regex: address, $options: 'i' } },
+        { branchName: { $regex: address, $options: 'i' } }
+      ]
+    }).lean();
+
+    if (branch) return res.json(branch);
+    res.status(404).json({ message: "Branch not found" });
+  } catch (err) {
+    console.error("Error finding branch by address:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
 
 // POST create branch
 router.post("/", async (req, res) => {

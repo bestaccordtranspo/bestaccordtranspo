@@ -201,8 +201,15 @@ function Booking() {
   };
 
   const getClientBranches = () => {
-    return clientBranches || [];
-  };
+      return clientBranches || [];
+      if (!selectedClient) return [];
+      // clientBranches may contain either client ObjectId or populated client object
+      return (clientBranches || []).filter(b => {
+        const branchClientId = b.client && (typeof b.client === 'string' ? b.client : (b.client._id || b.client));
+        const selectedId = selectedClient._id || selectedClient;
+        return String(branchClientId) === String(selectedId);
+      });
+    };
 
   const getAvailableBranches = () => {
     if (!formData.companyName) return [];

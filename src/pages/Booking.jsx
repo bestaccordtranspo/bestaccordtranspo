@@ -1121,7 +1121,7 @@ function Booking() {
                       </div>
 
                       {/* Vehicle Category Grid - Smaller Square Cards */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-5xl mx-auto">
                         {VEHICLE_CATEGORIES.map((category) => {
                           const vehicleCount = getVehiclesByCategory(category).length;
                           const isSelected = selectedCategory?.id === category.id;
@@ -1129,7 +1129,7 @@ function Booking() {
                           return (
                             <motion.div
                               key={category.id}
-                              className={`relative aspect-square border-2 rounded-xl p-4 cursor-pointer transition-all duration-300 ${
+                              className={`relative aspect-square border-2 rounded-xl p-3 cursor-pointer transition-all duration-300 ${
                                 isSelected
                                   ? 'border-purple-600 bg-purple-50 shadow-xl'
                                   : 'border-gray-200 hover:border-purple-400 hover:shadow-lg'
@@ -1155,7 +1155,7 @@ function Booking() {
                               </div>
 
                               {/* Truck Image */}
-                              <div className="flex items-center justify-center h-24 mb-2">
+                              <div className="flex items-center justify-center h-16 mb-1">
                                 <img
                                   src={category.image}
                                   alt={category.name}
@@ -1168,7 +1168,7 @@ function Booking() {
 
                               {/* Vehicle Info */}
                               <div className="text-center">
-                                <h4 className="text-sm font-bold text-gray-900 mb-1">
+                                <h4 className="text-xs font-bold text-gray-900 mb-1">
                                   {category.name}
                                 </h4>
                                 <div className="flex flex-col gap-1">
@@ -1388,6 +1388,20 @@ function Booking() {
                                       <Package className="w-4 h-4" />
                                       Product Details for this Stop
                                     </h4>
+
+                                    <div className="mb-4">
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                      Product Name *
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={branchData.productName}
+                                      onChange={(e) => handleBranchProductChange(index, 'productName', e.target.value)}
+                                      placeholder="Enter product name"
+                                      required
+                                      className="w-full px-4 py-2.5 border-2 border-indigo-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                                    />
+                                  </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                       <div>

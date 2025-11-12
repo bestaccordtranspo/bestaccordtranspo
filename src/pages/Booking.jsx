@@ -781,6 +781,9 @@ function Booking() {
       if (currentStep < 4) {
         setCurrentStep(currentStep + 1);
       }
+      console.log('🔍 Origin coords:', originCoords);
+      console.log('🔍 Destination coords:', destCoords);
+      console.log('🔍 Selected vehicle rate:', selectedVehicle.kmRate);
     };
 
   const prevStep = () => {

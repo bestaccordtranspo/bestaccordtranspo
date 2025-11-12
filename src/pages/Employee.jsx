@@ -492,6 +492,12 @@ function Employee() {
               </div>
 
               <form onSubmit={handleSubmit} className="p-8 space-y-6">
+                {/* show backend/general errors */}
+                {errors.general && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-md">
+                    {errors.general}
+                  </div>
+                )}
                 {step === 1 ? (
                   <div className="space-y-6">
                     <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100">

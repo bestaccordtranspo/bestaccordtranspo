@@ -94,41 +94,56 @@ router.get("/:id/bookings", async (req, res) => {
 // POST create employee
 router.post("/", async (req, res) => {
   try {
-    // Remove employeeId from request body if present (we'll generate it)
-    const { employeeId, ...employeeData } = req.body;
+    // remove empty/null email to avoid inserting email: null
+    const payload = { ...req.body };
+    if (!payload.email) delete payload.email;
 
-    // Generate new employee ID
-    const newEmployeeId = await getNextEmployeeID();
+    // Try a few times to avoid employeeId race collisions
+    const MAX_ATTEMPTS = 5;
+    let savedEmployee = null;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      try {
+        const newEmployeeId = await getNextEmployeeID();
+        if (!newEmployeeId) {
+          return res.status(500).json({ message: "Failed to generate Employee ID" });
+        }
 
-    if (!newEmployeeId) {
-      return res.status(500).json({ message: "Failed to generate Employee ID" });
+        const newEmployee = new Employee({
+          ...payload,
+          employeeId: newEmployeeId
+        });
+
+        savedEmployee = await newEmployee.save();
+        break; // success
+      } catch (innerErr) {
+        // If duplicate on employeeId, retry ID generation
+        if (innerErr && innerErr.code === 11000 && innerErr.keyPattern && innerErr.keyPattern.employeeId) {
+          console.warn(`Employee ID collision on attempt ${attempt + 1}, retrying...`);
+          // continue loop to generate a new ID and try again
+          continue;
+        }
+        // For other errors, rethrow to outer catch
+        throw innerErr;
+      }
     }
 
-    // Create new employee with generated ID
-    const newEmployee = new Employee({
-      ...employeeData,
-      employeeId: newEmployeeId
-    });
+    if (!savedEmployee) {
+      return res.status(500).json({ message: "Failed to create employee after multiple attempts" });
+    }
 
-    const savedEmployee = await newEmployee.save();
     res.status(201).json(savedEmployee);
   } catch (err) {
     console.error("Error creating employee:", err);
-
-    // If it's a duplicate key error, try to handle it gracefully
+    // handle duplicate-key explicitly
     if (err.code === 11000) {
-      // Check if it's employeeId duplicate
-      if (err.keyPattern && err.keyPattern.employeeId) {
-        return res.status(400).json({
-          message: "Employee ID generation conflict. Please try again."
-        });
+      const keyValue = err.keyValue || {};
+      const keys = Object.keys(keyValue);
+      if (keys.length) {
+        return res.status(409).json({ message: `${keys.join(", ")} already exists` });
       }
-      return res.status(400).json({
-        message: "Duplicate entry detected"
-      });
+      return res.status(409).json({ message: "Duplicate entry detected" });
     }
-
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message || "Server error" });
   }
 });
 

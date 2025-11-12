@@ -115,7 +115,6 @@ export const getDriverProfile = async (req, res) => {
       emergencyContactNumber: driver.emergencyContactNumber,
       dateHired: driver.dateHired,
       shift: driver.shift,
-      email: driver.email,
       createdAt: driver.createdAt,
       updatedAt: driver.updatedAt
     };

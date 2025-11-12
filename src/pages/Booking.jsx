@@ -225,6 +225,8 @@ function Booking() {
         {
           branch: '',
           address: '',
+          latitude: null,
+          longitude: null,
           productName: '',
           numberOfPackages: '',
           unitPerPackage: '',
@@ -242,27 +244,40 @@ function Booking() {
     }
   };
 
-  const handleMultipleBranchChange = (index, branchName) => {
-    const branch = clientBranches.find(b => b.branchName === branchName);
+    const handleMultipleBranchChange = (index, branchName) => {
+      const branch = clientBranches.find(b => b.branchName === branchName);
 
-    let fullAddress = '';
-    if (branch) {
-      fullAddress = [
-        branch.address?.houseNumber,
-        branch.address?.street,
-        branch.address?.barangay,
-        branch.address?.city,
-        branch.address?.province,
-        branch.address?.region
-      ].filter(Boolean).join(', ');
-    }
+      let fullAddress = '';
+      let latitude = null;
+      let longitude = null;
+      
+      if (branch) {
+        fullAddress = [
+          branch.address?.houseNumber,
+          branch.address?.street,
+          branch.address?.barangay,
+          branch.address?.city,
+          branch.address?.province,
+          branch.address?.region
+        ].filter(Boolean).join(', ');
+        
+        // Store coordinates from branch
+        latitude = branch.address?.latitude;
+        longitude = branch.address?.longitude;
+      }
 
-    setSelectedBranches(prev =>
-      prev.map((branchData, i) =>
-        i === index ? { ...branchData, branch: branchName, address: fullAddress } : branchData
-      )
-    );
-  };
+      setSelectedBranches(prev =>
+        prev.map((branchData, i) =>
+          i === index ? { 
+            ...branchData, 
+            branch: branchName, 
+            address: fullAddress,
+            latitude: latitude,  // Add this
+            longitude: longitude // Add this
+          } : branchData
+        )
+      );
+    };
 
   const handleBranchProductChange = (index, field, value) => {
     setSelectedBranches(prev =>
@@ -282,61 +297,84 @@ function Booking() {
     );
   };
 
-    // Geocode address to get coordinates with multiple fallback attempts
-    const geocodeAddressForRoute = async (address) => {
-      try {
-        console.log(`🔍 Attempting to geocode: "${address}"`);
-        
-        // First, try to get coordinates from Branch database
-        try {
-          const response = await axiosClient.get(`/api/branches/by-address?address=${encodeURIComponent(address)}`);
-          if (response.data && response.data.address?.latitude && response.data.address?.longitude) {
-            console.log(`✅ Found in branch database:`, [response.data.address.latitude, response.data.address.longitude]);
-            return [response.data.address.latitude, response.data.address.longitude];
-          }
-        } catch (err) {
-          console.log('No branch found in database, trying geocoding...');
-        }
-        
-        // Fallback to geocoding with multiple attempts
-        const attempts = [
-          `${address}, Philippines`, // Full address
-          address.split(',').slice(-3).join(',') + ', Philippines', // Last 3 parts + Philippines
-          address.split(',').slice(-2).join(',') + ', Philippines', // Last 2 parts (city, province)
-          address.match(/City of [^,]+|Taguig|Makati|Manila|Quezon City|Pasig|Mandaluyong/i)?.[0] + ', Metro Manila, Philippines' // Just the city
-        ].filter(Boolean);
-        
-        for (let i = 0; i < attempts.length; i++) {
-          const query = attempts[i];
-          console.log(`  Attempt ${i + 1}: "${query}"`);
-          
-          await new Promise(resolve => setTimeout(resolve, 1200)); // Rate limiting
-          
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=ph&limit=1`,
-            {
-              headers: {
-                'User-Agent': 'BestAccord-Booking-App'
-              }
-            }
-          );
-          const data = await response.json();
-          
-          if (data && data.length > 0) {
-            const coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-            console.log(`  ✅ Success on attempt ${i + 1}:`, coords);
-            return coords;
-          }
-          console.log(`  ⚠️ Attempt ${i + 1} failed`);
-        }
-        
-        console.warn(`❌ All geocoding attempts failed for: "${address}"`);
-        return null;
-      } catch (error) {
-        console.error('❌ Geocoding error:', error);
-        return null;
+// Geocode address to get coordinates with multiple fallback attempts
+const geocodeAddressForRoute = async (address) => {
+  try {
+    console.log(`🔍 Attempting to geocode: "${address}"`);
+    
+    // FALLBACK 1: Try to get coordinates from Branch database via API
+    try {
+      console.log('  📚 Checking branch database...');
+      const response = await axiosClient.get(`/api/branches/by-address?address=${encodeURIComponent(address)}`);
+      if (response.data && response.data.address?.latitude && response.data.address?.longitude) {
+        console.log(`  ✅ Found in branch database:`, [response.data.address.latitude, response.data.address.longitude]);
+        return [response.data.address.latitude, response.data.address.longitude];
       }
-    };
+    } catch (err) {
+      console.log('  ⚠️ No branch found in database, trying geocoding...');
+    }
+    
+    // FALLBACK 2: Try Client database
+    try {
+      console.log('  📚 Checking client database...');
+      const clientResponse = await axiosClient.get(`/api/clients`);
+      const matchingClient = clientResponse.data.find(client => 
+        client.address?.fullAddress?.includes(address) || 
+        address.includes(client.clientName)
+      );
+      
+      if (matchingClient && matchingClient.address?.latitude && matchingClient.address?.longitude) {
+        console.log(`  ✅ Found in client database:`, [matchingClient.address.latitude, matchingClient.address.longitude]);
+        return [matchingClient.address.latitude, matchingClient.address.longitude];
+      }
+    } catch (err) {
+      console.log('  ⚠️ No client found in database');
+    }
+    
+    // FALLBACK 3: Geocoding with multiple query attempts
+    console.log('  🌐 Trying external geocoding...');
+    const attempts = [
+      `${address}, Philippines`, // Full address
+      address.split(',').slice(-3).join(',') + ', Philippines', // Last 3 parts
+      address.split(',').slice(-2).join(',') + ', Philippines', // Last 2 parts (city, province)
+      address.match(/City of [^,]+|Taguig|Makati|Manila|Quezon City|Pasig|Mandaluyong|Pasay|Parañaque|Las Piñas|Muntinlupa|Caloocan|Malabon|Navotas|Valenzuela|San Juan|Marikina|Pateros/i)?.[0] + ', Metro Manila, Philippines' // Just the city
+    ].filter(Boolean);
+    
+    for (let i = 0; i < attempts.length; i++) {
+      const query = attempts[i];
+      console.log(`  📍 Geocoding attempt ${i + 1}/${attempts.length}: "${query}"`);
+      
+      await new Promise(resolve => setTimeout(resolve, 1200)); // Rate limiting
+      
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=ph&limit=1`,
+          {
+            headers: {
+              'User-Agent': 'BestAccord-Booking-App'
+            }
+          }
+        );
+        const data = await response.json();
+        
+        if (data && data.length > 0) {
+          const coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+          console.log(`  ✅ Geocoding success on attempt ${i + 1}:`, coords);
+          return coords;
+        }
+        console.log(`  ⚠️ Attempt ${i + 1} returned no results`);
+      } catch (fetchError) {
+        console.log(`  ❌ Attempt ${i + 1} failed:`, fetchError.message);
+      }
+    }
+    
+    console.warn(`❌ All geocoding attempts exhausted for: "${address}"`);
+    return null;
+  } catch (error) {
+    console.error('❌ Geocoding error:', error);
+    return null;
+  }
+};
 
   const fetchBookings = async () => {
     try {
@@ -522,6 +560,8 @@ function Booking() {
           booking.destinationDeliveries.map((dest, index) => ({
             branch: dest.customerEstablishmentName || '',
             address: dest.destinationAddress || '',
+            latitude: dest.latitude || null,
+            longitude: dest.longitude || null,
             productName: dest.productName || '',
             numberOfPackages: dest.numberOfPackages || '',
             unitPerPackage: dest.unitPerPackage || '',
@@ -779,49 +819,72 @@ const nextStep = async () => {
     const destCoords = [];
     
     try {
-      // Get origin coordinates
+      console.log('🚀 Starting route calculation...');
+      
+      // ORIGIN: Get origin coordinates with fallbacks
+      console.log('📍 Getting origin coordinates...');
       if (formData.latitude && formData.longitude) {
         originCoords = [formData.latitude, formData.longitude];
-        console.log('✅ Using stored origin coordinates:', originCoords);
+        console.log('  ✅ Using stored origin coordinates:', originCoords);
       } else if (formData.originAddress) {
-        console.log('🔍 Geocoding origin address:', formData.originAddress);
+        console.log('  🔍 Geocoding origin address:', formData.originAddress);
         originCoords = await geocodeAddressForRoute(formData.originAddress);
-        console.log('📍 Origin geocoded to:', originCoords);
-      }
-      
-      // Get destination coordinates
-      console.log('🔍 Geocoding destinations...');
-      for (const branch of selectedBranches) {
-        if (branch.address) {
-          console.log('  - Geocoding:', branch.address);
-          const coords = await geocodeAddressForRoute(branch.address);
-          if (coords) {
-            console.log('    ✅ Got coords:', coords);
-            destCoords.push(coords);
-          } else {
-            console.warn('    ⚠️ Failed to geocode:', branch.address);
-          }
+        if (originCoords) {
+          console.log('  ✅ Origin geocoded to:', originCoords);
+        } else {
+          console.error('  ❌ Failed to geocode origin');
         }
       }
       
-      console.log('📊 Final coordinates:');
+      // DESTINATIONS: Get destination coordinates with fallbacks
+      console.log('📍 Getting destination coordinates...');
+      for (let i = 0; i < selectedBranches.length; i++) {
+        const branch = selectedBranches[i];
+        console.log(`  Processing destination ${i + 1}/${selectedBranches.length}: ${branch.branch}`);
+        
+        // PRIORITY 1: Use stored coordinates from branch selection
+        if (branch.latitude && branch.longitude) {
+          console.log(`    ✅ Using stored coordinates for "${branch.branch}":`, [branch.latitude, branch.longitude]);
+          destCoords.push([branch.latitude, branch.longitude]);
+        } 
+        // PRIORITY 2: Try geocoding the address
+        else if (branch.address) {
+          console.log(`    🔍 No stored coords, geocoding address: "${branch.address}"`);
+          const coords = await geocodeAddressForRoute(branch.address);
+          if (coords) {
+            console.log(`    ✅ Geocoded to:`, coords);
+            destCoords.push(coords);
+          } else {
+            console.warn(`    ❌ Failed to geocode: "${branch.address}"`);
+          }
+        } else {
+          console.warn(`    ⚠️ No address or coordinates available for destination ${i + 1}`);
+        }
+      }
+      
+      // Summary
+      console.log('📊 Coordinate collection complete:');
       console.log('  Origin:', originCoords);
-      console.log('  Destinations:', destCoords);
+      console.log('  Destinations:', destCoords.length, 'of', selectedBranches.length);
       console.log('  Vehicle rate: ₱', selectedVehicle.kmRate);
       
       // Calculate if we have all coordinates
       if (originCoords && destCoords.length > 0) {
-        console.log('✅ All coordinates ready, calculating route...');
+        console.log('✅ Proceeding with route calculation...');
         await calculateTotalRouteDistance(originCoords, destCoords, selectedVehicle.kmRate || 0);
       } else {
-        console.warn('⚠️ Missing coordinates for route calculation');
-        console.warn('  - Origin coords:', originCoords);
-        console.warn('  - Destination count:', destCoords.length);
+        console.warn('⚠️ Insufficient coordinates for route calculation');
+        console.warn('  - Origin available:', !!originCoords);
+        console.warn('  - Destinations found:', destCoords.length, '/', selectedBranches.length);
+        
+        alert(`⚠️ Unable to calculate route distance.\n\nMissing coordinates:\n${!originCoords ? '- Origin location\n' : ''}${destCoords.length === 0 ? '- All destination locations' : destCoords.length < selectedBranches.length ? `- ${selectedBranches.length - destCoords.length} destination(s)` : ''}\n\nDelivery fee will be set to 0. You can update it manually later.`);
+        
         setRouteDistance(0);
         setDeliveryFee(0);
       }
     } catch (error) {
       console.error('❌ Error in route calculation:', error);
+      alert('An error occurred while calculating the route. Delivery fee will be set to 0.');
       setRouteDistance(0);
       setDeliveryFee(0);
     } finally {

@@ -1,12 +1,15 @@
 import mongoose from "mongoose";
 
 const bookingSchema = new mongoose.Schema({
+    // Booking identifiers
     reservationId: { type: String, unique: true },
     tripNumber: { type: String, unique: true },
     
-    // Company and shipment info (shared across all stops)
+    // Company and origin info
     companyName: { type: String, required: true },
     originAddress: { type: String, required: true },
+    latitude: { type: Number, default: null },
+    longitude: { type: Number, default: null },
     
     // Trip configuration
     tripType: {
@@ -19,12 +22,16 @@ const bookingSchema = new mongoose.Schema({
         default: 1
     },
     
-    // Store complete product details for each destination - THIS IS NOW THE SINGLE SOURCE OF TRUTH
+    // Destination deliveries - single source of truth
     destinationDeliveries: [{
         // Destination info
         customerEstablishmentName: { type: String, required: true },
         destinationAddress: { type: String, required: true },
         destinationIndex: { type: Number, required: true },
+        latitude: { type: Number, default: null },
+        longitude: { type: Number, default: null },
+        
+        // Product details
         productName: { type: String, required: true },
         quantity: { type: Number, required: true },
         grossWeight: { type: Number, required: true },
@@ -43,28 +50,15 @@ const bookingSchema = new mongoose.Schema({
         notes: { type: String, default: null }
     }],
     
-    // REMOVED: Legacy fields for backward compatibility
-    // productName: { type: String },
-    // quantity: { type: Number },
-    // grossWeight: { type: Number },
-    // unitPerPackage: { type: Number },
-    // numberOfPackages: { type: Number },
-    // customerEstablishmentName: { type: String },
-    // destinationAddress: [{ type: String }],
+    // Pricing and distance
     deliveryFee: { type: Number, default: 0 },
-    totalDistance: { type: Number, default: 0 }, 
+    totalDistance: { type: Number, default: 0 },
     
-    // Shared fields
-    // deliveryFee: { type: Number, required: true, null:true },
-    latitude: { type: Number, default: null },
-    longitude: { type: Number, default: null },
-    
-    vehicleId: {
-        type: String,
-        required: true
-    },
+    // Vehicle info
+    vehicleId: { type: String, required: true },
     vehicleType: { type: String, required: true },
     plateNumber: { type: String, required: true },
+    
     vehicleHistory: [{
         vehicleId: { type: String, required: true },
         vehicleType: { type: String, required: true },
@@ -74,6 +68,7 @@ const bookingSchema = new mongoose.Schema({
         reason: { type: String },
         status: { type: String, enum: ['active', 'replaced'], default: 'active' }
     }],
+    
     vehicleChangeRequest: {
         requested: { type: Boolean, default: false },
         requestedAt: { type: Date },
@@ -82,16 +77,23 @@ const bookingSchema = new mongoose.Schema({
         approvedAt: { type: Date }
     },
 
+    // Scheduling
     dateNeeded: { type: Date, required: true },
     timeNeeded: { type: String, required: true },
+    
+    // Employee assignment
     employeeAssigned: [{ type: String }],
     roleOfEmployee: [{ type: String }],
+    
+    // Booking status
     status: {
         type: String,
         enum: ["Pending", "Ready to go", "In Transit", "Delivered", "Completed"],
         default: "Pending"
     },
     isArchived: { type: Boolean, default: false },
+    
+    // Proof of delivery
     proofOfDelivery: {
         type: String,
         default: null,
@@ -104,6 +106,8 @@ const bookingSchema = new mongoose.Schema({
             message: 'Proof of delivery image must be less than 10MB'
         }
     },
+    
+    // Real-time driver location
     driverLocation: {
         latitude: { type: Number, default: null },
         longitude: { type: Number, default: null },
@@ -114,7 +118,5 @@ const bookingSchema = new mongoose.Schema({
     timestamps: true,
     strictQuery: false
 });
-
-// REMOVED: No more pre-save middleware needed since we only have one data structure
 
 export default mongoose.model("Booking", bookingSchema);

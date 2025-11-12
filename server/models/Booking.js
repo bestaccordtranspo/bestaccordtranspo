@@ -51,6 +51,8 @@ const bookingSchema = new mongoose.Schema({
     // numberOfPackages: { type: Number },
     // customerEstablishmentName: { type: String },
     // destinationAddress: [{ type: String }],
+    deliveryFee: { type: Number, default: 0 },
+    totalDistance: { type: Number, default: 0 }, 
     
     // Shared fields
     // deliveryFee: { type: Number, required: true, null:true },

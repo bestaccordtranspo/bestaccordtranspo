@@ -46,6 +46,9 @@ function Booking() {
   const [showModal, setShowModal] = useState(false);
   const [editBooking, setEditBooking] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
+  const [routeDistance, setRouteDistance] = useState(0);
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [calculatingRoute, setCalculatingRoute] = useState(false);
   const navigate = useNavigate();
 
   // Data for dropdowns
@@ -277,6 +280,31 @@ function Booking() {
         return updated;
       })
     );
+  };
+
+  // Geocode address to get coordinates
+  const geocodeAddressForRoute = async (address) => {
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1100)); // Rate limiting
+      
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Philippines')}&countrycodes=ph&limit=1`,
+        {
+          headers: {
+            'User-Agent': 'BestAccord-Booking-App'
+          }
+        }
+      );
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+      }
+      return null;
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      return null;
+    }
   };
 
   const fetchBookings = async () => {
@@ -657,15 +685,55 @@ function Booking() {
     return getEmployeeDisplayName(employeeAssigned);
   };
 
-  const nextStep = () => {
-    if (currentStep === 1 && !selectedVehicle) {
-      alert("Please select a vehicle before proceeding");
-      return;
-    }
-    if (currentStep < 4) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
+    const nextStep = async () => {
+      if (currentStep === 1 && !selectedVehicle) {
+        alert("Please select a vehicle before proceeding");
+        return;
+      }
+      
+      // Calculate route when moving to summary step
+      if (currentStep === 3 && selectedVehicle) {
+        setCalculatingRoute(true);
+        
+        try {
+          // Get origin coordinates
+          let originCoords = null;
+          if (formData.latitude && formData.longitude) {
+            originCoords = [formData.latitude, formData.longitude];
+          } else if (formData.originAddress) {
+            originCoords = await geocodeAddressForRoute(formData.originAddress);
+          }
+          
+          // Get destination coordinates
+          const destCoords = [];
+          for (const branch of selectedBranches) {
+            if (branch.address) {
+              const coords = await geocodeAddressForRoute(branch.address);
+              if (coords) {
+                destCoords.push(coords);
+              }
+            }
+          }
+          
+          // Calculate if we have all coordinates
+          if (originCoords && destCoords.length > 0) {
+            await calculateTotalRouteDistance(originCoords, destCoords, selectedVehicle.kmRate || 0);
+          } else {
+            console.warn('⚠️ Missing coordinates for route calculation');
+            setRouteDistance(0);
+            setDeliveryFee(0);
+          }
+        } catch (error) {
+          console.error('Error in route calculation:', error);
+        } finally {
+          setCalculatingRoute(false);
+        }
+      }
+      
+      if (currentStep < 4) {
+        setCurrentStep(currentStep + 1);
+      }
+    };
 
   const prevStep = () => {
     if (currentStep > 1) {
@@ -744,7 +812,9 @@ function Booking() {
           : [formData.roleOfEmployee].filter(role => role !== ""),
         originAddressDetails: originAddressDetails,
         latitude: formData.latitude || null,
-        longitude: formData.longitude || null
+        longitude: formData.longitude || null,
+        deliveryFee: deliveryFee || 0,
+        totalDistance: routeDistance || 0 
       };
 
       console.log('📤 Submit Data:', JSON.stringify(submitData, null, 2));
@@ -791,6 +861,55 @@ function Booking() {
   const viewBooking = (booking) => {
     navigate(`/dashboard/booking/${booking._id}`);
   };
+
+  // Calculate total route distance using OSRM
+const calculateTotalRouteDistance = async (origin, destinations, vehicleRate) => {
+  setCalculatingRoute(true);
+  try {
+    let totalDistance = 0;
+    
+    // Start from origin
+    let currentPoint = origin;
+    
+    // Calculate distance from origin to each destination in sequence
+    for (let i = 0; i < destinations.length; i++) {
+      const destination = destinations[i];
+      
+      if (currentPoint && destination) {
+        // Use OSRM to get actual road distance
+        const url = `https://router.project-osrm.org/route/v1/driving/${currentPoint[1]},${currentPoint[0]};${destination[1]},${destination[0]}?overview=false`;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.routes && data.routes.length > 0) {
+          const distanceInKm = data.routes[0].distance / 1000; // Convert meters to km
+          totalDistance += distanceInKm;
+          console.log(`📏 Distance from point ${i} to ${i + 1}: ${distanceInKm.toFixed(2)} km`);
+        }
+        
+        // Update current point to this destination for next iteration
+        currentPoint = destination;
+      }
+    }
+    
+    console.log(`📊 Total route distance: ${totalDistance.toFixed(2)} km`);
+    
+    // Calculate delivery fee
+    const calculatedFee = totalDistance * vehicleRate;
+    console.log(`💰 Delivery fee: ₱${calculatedFee.toFixed(2)} (${totalDistance.toFixed(2)} km × ₱${vehicleRate}/km)`);
+    
+    setRouteDistance(totalDistance);
+    setDeliveryFee(calculatedFee);
+    
+    return { distance: totalDistance, fee: calculatedFee };
+  } catch (error) {
+    console.error('Error calculating route distance:', error);
+    return { distance: 0, fee: 0 };
+  } finally {
+    setCalculatingRoute(false);
+  }
+};
+
 
   return (
     <div className="space-y-8">
@@ -1658,6 +1777,50 @@ function Booking() {
                           </div>
                         ) : (
                           <p className="text-gray-500 italic">No vehicle selected</p>
+                        )}
+                      </div>
+
+                      {/* Delivery Fee Summary */}
+                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-100">
+                        <div className="flex items-center gap-3 mb-4">
+                          <Package className="w-6 h-6 text-green-600" />
+                          <h4 className="text-lg font-bold text-gray-900">Delivery Fee Calculation</h4>
+                        </div>
+                        
+                        {calculatingRoute ? (
+                          <div className="text-center py-4">
+                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                            <p className="text-sm text-gray-600 mt-2">Calculating route distance...</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-sm text-gray-600">Total Distance</p>
+                                <p className="text-2xl font-bold text-gray-900">
+                                  {routeDistance > 0 ? `${routeDistance.toFixed(2)} km` : 'N/A'}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-600">Rate per KM</p>
+                                <p className="text-2xl font-bold text-green-600">
+                                  ₱{selectedVehicle?.kmRate?.toLocaleString() || 0}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <div className="pt-3 border-t border-green-200">
+                              <p className="text-sm text-gray-600 mb-1">Total Delivery Fee</p>
+                              <p className="text-3xl font-bold text-green-600">
+                                ₱{deliveryFee > 0 ? deliveryFee.toFixed(2) : '0.00'}
+                              </p>
+                              {routeDistance > 0 && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Calculated based on actual road distance
+                                </p>
+                              )}
+                            </div>
+                          </div>
                         )}
                       </div>
 

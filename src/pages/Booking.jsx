@@ -1124,7 +1124,7 @@ function Booking() {
                         </p>
                       </div>
 
-                      {/* Vehicle Category Grid - Smaller Square Cards */}
+                      {/* Vehicle Category Grid */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-5xl mx-auto">
                         {VEHICLE_CATEGORIES.map((category) => {
                           const vehicleCount = getVehiclesByCategory(category).length;
@@ -1133,7 +1133,7 @@ function Booking() {
                           return (
                             <motion.div
                               key={category.id}
-                              className={`relative aspect-square border-2 rounded-xl p-3 cursor-pointer transition-all duration-300 ${
+                              className={`relative border-2 rounded-xl p-3 cursor-pointer transition-all duration-300 min-h-[200px] ${
                                 isSelected
                                   ? 'border-purple-600 bg-purple-50 shadow-xl'
                                   : 'border-gray-200 hover:border-purple-400 hover:shadow-lg'
@@ -1152,14 +1152,14 @@ function Booking() {
                               )}
 
                               {/* Available Count Badge */}
-                              <div className={`absolute top-2 left-2 text-xs font-bold px-2 py-1 rounded-full ${
+                              <div className={`absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                 vehicleCount > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                               }`}>
                                 {vehicleCount} {vehicleCount === 1 ? 'unit' : 'units'}
                               </div>
 
                               {/* Truck Image */}
-                              <div className="flex items-center justify-center h-16 mb-1">
+                              <div className="flex items-center justify-center h-20 mb-2">
                                 <img
                                   src={category.image}
                                   alt={category.name}
@@ -1175,7 +1175,7 @@ function Booking() {
                                 <h4 className="text-xs font-bold text-gray-900 mb-1">
                                   {category.name}
                                 </h4>
-                                <div className="flex flex-col gap-1">
+                                <div className="flex flex-col gap-0.5">
                                   <span className="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-semibold">
                                     {category.maxWeightCapacity.toLocaleString()} kg
                                   </span>

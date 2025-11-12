@@ -857,7 +857,7 @@ const geocodeAddressForRoute = async (address) => {
         // Validate weight capacity
         const weightError = validateGrossWeight(i, branch.grossWeight);
         if (weightError) {
-          alert(`Stop ${i + 1}: ${weightError}\n\nPlease reduce the weight before proceeding.`);
+          alert(`Stop ${i + 1}: ${weightError}\n\nPlease check the gross weight or select a different vehicle that can accommodate the total weight.`);
           return;
         }
       }

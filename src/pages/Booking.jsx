@@ -3,6 +3,10 @@ import { Eye, Pencil, Trash2, Plus, ChevronLeft, ChevronRight, X, Truck, MapPin,
 import { useNavigate } from "react-router-dom";
 import { axiosClient } from "../api/axiosClient";
 import { motion, AnimatePresence } from "framer-motion";
+import truck1000 from '../assets/truck-1000.png';
+import truck2000 from '../assets/truck-2000.png';
+import truck3000 from '../assets/truck-3000.png';
+import truck7000 from '../assets/truck-7000.png';
 
 // Vehicle categories based on your database structure
 const VEHICLE_CATEGORIES = [
@@ -11,28 +15,28 @@ const VEHICLE_CATEGORIES = [
     name: "1000 kg Truck",
     maxWeightCapacity: 1000,
     vehicleType: "4-Wheeler",
-    image: "../assets/truck-1000.png"
+    image: truck1000
   },
   {
     id: 2,
     name: "2000 kg Truck",
     maxWeightCapacity: 2000,
     vehicleType: "4-Wheeler",
-    image: "../assets/truck-2000.png"
+    image: truck2000
   },
   {
     id: 3,
     name: "3000 kg Truck",
     maxWeightCapacity: 3000,
     vehicleType: "6-Wheeler",
-    image: "../assets/truck-3000.png"
+    image: truck3000
   },
   {
     id: 4,
     name: "7000 kg Truck",
     maxWeightCapacity: 7000,
     vehicleType: "6-Wheeler",
-    image: "../assets/truck-7000.png"
+    image: truck7000
   }
 ];
 

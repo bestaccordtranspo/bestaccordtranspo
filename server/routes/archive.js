@@ -16,7 +16,7 @@ function getModelByType(type) {
             return Booking;
         case 'clients':
             return Client;
-        case 'Branches':
+        case 'branches':
             return Branch;
         case 'vehicles':
             return Vehicle;

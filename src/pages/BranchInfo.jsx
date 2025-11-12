@@ -78,13 +78,22 @@ function BranchInfo() {
         if (!branch) return;
         setIsLoadingBookings(true);
         try {
-            // endpoint: /api/branches/:id/bookings (server must support it) 
             const res = await fetch(`${baseURL}/api/branches/${id}/bookings`);
-            const data = await res.json();
+            const text = await res.text();
+            if (!res.ok) {
+                throw new Error(`Server error ${res.status}: ${text.slice(0, 200)}`);
+            }
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (parseErr) {
+                throw new Error("Invalid JSON response from server");
+            }
             setBookings(data);
             setShowModal(true);
         } catch (err) {
             console.error("Error fetching bookings:", err);
+            alert("Failed to load booking history: " + err.message);
         } finally {
             setIsLoadingBookings(false);
         }

@@ -1,6 +1,7 @@
 import express from "express";
 import Branch from "../models/Branch.js";
 import Client from "../models/Client.js";
+import Booking from "../models/Booking.js";
 
 const router = express.Router();
 
@@ -74,6 +75,30 @@ router.get("/by-address", async (req, res) => {
   } catch (err) {
     console.error("Error finding branch by address:", err);
     res.status(500).json({ message: err.message });
+  }
+});
+
+// GET bookings for a branch (place BEFORE the `/:id` route)
+router.get("/:id/bookings", async (req, res) => {
+  try {
+    const branchId = req.params.id;
+    // adjust fields below to match how bookings reference branches in your Booking model
+    const bookings = await Booking.find({
+      $or: [
+        { originBranch: branchId },
+        { destinationBranch: branchId },
+        { branch: branchId },
+        { originBranchId: branchId },
+        { destinationBranchId: branchId }
+      ]
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json(bookings);
+  } catch (err) {
+    console.error("Error fetching bookings for branch:", err);
+    res.status(500).json({ message: err.message || "Server error" });
   }
 });
 

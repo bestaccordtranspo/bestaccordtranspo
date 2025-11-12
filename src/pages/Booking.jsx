@@ -8,32 +8,32 @@ import truck2000 from '../assets/truck-2000.png';
 import truck3000 from '../assets/truck-3000.png';
 import truck7000 from '../assets/truck-7000.png';
 
-// Vehicle categories based on your database structure
+// Vehicle categories
 const VEHICLE_CATEGORIES = [
   {
     id: 1,
-    name: "1000 kg Truck",
+    name: "1,000 KG Max Capacity",
     maxWeightCapacity: 1000,
     vehicleType: "4-Wheeler",
     image: truck1000
   },
   {
     id: 2,
-    name: "2000 kg Truck",
+    name: "2,000 KG Max Capacity",
     maxWeightCapacity: 2000,
     vehicleType: "4-Wheeler",
     image: truck2000
   },
   {
     id: 3,
-    name: "3000 kg Truck",
+    name: "3,000 KG Max Capacity",
     maxWeightCapacity: 3000,
     vehicleType: "6-Wheeler",
     image: truck3000
   },
   {
     id: 4,
-    name: "7000 kg Truck",
+    name: "7,000 KG Max Capacity",
     maxWeightCapacity: 7000,
     vehicleType: "6-Wheeler",
     image: truck7000
@@ -1262,7 +1262,7 @@ function Booking() {
 
                       {!selectedCategory && !hoveredCategory && (
                         <div className="text-center text-gray-500 text-sm mt-6">
-                          👆 Click or hover over a vehicle type to see available units and rates
+                          Click or hover over a vehicle type to see available units and rates
                         </div>
                       )}
                     </motion.div>

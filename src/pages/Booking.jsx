@@ -1,12 +1,40 @@
 import { useState, useEffect, useRef } from "react";
-import { Eye, Pencil, Trash2, Plus, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Eye, Pencil, Trash2, Plus, ChevronLeft, ChevronRight, X, Truck, MapPin, Users, FileText, CheckCircle, Package, Building, Calendar, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { axiosClient } from "../api/axiosClient";
-import axios from 'axios';
-
-
 import { motion, AnimatePresence } from "framer-motion";
-import addressDefaults from "../constants/addressDefaults";
+
+// Vehicle categories based on your database structure
+const VEHICLE_CATEGORIES = [
+  {
+    id: 1,
+    name: "1000 kg Truck",
+    maxWeightCapacity: 1000,
+    vehicleType: "4-Wheeler",
+    image: "/truck-1000.png"
+  },
+  {
+    id: 2,
+    name: "2000 kg Truck",
+    maxWeightCapacity: 2000,
+    vehicleType: "4-Wheeler",
+    image: "/truck-2000.png"
+  },
+  {
+    id: 3,
+    name: "3000 kg Truck",
+    maxWeightCapacity: 3000,
+    vehicleType: "6-Wheeler",
+    image: "/truck-3000.png"
+  },
+  {
+    id: 4,
+    name: "7000 kg Truck",
+    maxWeightCapacity: 7000,
+    vehicleType: "6-Wheeler",
+    image: "/truck-7000.png"
+  }
+];
 
 function Booking() {
   const [bookings, setBookings] = useState([]);
@@ -18,10 +46,16 @@ function Booking() {
 
   // Data for dropdowns
   const [clients, setClients] = useState([]);
-  const [clientBranches, setClientBranches] = useState([]); // branches for selected client
+  const [clientBranches, setClientBranches] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
+
+  // Vehicle selection states
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [availableVehicles, setAvailableVehicles] = useState([]);
+  const [hoveredCategory, setHoveredCategory] = useState(null);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -37,16 +71,90 @@ function Booking() {
   const [searchStatus, setSearchStatus] = useState("");
 
   // Sorting state
-  const [sortBy, setSortBy] = useState("date"); // default sort key
-  const [sortDir, setSortDir] = useState("asc"); // "asc" | "desc"
+  const [sortBy, setSortBy] = useState("date");
+  const [sortDir, setSortDir] = useState("asc");
 
-  // Unique filter lists (prevent "not defined" errors) 
+  // Unique filter lists
   const [uniqueReservationIds, setUniqueReservationIds] = useState([]);
   const [uniqueCompanyNames, setUniqueCompanyNames] = useState([]);
   const [uniqueProductNames, setUniqueProductNames] = useState([]);
   const [uniqueVehicleTypes, setUniqueVehicleTypes] = useState([]);
   const [uniqueStatuses, setUniqueStatuses] = useState([]);
   const [uniqueDates, setUniqueDates] = useState([]);
+
+  // Trip type state
+  const [selectedBranches, setSelectedBranches] = useState([
+    {
+      branch: '',
+      address: '',
+      productName: '',
+      numberOfPackages: '',
+      unitPerPackage: '',
+      quantity: '',
+      grossWeight: '',
+      key: Date.now()
+    }
+  ]);
+
+  const [formData, setFormData] = useState({
+    productName: "",
+    quantity: "",
+    grossWeight: "",
+    unitPerPackage: "",
+    numberOfPackages: "",
+    companyName: "",
+    customerEstablishmentName: "",
+    originAddress: "",
+    destinationAddress: "",
+    vehicleId: "",
+    vehicleType: "",
+    plateNumber: "",
+    dateNeeded: "",
+    timeNeeded: "",
+    employeeAssigned: [""],
+    roleOfEmployee: [""],
+  });
+
+  const [errors, setErrors] = useState({});
+
+  // Step indicators
+  const steps = [
+    { number: 1, title: "Vehicle", icon: Truck },
+    { number: 2, title: "Details", icon: MapPin },
+    { number: 3, title: "Schedule", icon: Users },
+    { number: 4, title: "Summary", icon: FileText }
+  ];
+
+  // Filter vehicles by category from database
+  const getVehiclesByCategory = (category) => {
+    return vehicles.filter(vehicle => 
+      vehicle.maxWeightCapacity === category.maxWeightCapacity &&
+      vehicle.vehicleType === category.vehicleType &&
+      vehicle.status === "Available" &&
+      !vehicle.isArchived
+    );
+  };
+
+  const handleVehicleCategoryClick = (category) => {
+    setSelectedCategory(category);
+    const vehiclesInCategory = getVehiclesByCategory(category);
+    setAvailableVehicles(vehiclesInCategory);
+    
+    // Auto-select the first vehicle if available
+    if (vehiclesInCategory.length > 0 && !selectedVehicle) {
+      handleVehicleSelect(vehiclesInCategory[0]);
+    }
+  };
+
+  const handleVehicleSelect = (vehicle) => {
+    setSelectedVehicle(vehicle);
+    setFormData(prev => ({
+      ...prev,
+      vehicleId: vehicle.vehicleId,
+      vehicleType: vehicle.vehicleType,
+      plateNumber: vehicle.plateNumber
+    }));
+  };
 
   const handleSort = (key) => {
     if (sortBy === key) {
@@ -66,7 +174,6 @@ function Booking() {
       case "company":
         return (booking.companyName || "").toString().toLowerCase();
       case "product":
-        // join multiple stop products for comparison
         return (Array.isArray(booking.destinationDeliveries) && booking.destinationDeliveries.length > 0)
           ? booking.destinationDeliveries.map(d => (d.productName || "")).join(", ").toLowerCase()
           : (booking.productName || "").toString().toLowerCase();
@@ -85,88 +192,25 @@ function Booking() {
     }
   };
 
-  // Trip type state
-  const [selectedBranches, setSelectedBranches] = useState([
-    {
-      branch: '',
-      address: '',
-      productName: '',
-      numberOfPackages: '',
-      unitPerPackage: '',
-      quantity: '',
-      grossWeight: '',
-      key: Date.now()
-    }
-  ]);
-
-  // Map states
-  const [mapCenter, setMapCenter] = useState([14.5995, 120.9842]); // Default to Manila
-  const [markerPosition, setMarkerPosition] = useState(null);
-  const [addressSearch, setAddressSearch] = useState("");
-  const mapRef = useRef(null);
-  const markerRef = useRef(null);
-
-
-  const [formData, setFormData] = useState({
-    productName: "",
-    quantity: "",
-    grossWeight: "",
-    unitPerPackage: "",
-    numberOfPackages: "",
-    // deliveryFee: "",
-    companyName: "",
-    customerEstablishmentName: "",
-    originAddress: "",
-    destinationAddress: "",
-    vehicleId: "",
-    vehicleType: "",
-    plateNumber: "",
-    dateNeeded: "",
-    timeNeeded: "",
-    employeeAssigned: [""],
-    roleOfEmployee: [""],
-  });
-
-  useEffect(() => {
-    if (formData.region === "130000000") {
-      setFormData((prev) => ({ ...prev, province: "Metro Manila" }));
-    }
-  }, [formData.region]);
-
-  const [errors, setErrors] = useState({});
-  const containerRef = useRef(null);
-
-  // Helper function to clean city names
-  const cleanCityName = (cityName) => {
-    if (!cityName) return "";
-    return cityName.replace(/^City of /i, "").toLowerCase();
-  };
-
-  // Get unique client names (no duplicates)
   const getUniqueClientNames = () => {
     const uniqueNames = [...new Set(clients.map(client => client.clientName))];
     return uniqueNames;
   };
 
-  // Get branches for selected client (clientBranches state)
   const getClientBranches = () => {
     return clientBranches || [];
   };
 
-  // Get available branches that haven't been selected yet (for selected company)
   const getAvailableBranches = () => {
     if (!formData.companyName) return [];
     const selectedBranchNames = selectedBranches.map(b => b.branch).filter(Boolean);
-    // branchName is the field in Branch model
     return (clientBranches || []).filter(b => !selectedBranchNames.includes(b.branchName));
   };
 
-  // Check if there are available branches to add
   const hasAvailableBranches = () => {
     return getAvailableBranches().length > 0;
   };
 
-  // Add a new branch destination
   const addBranch = () => {
     if (hasAvailableBranches()) {
       setSelectedBranches(prev => [
@@ -185,14 +229,12 @@ function Booking() {
     }
   };
 
-  // Remove a branch destination
   const removeBranch = (index) => {
     if (selectedBranches.length > 1) {
       setSelectedBranches(prev => prev.filter((_, i) => i !== index));
     }
   };
 
-  // Handle branch selection for multiple destinations
   const handleMultipleBranchChange = (index, branchName) => {
     const branch = clientBranches.find(b => b.branchName === branchName);
 
@@ -222,7 +264,6 @@ function Booking() {
 
         const updated = { ...branchData, [field]: value };
 
-        // Auto-calculate quantity if packages or units change
         if (field === 'numberOfPackages' || field === 'unitPerPackage') {
           const packages = field === 'numberOfPackages' ? parseInt(value) || 0 : parseInt(updated.numberOfPackages) || 0;
           const units = field === 'unitPerPackage' ? parseInt(value) || 0 : parseInt(updated.unitPerPackage) || 0;
@@ -234,7 +275,6 @@ function Booking() {
     );
   };
 
-  // Fetch all required data
   const fetchBookings = async () => {
     try {
       const res = await axiosClient.get("/api/bookings");
@@ -269,10 +309,8 @@ function Booking() {
     }
   };
 
-  // Fetch branches for a specific client and set clientBranches
   const fetchBranchesForClient = async (clientId) => {
     try {
-      // adjust endpoint if your API uses a different path
       const res = await axiosClient.get(`/api/branches?client=${clientId}`);
       const activeBranches = Array.isArray(res.data) ? res.data.filter(b => !b.isArchived) : [];
       setClientBranches(activeBranches);
@@ -307,7 +345,6 @@ function Booking() {
     fetchEmployees();
   }, []);
 
-  // Filter function
   useEffect(() => {
     let results = bookings;
 
@@ -336,7 +373,7 @@ function Booking() {
       const q = generalSearch.toLowerCase();
       results = results.filter((booking) => {
         const empStr = Array.isArray(booking.employeeAssigned)
-          ? booking.employeeAssigned.join(' ') // join array into string
+          ? booking.employeeAssigned.join(' ')
           : (booking.employeeAssigned || '').toString();
 
         return (
@@ -350,13 +387,11 @@ function Booking() {
       });
     }
 
-    // Apply sorting
     if (sortBy) {
       results = [...results].sort((a, b) => {
         const va = getSortValue(a, sortBy);
         const vb = getSortValue(b, sortBy);
 
-        // numeric compare for date
         if (sortBy === "date") {
           return sortDir === "asc" ? va - vb : vb - va;
         }
@@ -371,7 +406,6 @@ function Booking() {
     setCurrentPage(1);
   }, [searchReservationId, searchCompanyName, searchProductName, searchVehicleType, searchDate, generalSearch, searchStatus, bookings, sortBy, sortDir]);
 
-  // Pagination logic
   const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedBookings = filteredBookings.slice(
@@ -379,18 +413,21 @@ function Booking() {
     startIndex + itemsPerPage
   );
 
-  // Modal handlers
   const openModal = (booking = null) => {
     setCurrentStep(1);
+    setSelectedCategory(null);
+    setSelectedVehicle(null);
+    setAvailableVehicles([]);
+    
     if (booking) {
       setEditBooking(booking);
+      // Pre-populate form data for editing
       setFormData({
         productName: booking.productName,
         quantity: booking.quantity,
         grossWeight: booking.grossWeight,
         unitPerPackage: booking.unitPerPackage,
         numberOfPackages: booking.numberOfPackages,
-        // deliveryFee: booking.deliveryFee,
         companyName: booking.companyName,
         customerEstablishmentName: booking.customerEstablishmentName || "",
         originAddress: booking.originAddress,
@@ -403,12 +440,18 @@ function Booking() {
         employeeAssigned: Array.isArray(booking.employeeAssigned) ? booking.employeeAssigned : [booking.employeeAssigned],
         roleOfEmployee: Array.isArray(booking.roleOfEmployee) ? booking.roleOfEmployee : [booking.roleOfEmployee],
       });
-      if (lat && lng) {
-        setMapCenter([lat, lng]);
-        setMarkerPosition([lat, lng]);
-      } else {
-        setMapCenter([14.5995, 120.9842]);
-        setMarkerPosition(null);
+
+      // Pre-select vehicle
+      const vehicle = vehicles.find(v => v.vehicleId === booking.vehicleId);
+      if (vehicle) {
+        setSelectedVehicle(vehicle);
+        const category = VEHICLE_CATEGORIES.find(c => 
+          c.maxWeightCapacity === vehicle.maxWeightCapacity && 
+          c.vehicleType === vehicle.vehicleType
+        );
+        if (category) {
+          setSelectedCategory(category);
+        }
       }
 
       if (booking.destinationDeliveries && booking.destinationDeliveries.length > 0) {
@@ -424,47 +467,34 @@ function Booking() {
             key: Date.now() + index
           }))
         );
-      } else {
-        setSelectedBranches([
-          {
-            branch: booking.customerEstablishmentName || '',
-            address: booking.destinationAddress || '',
-            productName: booking.productName || '',
-            numberOfPackages: booking.numberOfPackages || '',
-            unitPerPackage: booking.unitPerPackage || '',
-            quantity: booking.quantity || '',
-            grossWeight: booking.grossWeight || '',
-            key: Date.now()
-          }
-        ]);
       }
 
       const client = clients.find(c => c.clientName === booking.companyName);
       if (client) {
         setSelectedClient(client);
+        fetchBranchesForClient(client._id);
       }
     } else {
       setEditBooking(null);
       setSelectedClient(null);
       setSelectedBranches([
-      {
-        branch: '',
-        address: '',
-        productName: '',
-        numberOfPackages: '',
-        unitPerPackage: '',
-        quantity: '',
-        grossWeight: '',
-        key: Date.now()
-      }
-    ]);
+        {
+          branch: '',
+          address: '',
+          productName: '',
+          numberOfPackages: '',
+          unitPerPackage: '',
+          quantity: '',
+          grossWeight: '',
+          key: Date.now()
+        }
+      ]);
       setFormData({
         productName: "",
         quantity: "",
         grossWeight: "",
         unitPerPackage: "",
         numberOfPackages: "",
-        // deliveryFee: "",
         companyName: "",
         customerEstablishmentName: "",
         originAddress: "",
@@ -477,8 +507,6 @@ function Booking() {
         employeeAssigned: [""],
         roleOfEmployee: [""],
       });
-      setMapCenter([14.5995, 120.9842]);
-      setMarkerPosition(null);
     }
     setShowModal(true);
   };
@@ -487,50 +515,34 @@ function Booking() {
     setShowModal(false);
     setCurrentStep(1);
     setSelectedClient(null);
-  };
-
-  const validateField = (name, value) => {
-    if (!value || value.toString().trim() === '') {
-      setErrors(prev => ({
-        ...prev,
-        [name]: 'This field is required'
-      }));
-      return false;
-    }
-
-    setErrors(prev => ({
-      ...prev,
-      [name]: ''
-    }));
-    return true;
+    setSelectedCategory(null);
+    setSelectedVehicle(null);
+    setAvailableVehicles([]);
   };
 
   const handleChange = (e) => {
-  const { name, value } = e.target;
-  setFormData(prev => {
-    const newFormData = {
-      ...prev,
-      [name]: value
-    };
+    const { name, value } = e.target;
+    setFormData(prev => {
+      const newFormData = {
+        ...prev,
+        [name]: value
+      };
 
-    if (name === 'numberOfPackages' || name === 'unitPerPackage') {
-      const packages = name === 'numberOfPackages' ? parseInt(value) || 0 : parseInt(prev.numberOfPackages) || 0;
-      const unitsPerPackage = name === 'unitPerPackage' ? parseInt(value) || 0 : parseInt(prev.unitPerPackage) || 0;
-      newFormData.quantity = packages * unitsPerPackage;
-    }
+      if (name === 'numberOfPackages' || name === 'unitPerPackage') {
+        const packages = name === 'numberOfPackages' ? parseInt(value) || 0 : parseInt(prev.numberOfPackages) || 0;
+        const unitsPerPackage = name === 'unitPerPackage' ? parseInt(value) || 0 : parseInt(prev.unitPerPackage) || 0;
+        newFormData.quantity = packages * unitsPerPackage;
+      }
 
-    return newFormData;
-  });
-  
-  validateField(name, value);
-};
+      return newFormData;
+    });
+  };
 
   const handleCompanyChange = async (e) => {
     const selectedCompanyName = e.target.value;
     setFormData(prev => ({
       ...prev,
       companyName: selectedCompanyName,
-      // originAddress will be auto-populated below
     }));
 
     const client = clients.find(c => c.clientName === selectedCompanyName);
@@ -557,43 +569,6 @@ function Booking() {
       setFormData(prev => ({ ...prev, originAddress: "", latitude: null, longitude: null }));
       setSelectedClient(null);
       setClientBranches([]);
-    }
-  };
-
-  const handleBranchChange = (e) => {
-    const selectedBranchName = e.target.value;
-    const branch = clientBranches.find(b => b.branchName === selectedBranchName);
-
-    if (branch) {
-      // set the selected client if not already
-      if (!selectedClient) {
-        const client = clients.find(c => c._id === branch.client || c._id === (branch.client?._id));
-        if (client) setSelectedClient(client);
-      }
-
-      const fullAddress = branch.address
-        ? [
-            branch.address.houseNumber,
-            branch.address.street,
-            branch.address.barangay,
-            branch.address.city,
-            branch.address.province,
-            branch.address.region
-          ].filter(Boolean).join(', ')
-        : "";
-
-      setFormData(prev => ({
-        ...prev,
-        customerEstablishmentName: selectedBranchName,
-        destinationAddress: fullAddress || cleanCityName(branch.address?.city || "")
-      }));
-
-      // Update single selectedBranches slot (first stop)
-      setSelectedBranches(prev => [{
-        ...prev[0],
-        branch: selectedBranchName,
-        address: fullAddress || cleanCityName(branch.address?.city || "")
-      }]);
     }
   };
 
@@ -669,29 +644,6 @@ function Booking() {
     return vehicleType;
   };
 
-  const getAvailableVehicles = () => {
-    return vehicles.filter(vehicle => vehicle.status === "Available");
-  };
-
-  const handleVehicleChange = (e) => {
-    const selectedVehicle = vehicles.find(v => v.vehicleId === e.target.value);
-    if (selectedVehicle) {
-      setFormData(prev => ({
-        ...prev,
-        vehicleId: selectedVehicle.vehicleId,
-        vehicleType: selectedVehicle.vehicleType,
-        plateNumber: selectedVehicle.plateNumber
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        vehicleId: "",
-        vehicleType: "",
-        plateNumber: ""
-      }));
-    }
-  };
-
   const formatEmployeeNames = (employeeAssigned) => {
     if (Array.isArray(employeeAssigned)) {
       return employeeAssigned
@@ -702,15 +654,13 @@ function Booking() {
   };
 
   const nextStep = () => {
-    if (currentStep === 1) {
-      const form = document.querySelector('form');
-      if (!form.checkValidity()) {
-        form.reportValidity();
-        return;
-      }
-
+    if (currentStep === 1 && !selectedVehicle) {
+      alert("Please select a vehicle before proceeding");
+      return;
     }
-    setCurrentStep(currentStep + 1);
+    if (currentStep < 4) {
+      setCurrentStep(currentStep + 1);
+    }
   };
 
   const prevStep = () => {
@@ -719,138 +669,105 @@ function Booking() {
     }
   };
 
- const handleSubmit = async (e) => {
-  if (e) e.preventDefault();
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
 
-  if (currentStep !== 2) {
-    return;
-  }
-
-  try {
-    // Validate all destinations (whether single or multiple)
-    for (let i = 0; i < selectedBranches.length; i++) {
-      const branch = selectedBranches[i];
-      if (!branch.branch || branch.branch.trim() === '') {
-        alert(`Please select a branch for Stop ${i + 1}`);
-        return;
-      }
-      if (!branch.address || branch.address.trim() === '') {
-        alert(`Please ensure destination address is populated for Stop ${i + 1}`);
-        return;
-      }
-      if (!branch.productName || branch.productName.trim() === '') {
-        alert(`Please fill in Product Name for Stop ${i + 1}`);
-        return;
-      }
-      if (!branch.numberOfPackages || parseInt(branch.numberOfPackages) <= 0) {
-        alert(`Please fill in valid Number of Packages for Stop ${i + 1}`);
-        return;
-      }
-      if (!branch.unitPerPackage || parseInt(branch.unitPerPackage) <= 0) {
-        alert(`Please fill in valid Units per Package for Stop ${i + 1}`);
-        return;
-      }
-      if (!branch.grossWeight || parseFloat(branch.grossWeight) <= 0) {
-        alert(`Please fill in valid Gross Weight for Stop ${i + 1}`);
-        return;
-      }
+    if (currentStep !== 4) {
+      return;
     }
 
-    // Build destinationDeliveries from selectedBranches
-    const destinationDeliveries = selectedBranches.map((branch, index) => ({
-      customerEstablishmentName: branch.branch,
-      destinationAddress: branch.address,
-      destinationIndex: index,
-      typeOfOrder: 'Delivery',
-      productName: branch.productName,
-      quantity: parseInt(branch.quantity) || 0,
-      grossWeight: parseFloat(branch.grossWeight) || 0,
-      unitPerPackage: parseInt(branch.unitPerPackage) || 0,
-      numberOfPackages: parseInt(branch.numberOfPackages) || 0,
-      status: 'pending'
-    }));
+    try {
+      for (let i = 0; i < selectedBranches.length; i++) {
+        const branch = selectedBranches[i];
+        if (!branch.branch || branch.branch.trim() === '') {
+          alert(`Please select a branch for Stop ${i + 1}`);
+          return;
+        }
+        if (!branch.address || branch.address.trim() === '') {
+          alert(`Please ensure destination address is populated for Stop ${i + 1}`);
+          return;
+        }
+        if (!branch.productName || branch.productName.trim() === '') {
+          alert(`Please fill in Product Name for Stop ${i + 1}`);
+          return;
+        }
+        if (!branch.numberOfPackages || parseInt(branch.numberOfPackages) <= 0) {
+          alert(`Please fill in valid Number of Packages for Stop ${i + 1}`);
+          return;
+        }
+        if (!branch.unitPerPackage || parseInt(branch.unitPerPackage) <= 0) {
+          alert(`Please fill in valid Units per Package for Stop ${i + 1}`);
+          return;
+        }
+        if (!branch.grossWeight || parseFloat(branch.grossWeight) <= 0) {
+          alert(`Please fill in valid Gross Weight for Stop ${i + 1}`);
+          return;
+        }
+      }
 
-    // Ensure originAddressDetails exists (build from selectedClient or fallback to originAddress)
-    const originAddressDetails = selectedClient
-      ? { ...(selectedClient.address || {}), formattedAddress: formData.originAddress || selectedClient.formattedAddress || "" }
-      : (formData.originAddress ? { formattedAddress: formData.originAddress } : null);
+      const destinationDeliveries = selectedBranches.map((branch, index) => ({
+        customerEstablishmentName: branch.branch,
+        destinationAddress: branch.address,
+        destinationIndex: index,
+        typeOfOrder: 'Delivery',
+        productName: branch.productName,
+        quantity: parseInt(branch.quantity) || 0,
+        grossWeight: parseFloat(branch.grossWeight) || 0,
+        unitPerPackage: parseInt(branch.unitPerPackage) || 0,
+        numberOfPackages: parseInt(branch.numberOfPackages) || 0,
+        status: 'pending'
+      }));
 
-    // Simplified submit data - always use multiple drop structure
-    const submitData = {
-      // Basic booking info
-      companyName: formData.companyName,
-      originAddress: formData.originAddress,
+      const originAddressDetails = selectedClient
+        ? { ...(selectedClient.address || {}), formattedAddress: formData.originAddress || selectedClient.formattedAddress || "" }
+        : (formData.originAddress ? { formattedAddress: formData.originAddress } : null);
 
-      // Trip configuration - single drop is just multiple drop with 1 stop
-      numberOfStops: selectedBranches.length,
+      const submitData = {
+        companyName: formData.companyName,
+        originAddress: formData.originAddress,
+        numberOfStops: selectedBranches.length,
+        destinationDeliveries: destinationDeliveries,
+        vehicleId: formData.vehicleId,
+        vehicleType: formData.vehicleType,
+        plateNumber: formData.plateNumber,
+        dateNeeded: new Date(formData.dateNeeded),
+        timeNeeded: formData.timeNeeded,
+        employeeAssigned: Array.isArray(formData.employeeAssigned)
+          ? formData.employeeAssigned.filter(emp => emp !== "")
+          : [formData.employeeAssigned].filter(emp => emp !== ""),
+        roleOfEmployee: Array.isArray(formData.roleOfEmployee)
+          ? formData.roleOfEmployee.filter(role => role !== "")
+          : [formData.roleOfEmployee].filter(role => role !== ""),
+        originAddressDetails: originAddressDetails,
+        latitude: formData.latitude || null,
+        longitude: formData.longitude || null
+      };
 
-      // All delivery data
-      destinationDeliveries: destinationDeliveries,
+      console.log('📤 Submit Data:', JSON.stringify(submitData, null, 2));
 
-      // Financial
-      // deliveryFee: parseFloat(formData.deliveryFee) || 0,
+      if (editBooking) {
+        await axiosClient.put(
+          `/api/bookings/${editBooking._id}`,
+          submitData
+        );
+        alert('Booking updated successfully!');
+      } else {
+        await axiosClient.post("/api/bookings", submitData);
+        alert('Booking created successfully!');
+      }
+      closeModal();
+      fetchBookings();
+    } catch (err) {
+      console.error("Error:", err);
+      console.error("Error response:", err.response?.data);
 
-      // Vehicle info
-      vehicleId: formData.vehicleId,
-      vehicleType: formData.vehicleType,
-      plateNumber: formData.plateNumber,
-
-      // Scheduling
-      dateNeeded: new Date(formData.dateNeeded),
-      timeNeeded: formData.timeNeeded,
-
-      // Staff assignment
-      employeeAssigned: Array.isArray(formData.employeeAssigned)
-        ? formData.employeeAssigned.filter(emp => emp !== "")
-        : [formData.employeeAssigned].filter(emp => emp !== ""),
-      roleOfEmployee: Array.isArray(formData.roleOfEmployee)
-        ? formData.roleOfEmployee.filter(role => role !== "")
-        : [formData.roleOfEmployee].filter(role => role !== ""),
-
-      // Location data
-      originAddressDetails: originAddressDetails,
-      latitude: formData.latitude || null,
-      longitude: formData.longitude || null
-    };
-
-    console.log('📤 Submit Data:', JSON.stringify(submitData, null, 2));
-
-    if (editBooking) {
-      await axiosClient.put(
-        `/api/bookings/${editBooking._id}`,
-        submitData
-      );
-      alert('Booking updated successfully!');
-    } else {
-      await axiosClient.post("/api/bookings", submitData);
-      alert('Booking created successfully!');
+      if (err.response?.data?.message) {
+        alert(`Error: ${err.response.data.message}`);
+      } else {
+        alert("Error adding/updating booking. Please try again.");
+      }
     }
-    closeModal();
-    fetchBookings();
-  } catch (err) {
-    console.error("Error:", err);
-    console.error("Error response:", err.response?.data);
-
-    if (err.response?.data?.message) {
-      alert(`Error: ${err.response.data.message}`);
-    } else {
-      alert("Error adding/updating booking. Please try again.");
-    }
-  }
-};
-
-useEffect(() => {
-  if (showModal) {
-    console.log('🔍 MODAL OPEN - Current form state:', {
-      formData: {
-        customerEstablishmentName: formData.customerEstablishmentName,
-        destinationAddress: formData.destinationAddress,
-        productName: formData.productName
-      },
-      selectedBranches: selectedBranches
-    });
-  }
-}, [showModal, formData.customerEstablishmentName, formData.destinationAddress, formData.productName, selectedBranches]);
+  };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to archive this booking?")) return;
@@ -899,11 +816,11 @@ useEffect(() => {
         </div>
       </motion.div>
 
-      {/* Filters Section - Always Visible */}
+      {/* Filters Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
+                transition={{ delay: 0.1 }}
         className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-purple-100 p-6"
       >
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Filters</h3>
@@ -931,28 +848,6 @@ useEffect(() => {
           </select>
 
           <select
-            value={searchProductName}
-            onChange={(e) => setSearchProductName(e.target.value)}
-            className="px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent bg-white/50 text-sm whitespace-nowrap min-w-[160px]"
-          >
-            <option value="">All Products</option>
-            {uniqueProductNames.map((product, i) => (
-              <option key={i} value={product}>{product}</option>
-            ))}
-          </select>
-
-          <select
-            value={searchVehicleType}
-            onChange={(e) => setSearchVehicleType(e.target.value)}
-            className="px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent bg-white/50 text-sm whitespace-nowrap min-w-[160px]"
-          >
-            <option value="">All Vehicle Types</option>
-            {uniqueVehicleTypes.map((vehicle, i) => (
-              <option key={i} value={vehicle}>{vehicle}</option>
-            ))}
-          </select>
-
-          <select
             value={searchStatus}
             onChange={(e) => setSearchStatus(e.target.value)}
             className="px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent bg-white/50 text-sm whitespace-nowrap min-w-[140px]"
@@ -960,17 +855,6 @@ useEffect(() => {
             <option value="">All Statuses</option>
             {uniqueStatuses.map((status, i) => (
               <option key={i} value={status}>{status}</option>
-            ))}
-          </select>
-
-          <select
-            value={searchDate}
-            onChange={(e) => setSearchDate(e.target.value)}
-            className="px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent bg-white/50 text-sm whitespace-nowrap min-w-[140px]"
-          >
-            <option value="">All Dates</option>
-            {uniqueDates.map((date, i) => (
-              <option key={i} value={date}>{date}</option>
             ))}
           </select>
 
@@ -1004,21 +888,9 @@ useEffect(() => {
                 </th>
                 <th
                   className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer"
-                  onClick={() => handleSort("trip")}
-                >
-                  Trip Number {sortBy === "trip" && (sortDir === "asc" ? "▲" : "▼")}
-                </th>
-                <th
-                  className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer"
                   onClick={() => handleSort("company")}
                 >
                   Company {sortBy === "company" && (sortDir === "asc" ? "▲" : "▼")}
-                </th>
-                <th
-                  className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer"
-                  onClick={() => handleSort("product")}
-                >
-                  Product {sortBy === "product" && (sortDir === "asc" ? "▲" : "▼")}
                 </th>
                 <th
                   className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer"
@@ -1037,12 +909,6 @@ useEffect(() => {
                   onClick={() => handleSort("status")}
                 >
                   Status {sortBy === "status" && (sortDir === "asc" ? "▲" : "▼")}
-                </th>
-                <th
-                  className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer"
-                  onClick={() => handleSort("employee")}
-                >
-                  Employee {sortBy === "employee" && (sortDir === "asc" ? "▲" : "▼")}
                 </th>
                 <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Actions</th>
               </tr>
@@ -1067,33 +933,21 @@ useEffect(() => {
                       {booking.reservationId}
                     </motion.button>
                   </td>
-                  <td className="px-6 py-4 text-sm font-mono text-indigo-700 font-semibold">{booking.tripNumber}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">{booking.companyName}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {Array.isArray(booking.destinationDeliveries) && booking.destinationDeliveries.length > 0
-                      ? booking.destinationDeliveries
-                          .map(d => d.productName)
-                          .filter(Boolean)
-                          .join(", ")
-                      : (booking.productName || booking.destinationDeliveries?.[0]?.productName || "N/A")
-                    }
-                  </td>
                   <td className="px-6 py-4 text-sm text-gray-900">{getVehicleDisplayName(booking.vehicleType)}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">
                     {new Date(booking.dateNeeded).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${(booking.status || "Pending") === "Pending" ? "bg-yellow-100 text-yellow-800" :
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      (booking.status || "Pending") === "Pending" ? "bg-yellow-100 text-yellow-800" :
                       (booking.status || "Pending") === "In Transit" ? "bg-blue-100 text-blue-800" :
-                        (booking.status || "Pending") === "Delivered" ? "bg-green-100 text-green-800" :
-                          (booking.status || "Pending") === "Completed" ? "bg-gray-200 text-gray-800" :
-                            "bg-gray-100 text-gray-800"
-                      }`}>
+                      (booking.status || "Pending") === "Delivered" ? "bg-green-100 text-green-800" :
+                      (booking.status || "Pending") === "Completed" ? "bg-gray-200 text-gray-800" :
+                      "bg-gray-100 text-gray-800"
+                    }`}>
                       {booking.status || "Pending"}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {formatEmployeeNames(booking.employeeAssigned)}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-center gap-2">
@@ -1110,34 +964,18 @@ useEffect(() => {
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={() => {
-                          if (booking.status === "In Transit") {
-                            alert("Cannot edit booking while in transit");
-                            return;
-                          }
-                          if (booking.status === "Delivered") {
-                            alert("Cannot edit delivered booking");
-                            return;
-                          }
-                          if (booking.status === "Completed") {
-                            alert("Cannot edit completed booking");
+                          if (booking.status === "In Transit" || booking.status === "Delivered" || booking.status === "Completed") {
+                            alert("Cannot edit booking in this status");
                             return;
                           }
                           openModal(booking);
                         }}
                         disabled={booking.status === "In Transit" || booking.status === "Delivered" || booking.status === "Completed"}
-                        className={`p-2 rounded-lg transition-colors ${booking.status === "In Transit" || booking.status === "Delivered" || booking.status === "Completed"
-                          ? "text-gray-400 cursor-not-allowed bg-gray-100"
-                          : "text-indigo-600 hover:bg-indigo-50"
-                          }`}
-                        title={
-                          booking.status === "In Transit"
-                            ? "Cannot edit booking while in transit"
-                            : booking.status === "Delivered"
-                              ? "Cannot edit delivered booking"
-                              : booking.status === "Completed"
-                                ? "Cannot edit completed booking"
-                                : "Edit booking"
-                        }
+                        className={`p-2 rounded-lg transition-colors ${
+                          booking.status === "In Transit" || booking.status === "Delivered" || booking.status === "Completed"
+                            ? "text-gray-400 cursor-not-allowed bg-gray-100"
+                            : "text-indigo-600 hover:bg-indigo-50"
+                        }`}
                       >
                         <Pencil size={18} />
                       </motion.button>
@@ -1165,10 +1003,11 @@ useEffect(() => {
             whileTap={{ scale: 0.95 }}
             onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
             disabled={currentPage === 1}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 ${currentPage === 1
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg"
-              }`}
+            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 ${
+              currentPage === 1
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg"
+            }`}
           >
             Previous
           </motion.button>
@@ -1182,17 +1021,18 @@ useEffect(() => {
             whileTap={{ scale: 0.95 }}
             onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
             disabled={currentPage === totalPages}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 ${currentPage === totalPages
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg"
-              }`}
+            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 ${
+              currentPage === totalPages
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg"
+            }`}
           >
             Next
           </motion.button>
         </div>
       </motion.div>
 
-      {/* Modal */}
+      {/* Enhanced 4-Step Modal */}
       <AnimatePresence>
         {showModal && (
           <motion.div
@@ -1217,19 +1057,35 @@ useEffect(() => {
                       {editBooking ? "Edit Booking" : "Create New Booking"}
                     </h2>
                     <p className="text-purple-100 text-sm mt-1">
-                      {currentStep === 1 ? "Step 1: Booking Details" : "Step 2: Schedule & Assign"}
+                      Step {currentStep} of 4: {steps[currentStep - 1].title}
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="flex gap-2">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300 ${currentStep >= 1 ? 'bg-white text-purple-600 shadow-lg' : 'bg-purple-400/30 text-white'
-                        }`}>
-                        1
-                      </div>
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300 ${currentStep >= 2 ? 'bg-white text-purple-600 shadow-lg' : 'bg-purple-400/30 text-white'
-                        }`}>
-                        2
-                      </div>
+                      {steps.map((step, index) => {
+                        const StepIcon = step.icon;
+                        const isActive = currentStep === step.number;
+                        const isCompleted = currentStep > step.number;
+                        
+                        return (
+                          <div
+                            key={step.number}
+                            className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300 ${
+                              isActive
+                                ? 'bg-white text-purple-600 shadow-lg'
+                                : isCompleted
+                                ? 'bg-green-400 text-white'
+                                : 'bg-purple-400/30 text-white'
+                            }`}
+                          >
+                            {isCompleted ? (
+                              <CheckCircle className="w-5 h-5" />
+                            ) : (
+                              <StepIcon className="w-5 h-5" />
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                     <motion.button
                       whileHover={{ scale: 1.1 }}
@@ -1244,474 +1100,692 @@ useEffect(() => {
               </div>
 
               {/* Modal Content */}
-<div className="flex-1 overflow-y-auto">
-  <form onSubmit={(e) => {
-    e.preventDefault();
-    if (currentStep === 2) {
-      handleSubmit();
-    }
-  }} className="p-8 space-y-6">
-    {currentStep === 1 && (
-      <div className="space-y-6">
-        {editBooking && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Reservation ID</label>
-              <input
-                type="text"
-                value={editBooking.reservationId}
-                disabled
-                className="w-full px-4 py-2.5 border border-purple-200 rounded-xl bg-purple-50 font-mono text-purple-600 font-semibold"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Trip Number</label>
-              <input
-                type="text"
-                value={editBooking.tripNumber}
-                disabled
-                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50 font-mono text-indigo-600 font-semibold"
-              />
-            </div>
-          </div>
-        )}
+              <div className="flex-1 overflow-y-auto p-8">
+                <AnimatePresence mode="wait">
+                  {/* STEP 1: Vehicle Selection */}
+                  {currentStep === 1 && (
+                    <motion.div
+                      key="step1"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="space-y-6"
+                    >
+                      <div className="text-center mb-8">
+                        <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                          Select Your Vehicle Type
+                        </h3>
+                        <p className="text-gray-600">
+                          Choose the vehicle that best fits your shipment needs
+                        </p>
+                      </div>
 
-        {/* Customer Details & Shipment Route */}
-        <div className="bg-gradient-to-r from-indigo-50 to-violet-50 p-6 rounded-2xl border border-indigo-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Customer Details & Shipment Route</h3> 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Select Company *</label>
-              <select
-                name="companyName"
-                value={formData.companyName}
-                onChange={handleCompanyChange}
-                required
-                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-              >
-                <option value="">Select from existing records</option>
-                {getUniqueClientNames().map((clientName, index) => (
-                  <option key={index} value={clientName}>
-                    {clientName}
-                  </option>
-                ))}
-              </select>
-            </div>
-             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-2">Origin/From *</label>
-               <input
-                 type="text"
-                 name="originAddress"
-                 value={formData.originAddress}
-                 readOnly
-                 required
-                 placeholder="Origin will be auto-populated from selected company"
-                 className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50/50"
-               />
-               {formData.originAddress && (
-                 <p className="text-xs text-green-600 mt-1">
-                   ✓ Origin populated: {formData.originAddress}
-                 </p>
-               )}
-             </div>
-           </div>
+                      {/* Vehicle Category Grid - Smaller Square Cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+                        {VEHICLE_CATEGORIES.map((category) => {
+                          const vehicleCount = getVehiclesByCategory(category).length;
+                          const isSelected = selectedCategory?.id === category.id;
+                          
+                          return (
+                            <motion.div
+                              key={category.id}
+                              className={`relative aspect-square border-2 rounded-xl p-4 cursor-pointer transition-all duration-300 ${
+                                isSelected
+                                  ? 'border-purple-600 bg-purple-50 shadow-xl'
+                                  : 'border-gray-200 hover:border-purple-400 hover:shadow-lg'
+                              }`}
+                              onClick={() => handleVehicleCategoryClick(category)}
+                              onMouseEnter={() => setHoveredCategory(category.id)}
+                              onMouseLeave={() => setHoveredCategory(null)}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                            >
+                              {/* Selected Badge */}
+                              {isSelected && (
+                                <div className="absolute -top-2 -right-2 bg-purple-600 text-white p-1.5 rounded-full shadow-lg">
+                                  <CheckCircle className="w-4 h-4" />
+                                </div>
+                              )}
 
-          <div className="gap-4 mt-4">
-            {/* Destinations Section - Always show multiple drop interface */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Destinations *
-              </label>
-              
-              <div className="space-y-4">
-                {selectedBranches.map((branchData, index) => (
-                  <div key={branchData.key} className="border-2 border-indigo-300 rounded-2xl p-5 bg-gradient-to-br from-indigo-50 to-purple-50">
-                    {/* Header */}
-                    <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-indigo-200">
-                      <span className="text-base font-bold text-indigo-700 bg-indigo-200 px-4 py-2 rounded-full">
-                        Stop {index + 1}
-                      </span>
-                      {selectedBranches.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeBranch(index)}
-                          className="text-red-600 hover:text-red-800 text-sm font-semibold flex items-center gap-1 px-3 py-1 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          ✕ Remove Stop
-                        </button>
-                      )}
-                    </div>
+                              {/* Available Count Badge */}
+                              <div className={`absolute top-2 left-2 text-xs font-bold px-2 py-1 rounded-full ${
+                                vehicleCount > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                              }`}>
+                                {vehicleCount} {vehicleCount === 1 ? 'unit' : 'units'}
+                              </div>
 
-                    {/* Branch Selection */}
-                    <div className="mb-4">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Select Branch *
-                      </label>
-                      <select
-                        value={branchData.branch}
-                        onChange={(e) => handleMultipleBranchChange(index, e.target.value)}
-                        required
-                        disabled={!formData.companyName}
-                        className="w-full px-4 py-2.5 border-2 border-indigo-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 font-medium"
-                      >
-                        <option value="">Select branch</option>
-                        {formData.companyName && getClientBranches().map((b) => (
-                          <option
-                            key={b._id}
-                            value={b.branchName}
-                            disabled={selectedBranches.some((sb, i) => i !== index && sb.branch === b.branchName)}
+                              {/* Truck Image */}
+                              <div className="flex items-center justify-center h-24 mb-2">
+                                <img
+                                  src={category.image}
+                                  alt={category.name}
+                                  className="h-full w-auto object-contain"
+                                  onError={(e) => {
+                                    e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 60"><rect fill="%23e5e7eb" width="100" height="60"/><text x="50%" y="50%" fill="%239ca3af" font-family="Arial" font-size="10" text-anchor="middle" dominant-baseline="middle">🚚</text></svg>';
+                                  }}
+                                />
+                              </div>
+
+                              {/* Vehicle Info */}
+                              <div className="text-center">
+                                <h4 className="text-sm font-bold text-gray-900 mb-1">
+                                  {category.name}
+                                </h4>
+                                <div className="flex flex-col gap-1">
+                                  <span className="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-semibold">
+                                    {category.maxWeightCapacity.toLocaleString()} kg
+                                  </span>
+                                  <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full font-semibold">
+                                    {category.vehicleType}
+                                  </span>
+                                </div>
+                              </div>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Available Vehicles List */}
+                      <AnimatePresence>
+                        {(hoveredCategory || selectedCategory) && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            className="mt-8 max-w-4xl mx-auto"
                           >
-                            {b.branchName}
-                            {selectedBranches.some((sb, i) => i !== index && sb.branch === b.branchName) ? ' (Selected)' : ''}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Destination Address */}
-                    <div className="mb-4">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Destination Address
-                      </label>
-                      <input
-                        type="text"
-                        value={branchData.address}
-                        readOnly
-                        placeholder="Auto-populated when branch is selected"
-                        className="w-full px-4 py-2.5 border-2 border-indigo-200 rounded-xl bg-indigo-50/70 text-gray-700 font-medium"
-                      />
-                    </div>
-
-                    {/* Product Details Form */}
-                    <div className="bg-white rounded-xl p-4 border-2 border-purple-200">
-                      <h4 className="text-sm font-bold text-purple-700 mb-3 flex items-center gap-2">
-                        📋 Product Details for this Stop
-                      </h4>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-1">
-                            Product Name *
-                          </label>
-                          <input
-                            type="text"
-                            value={branchData.productName}
-                            onChange={(e) => handleBranchProductChange(index, 'productName', e.target.value)}
-                            placeholder="e.g., Tasty Boy"
-                            required
-                            className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-1">
-                            Number of Packages *
-                          </label>
-                          <input
-                            type="number"
-                            value={branchData.numberOfPackages}
-                            onChange={(e) => handleBranchProductChange(index, 'numberOfPackages', e.target.value)}
-                            placeholder="e.g., 10"
-                            required
-                            min="1"
-                            className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-1">
-                            Units per Package *
-                          </label>
-                          <input
-                            type="number"
-                            value={branchData.unitPerPackage}
-                            onChange={(e) => handleBranchProductChange(index, 'unitPerPackage', e.target.value)}
-                            placeholder="e.g., 200"
-                            required
-                            min="1"
-                            className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-1">
-                            Total Quantity (Auto)
-                          </label>
-                          <input
-                            type="number"
-                            value={branchData.quantity}
-                            readOnly
-                            placeholder="Auto-calculated"
-                            className="w-full px-3 py-2 border border-purple-200 rounded-lg bg-purple-50/70 text-gray-700 text-sm font-semibold"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-1">
-                            Gross Weight (KG) *
-                          </label>
-                          <input
-                            type="number"
-                            value={branchData.grossWeight}
-                            onChange={(e) => handleBranchProductChange(index, 'grossWeight', e.target.value)}
-                            placeholder="e.g., 5.5"
-                            required
-                            min="0.1"
-                            step="0.1"
-                            className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Add Another Destination Button */}
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  type="button"
-                  onClick={addBranch}
-                  disabled={!formData.companyName || !hasAvailableBranches()}
-                  className="w-full px-5 py-4 bg-gradient-to-r from-purple-300 to-purple-800 text-white rounded-xl hover:from-purple-500 hover:to-purple-900 transition-all duration-300 font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  ➕ Add Another Destination
-                </motion.button>
-
-                {!hasAvailableBranches() && selectedBranches.length > 0 && (
-                  <p className="text-sm text-amber-600 text-center font-medium">
-                    ⚠️ All available branches have been selected
-                  </p>
-                )}
-
-                {/* Destinations Preview */}
-                <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Destinations Preview
-                  </label>
-                  <div className="space-y-2 max-h-60 overflow-y-auto p-3 bg-gray-50 rounded-xl border border-indigo-200">
-                    {selectedBranches.map((branchData, index) => (
-                      <div key={branchData.key} className="text-sm">
-                        <div className="font-medium text-gray-700">
-                          Stop {index + 1}: {branchData.branch || 'Not selected'}
-                        </div>
-                        {branchData.address && (
-                          <div className="text-xs text-gray-500 truncate">
-                            {branchData.address}
-                          </div>
+                            {(() => {
+                              const category = VEHICLE_CATEGORIES.find(c => c.id === (hoveredCategory || selectedCategory?.id));
+                              const vehicleList = getVehiclesByCategory(category);
+                              
+                              return (
+                                <div className="bg-white border-2 border-purple-200 rounded-xl p-6 shadow-lg">
+                                  <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <Truck className="w-5 h-5 text-purple-600" />
+                                    Available {category.name} Units
+                                  </h4>
+                                  
+                                  {vehicleList.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                      {vehicleList.map((vehicle) => (
+                                        <motion.div
+                                          key={vehicle._id}
+                                          className={`flex items-center justify-between p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                            selectedVehicle?.vehicleId === vehicle.vehicleId
+                                              ? 'border-purple-600 bg-purple-50'
+                                              : 'border-gray-200 hover:border-purple-300 bg-gray-50'
+                                          }`}
+                                          onClick={() => handleVehicleSelect(vehicle)}
+                                          whileHover={{ scale: 1.02 }}
+                                          whileTap={{ scale: 0.98 }}
+                                        >
+                                          <div className="flex-1">
+                                            <p className="font-semibold text-gray-900">
+                                              {vehicle.manufacturedBy} {vehicle.model}
+                                            </p>
+                                            <p className="text-sm text-gray-600">
+                                              {vehicle.plateNumber}
+                                            </p>
+                                            <p className="text-xs text-gray-500">
+                                              {vehicle.color} • ID: {vehicle.vehicleId}
+                                            </p>
+                                          </div>
+                                          <div className="text-right ml-4">
+                                            <p className="text-xl font-bold text-purple-600">
+                                              ₱{vehicle.kmRate || 0}
+                                            </p>
+                                            <p className="text-xs text-gray-500">per km</p>
+                                            {selectedVehicle?.vehicleId === vehicle.vehicleId && (
+                                              <CheckCircle className="w-5 h-5 text-purple-600 mt-1 ml-auto" />
+                                            )}
+                                          </div>
+                                        </motion.div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="text-center py-8 text-gray-500">
+                                      <Truck className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                                      <p className="text-sm">No available vehicles in this category</p>
+                                      <p className="text-xs mt-1">All units are currently on trip or unavailable</p>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </motion.div>
                         )}
-                        {branchData.productName && (
-                          <div className="text-xs text-purple-600">
-                            Product: {branchData.productName}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Total stops: {selectedBranches.length} • {selectedBranches.length > 1 ? 'Multiple Drop Trip' : 'Single Drop Trip'}
-                  </p>
-                </div>           
-              </div>
-            </div>
-          </div>
-        </div>
+                      </AnimatePresence>
 
-        {/* Area Rate & Vehicle Info */}
-        <div className="bg-gradient-to-r from-violet-50 to-fuchsia-50 p-6 rounded-2xl border border-violet-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Area Rate & Vehicle Info</h3>
+                      {!selectedCategory && !hoveredCategory && (
+                        <div className="text-center text-gray-500 text-sm mt-6">
+                          👆 Click or hover over a vehicle type to see available units and rates
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select Vehicle *</label>
-            <select
-              name="vehicleId"
-              value={formData.vehicleId}
-              onChange={handleVehicleChange}
-              required
-              className="w-full px-4 py-2.5 border border-violet-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent"
-            >
-              <option value="">Select Vehicle</option>
-              {(() => {
-                // Safely handle address strings to prevent .toLowerCase() errors
-                const origin = typeof formData.originAddress === 'string' ? formData.originAddress : '';
-                const destination = typeof formData.destinationAddress === 'string' ? formData.destinationAddress : '';
-
-                const key = `${origin?.toLowerCase()} - ${destination?.toLowerCase()}`;
-                const allowedVehiclesArr = addressDefaults[key];
-                const allowedVehicleTypes = Array.isArray(allowedVehiclesArr)
-                  ? allowedVehiclesArr.map(def => def.vehicleType)
-                  : [];
-
-                return getAvailableVehicles()
-                  .filter(vehicle => allowedVehicleTypes.length === 0 || allowedVehicleTypes.includes(vehicle.vehicleType))
-                  .map(vehicle => (
-                    <option key={vehicle._id} value={vehicle.vehicleId}>
-                      {`${vehicle.vehicleId} - ${vehicle.manufacturedBy} ${vehicle.model} (${vehicle.vehicleType}) - ${vehicle.plateNumber}`}
-                    </option>
-                  ));
-              })()}
-            </select>
-          </div>
-        </div>
-      </div>
-    )}
-
-    {currentStep === 2 && (
-      <div className="space-y-6">
-        {/* Scheduling */}
-        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Scheduling</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
-              <input
-                type="date"
-                name="dateNeeded"
-                value={formData.dateNeeded}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Time *</label>
-              <input
-                type="time"
-                name="timeNeeded"
-                value={formData.timeNeeded}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Assign Employees & Roles */}
-        <div className="bg-gradient-to-r from-indigo-50 to-violet-50 p-6 rounded-2xl border border-indigo-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Assign Employees & Roles</h3>
-
-          {formData.employeeAssigned.map((employeeId, index) => (
-            <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 border border-indigo-200 rounded-xl bg-white/50">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {index === 0 ? "Select Driver *" : "Select Helper"}
-                </label>
-                <select
-                  value={employeeId}
-                  onChange={(e) => handleEmployeeChange(index, e.target.value)}
-                  required
-                  className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-                >
-                  <option value="">{index === 0 ? "Select Driver" : "Select Helper"}</option>
-                  {getAvailableEmployees(index).map((employee) => (
-                    <option key={employee._id} value={employee.employeeId}>
-                      {`${employee.fullName || employee.name || ''}`.trim()}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
-                <input
-                  type="text"
-                  value={formData.roleOfEmployee[index] || ""}
-                  readOnly
-                  placeholder="Role"
-                  className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50/50"
-                />
-              </div>
-
-              <div className="flex items-end">
-                {formData.employeeAssigned.length > 1 && (
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    type="button"
-                    onClick={() => removeEmployee(index)}
-                    className="px-4 py-2.5 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors font-medium"
-                  >
-                    Remove
-                  </motion.button>
-                )}
-              </div>
-            </div>
-          ))}
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            type="button"
-            onClick={addEmployee}
-            className="w-full px-4 py-3 bg-gradient-to-r from-indigo-100 to-violet-100 text-indigo-700 rounded-xl hover:from-indigo-200 hover:to-violet-200 transition-all duration-300 font-medium"
-          >
-            + Add Helper
-          </motion.button>
-        </div>
-      </div>
-    )}
-  </form>
-
-            {/* Modal Footer */}
-            <div className="sticky bottom-0 bg-gradient-to-r from-gray-50 to-gray-100 px-8 py-6 rounded-b-3xl border-t border-gray-200 flex-shrink-0">
-              <div className="flex justify-between items-center gap-4">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  type="button"
-                  onClick={closeModal}
-                  className="px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all duration-300 shadow-sm"
-                >
-                  Cancel
-                </motion.button>
-
-                <div className="flex gap-3">
+                  {/* STEP 2: Customer Details & Route */}
                   {currentStep === 2 && (
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      type="button"
-                      onClick={prevStep}
-                      className="px-6 py-3 bg-gray-500 text-white rounded-xl font-medium hover:bg-gray-600 transition-all duration-300 shadow-md inline-flex items-center gap-2"
+                    <motion.div
+                      key="step2"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="space-y-6"
                     >
-                      <ChevronLeft size={18} />
-                      Back
-                    </motion.button>
+                      <div className="bg-gradient-to-r from-indigo-50 to-violet-50 p-6 rounded-2xl border border-indigo-100">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                          <Building className="w-5 h-5 text-indigo-600" />
+                          Customer Details & Shipment Route
+                        </h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Select Company *
+                            </label>
+                            <select
+                              name="companyName"
+                              value={formData.companyName}
+                              onChange={handleCompanyChange}
+                              required
+                              className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                            >
+                              <option value="">Select from existing records</option>
+                              {getUniqueClientNames().map((clientName, index) => (
+                                <option key={index} value={clientName}>
+                                  {clientName}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Origin/From *
+                            </label>
+                            <input
+                              type="text"
+                              name="originAddress"
+                              value={formData.originAddress}
+                              readOnly
+                              required
+                              placeholder="Origin will be auto-populated from selected company"
+                              className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50/50"
+                            />
+                            {formData.originAddress && (
+                              <p className="text-xs text-green-600 mt-1">
+                                ✓ Origin populated: {formData.originAddress}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="gap-4 mt-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Destinations *
+                            </label>
+                            
+                            <div className="space-y-4">
+                              {selectedBranches.map((branchData, index) => (
+                                <div key={branchData.key} className="border-2 border-indigo-300 rounded-2xl p-5 bg-gradient-to-br from-indigo-50 to-purple-50">
+                                  <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-indigo-200">
+                                    <span className="text-base font-bold text-indigo-700 bg-indigo-200 px-4 py-2 rounded-full">
+                                      Stop {index + 1}
+                                    </span>
+                                    {selectedBranches.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => removeBranch(index)}
+                                        className="text-red-600 hover:text-red-800 text-sm font-semibold flex items-center gap-1 px-3 py-1 hover:bg-red-50 rounded-lg transition-colors"
+                                      >
+                                        ✕ Remove Stop
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  <div className="mb-4">
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                      Select Branch *
+                                    </label>
+                                    <select
+                                      value={branchData.branch}
+                                      onChange={(e) => handleMultipleBranchChange(index, e.target.value)}
+                                      required
+                                      disabled={!formData.companyName}
+                                      className="w-full px-4 py-2.5 border-2 border-indigo-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 font-medium"
+                                    >
+                                      <option value="">Select branch</option>
+                                      {formData.companyName && getClientBranches().map((b) => (
+                                        <option
+                                          key={b._id}
+                                          value={b.branchName}
+                                          disabled={selectedBranches.some((sb, i) => i !== index && sb.branch === b.branchName)}
+                                        >
+                                          {b.branchName}
+                                          {selectedBranches.some((sb, i) => i !== index && sb.branch === b.branchName) ? ' (Selected)' : ''}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  <div className="mb-4">
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                      Destination Address
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={branchData.address}
+                                      readOnly
+                                      placeholder="Auto-populated when branch is selected"
+                                      className="w-full px-4 py-2.5 border-2 border-indigo-200 rounded-xl bg-indigo-50/70 text-gray-700 font-medium"
+                                    />
+                                  </div>
+
+                                  <div className="bg-white rounded-xl p-4 border-2 border-purple-200">
+                                    <h4 className="text-sm font-bold text-purple-700 mb-3 flex items-center gap-2">
+                                      <Package className="w-4 h-4" />
+                                      Product Details for this Stop
+                                    </h4>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                      <div>
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                          Number of Packages *
+                                        </label>
+                                        <input
+                                          type="number"
+                                          value={branchData.numberOfPackages}
+                                          onChange={(e) => handleBranchProductChange(index, 'numberOfPackages', e.target.value)}
+                                          placeholder="e.g., 10"
+                                          required
+                                          min="1"
+                                          className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
+                                        />
+                                      </div>
+
+                                      <div>
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                          Units per Package *
+                                        </label>
+                                        <input
+                                          type="number"
+                                          value={branchData.unitPerPackage}
+                                          onChange={(e) => handleBranchProductChange(index, 'unitPerPackage', e.target.value)}
+                                          placeholder="e.g., 200"
+                                          required
+                                          min="1"
+                                          className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
+                                        />
+                                      </div>
+
+                                      <div>
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                          Total Quantity (Auto)
+                                        </label>
+                                        <input
+                                          type="number"
+                                          value={branchData.quantity}
+                                          readOnly
+                                          placeholder="Auto-calculated"
+                                          className="w-full px-3 py-2 border border-purple-200 rounded-lg bg-purple-50/70 text-gray-700 text-sm font-semibold"
+                                        />
+                                      </div>
+
+                                      <div>
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                          Gross Weight (KG) *
+                                        </label>
+                                        <input
+                                          type="number"
+                                          value={branchData.grossWeight}
+                                          onChange={(e) => handleBranchProductChange(index, 'grossWeight', e.target.value)}
+                                          placeholder="e.g., 5.5"
+                                          required
+                                          min="0.1"
+                                          step="0.1"
+                                          className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+
+                              <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                type="button"
+                                onClick={addBranch}
+                                disabled={!formData.companyName || !hasAvailableBranches()}
+                                className="w-full px-5 py-4 bg-gradient-to-r from-purple-300 to-purple-800 text-white rounded-xl hover:from-purple-500 hover:to-purple-900 transition-all duration-300 font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                ➕ Add Another Destination
+                              </motion.button>
+
+                              {!hasAvailableBranches() && selectedBranches.length > 0 && (
+                                <p className="text-sm text-amber-600 text-center font-medium">
+                                  ⚠️ All available branches have been selected
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
                   )}
 
-                  {currentStep < 2 ? (
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      type="button"
-                      onClick={nextStep}
-                      className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-300 inline-flex items-center gap-2"
+                  {/* STEP 3: Schedule & Team */}
+                  {currentStep === 3 && (
+                    <motion.div
+                      key="step3"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="space-y-6"
                     >
-                      Next
-                      <ChevronRight size={18} />
-                    </motion.button>
-                  ) : (
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      type="button"
-                      onClick={handleSubmit}
-                      className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-300"
-                    >
-                      {editBooking ? "Update Booking" : "Create Booking"}
-                    </motion.button>
+                      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                          <Calendar className="w-5 h-5 text-purple-600" />
+                          Scheduling
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Date *
+                            </label>
+                            <input
+                              type="date"
+                              name="dateNeeded"
+                              value={formData.dateNeeded}
+                              onChange={handleChange}
+                              required
+                              className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Time *
+                            </label>
+                            <input
+                              type="time"
+                              name="timeNeeded"
+                              value={formData.timeNeeded}
+                              onChange={handleChange}
+                              required
+                              className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-gradient-to-r from-indigo-50 to-violet-50 p-6 rounded-2xl border border-indigo-100">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                          <Users className="w-5 h-5 text-indigo-600" />
+                          Assign Employees & Roles
+                        </h3>
+
+                        {formData.employeeAssigned.map((employeeId, index) => (
+                          <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 border border-indigo-200 rounded-xl bg-white/50">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                {index === 0 ? "Select Driver *" : "Select Helper"}
+                              </label>
+                              <select
+                                value={employeeId}
+                                onChange={(e) => handleEmployeeChange(index, e.target.value)}
+                                required
+                                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                              >
+                                <option value="">{index === 0 ? "Select Driver" : "Select Helper"}</option>
+                                {getAvailableEmployees(index).map((employee) => (
+                                  <option key={employee._id} value={employee.employeeId}>
+                                    {`${employee.fullName || employee.name || ''}`.trim()}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                              <input
+                                type="text"
+                                value={formData.roleOfEmployee[index] || ""}
+                                readOnly
+                                placeholder="Role"
+                                className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-indigo-50/50"
+                              />
+                            </div>
+
+                            <div className="flex items-end">
+                              {formData.employeeAssigned.length > 1 && (
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  type="button"
+                                  onClick={() => removeEmployee(index)}
+                                  className="px-4 py-2.5 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors font-medium"
+                                >
+                                  Remove
+                                </motion.button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          type="button"
+                          onClick={addEmployee}
+                          className="w-full px-4 py-3 bg-gradient-to-r from-indigo-100 to-violet-100 text-indigo-700 rounded-xl hover:from-indigo-200 hover:to-violet-200 transition-all duration-300 font-medium"
+                        >
+                          + Add Helper
+                        </motion.button>
+                      </div>
+                    </motion.div>
                   )}
+
+                  {/* STEP 4: Booking Summary */}
+                  {currentStep === 4 && (
+                    <motion.div
+                      key="step4"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="space-y-6"
+                    >
+                      <div className="text-center mb-6">
+                        <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                          Booking Summary
+                        </h3>
+                        <p className="text-gray-600">
+                          Please review your booking details before confirming
+                        </p>
+                      </div>
+
+                      {/* Vehicle Summary */}
+                      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl p-6 border border-purple-100">
+                        <div className="flex items-center gap-3 mb-4">
+                          <Truck className="w-6 h-6 text-purple-600" />
+                          <h4 className="text-lg font-bold text-gray-900">Vehicle Details</h4>
+                        </div>
+                        {selectedVehicle ? (
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-gray-600">Vehicle</p>
+                              <p className="font-semibold text-gray-900">{selectedVehicle.manufacturedBy} {selectedVehicle.model}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-600">Plate Number</p>
+                              <p className="font-semibold text-gray-900">{selectedVehicle.plateNumber}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-600">Capacity</p>
+                              <p className="font-semibold text-gray-900">{selectedVehicle.maxWeightCapacity?.toLocaleString()} kg</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-600">Type</p>
+                              <p className="font-semibold text-gray-900">{selectedVehicle.vehicleType}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-600">Color</p>
+                              <p className="font-semibold text-gray-900">{selectedVehicle.color}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-600">Rate</p>
+                              <p className="font-semibold text-purple-600">₱{selectedVehicle.kmRate || 0}/km</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-gray-500 italic">No vehicle selected</p>
+                        )}
+                      </div>
+
+                      {/* Customer & Route Summary */}
+                      <div className="bg-gradient-to-r from-indigo-50 to-violet-50 rounded-2xl p-6 border border-indigo-100">
+                        <div className="flex items-center gap-3 mb-4">
+                          <MapPin className="w-6 h-6 text-indigo-600" />
+                          <h4 className="text-lg font-bold text-gray-900">Route & Shipment</h4>
+                        </div>
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm text-gray-600">Company</p>
+                            <p className="font-semibold text-gray-900">{formData.companyName || "Not specified"}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">Origin</p>
+                            <p className="font-semibold text-gray-900">{formData.originAddress || "Not specified"}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">Destination(s)</p>
+                            <div className="space-y-2 mt-2">
+                              {selectedBranches.map((branch, idx) => (
+                                <div key={idx} className="bg-white p-3 rounded-lg border border-indigo-200">
+                                  <div className="flex items-start gap-2">
+                                    <span className="bg-indigo-600 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[24px] text-center">
+                                      {idx + 1}
+                                    </span>
+                                    <div className="flex-1">
+                                      <p className="font-semibold text-gray-900">{branch.branch}</p>
+                                      <p className="text-xs text-gray-600">{branch.address}</p>
+                                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                                        <div>
+                                          <span className="text-gray-600">Product:</span> <span className="font-semibold">{branch.productName}</span>
+                                        </div>
+                                        <div>
+                                          <span className="text-gray-600">Qty:</span> <span className="font-semibold">{branch.quantity}</span>
+                                        </div>
+                                        <div>
+                                          <span className="text-gray-600">Weight:</span> <span className="font-semibold">{branch.grossWeight} kg</span>
+                                        </div>
+                                        <div>
+                                          <span className="text-gray-600">Packages:</span> <span className="font-semibold">{branch.numberOfPackages}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Schedule Summary */}
+                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-100">
+                        <div className="flex items-center gap-3 mb-4">
+                          <Calendar className="w-6 h-6 text-green-600" />
+                          <h4 className="text-lg font-bold text-gray-900">Schedule & Team</h4>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-gray-600">Date</p>
+                            <p className="font-semibold text-gray-900">
+                              {formData.dateNeeded ? new Date(formData.dateNeeded).toLocaleDateString() : "Not set"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">Time</p>
+                            <p className="font-semibold text-gray-900">{formData.timeNeeded || "Not set"}</p>
+                          </div>
+                          <div className="col-span-2">
+                            <p className="text-sm text-gray-600 mb-2">Assigned Team</p>
+                            <div className="space-y-2">
+                              {formData.employeeAssigned.filter(e => e).map((empId, idx) => (
+                                <div key={idx} className="flex items-center gap-2 bg-white p-2 rounded-lg">
+                                  <Users className="w-4 h-4 text-gray-500" />
+                                  <span className="font-semibold text-gray-900">{getEmployeeDisplayName(empId)}</span>
+                                  <span className="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full">
+                                    {formData.roleOfEmployee[idx]}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Confirmation Note */}
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                        <p className="text-sm text-yellow-800">
+                          <strong>Note:</strong> By confirming this booking, you agree that all information provided is accurate and complete.
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Footer */}
+              <div className="sticky bottom-0 bg-gradient-to-r from-gray-50 to-gray-100 px-8 py-6 rounded-b-3xl border-t border-gray-200 flex-shrink-0">
+                <div className="flex justify-between items-center gap-4">
+                  <button
+                    onClick={closeModal}
+                    className="px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all duration-300 shadow-sm"
+                  >
+                    Cancel
+                  </button>
+
+                  <div className="flex gap-3">
+                    {currentStep > 1 && (
+                      <button
+                        onClick={prevStep}
+                        className="px-6 py-3 bg-gray-500 text-white rounded-xl font-medium hover:bg-gray-600 transition-all duration-300 shadow-md inline-flex items-center gap-2"
+                      >
+                        <ChevronLeft size={18} />
+                        Back
+                      </button>
+                    )}
+
+                    {currentStep < 4 ? (
+                      <button
+                        onClick={nextStep}
+                        disabled={currentStep === 1 && !selectedVehicle}
+                        className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-300 inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next
+                        <ChevronRight size={18} />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleSubmit}
+                        className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-300 inline-flex items-center gap-2"
+                      >
+                        <CheckCircle size={18} />
+                        {editBooking ? "Update Booking" : "Confirm Booking"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
             </motion.div>
-    </motion.div>
-    )
-  }
-</AnimatePresence >
-</div >
-);
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 export default Booking;

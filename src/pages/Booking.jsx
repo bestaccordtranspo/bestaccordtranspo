@@ -95,8 +95,6 @@ function Booking() {
       branch: '',
       address: '',
       productName: '',
-      numberOfPackages: '',
-      unitPerPackage: '',
       quantity: '',
       grossWeight: '',
       key: Date.now()
@@ -107,8 +105,6 @@ function Booking() {
     productName: "",
     quantity: "",
     grossWeight: "",
-    unitPerPackage: "",
-    numberOfPackages: "",
     companyName: "",
     customerEstablishmentName: "",
     originAddress: "",
@@ -228,8 +224,6 @@ function Booking() {
           latitude: null,
           longitude: null,
           productName: '',
-          numberOfPackages: '',
-          unitPerPackage: '',
           quantity: '',
           grossWeight: '',
           key: Date.now() + prev.length
@@ -279,23 +273,40 @@ function Booking() {
       );
     };
 
-  const handleBranchProductChange = (index, field, value) => {
-    setSelectedBranches(prev =>
-      prev.map((branchData, i) => {
-        if (i !== index) return branchData;
+    const handleBranchProductChange = (index, field, value) => {
+      setSelectedBranches(prev =>
+        prev.map((branchData, i) => {
+          if (i !== index) return branchData;
+          return { ...branchData, [field]: value };
+        })
+      );
+    };
 
-        const updated = { ...branchData, [field]: value };
+    const getTotalGrossWeight = () => {
+      return selectedBranches.reduce((total, branch) => {
+        return total + (parseFloat(branch.grossWeight) || 0);
+      }, 0);
+    };
 
-        if (field === 'numberOfPackages' || field === 'unitPerPackage') {
-          const packages = field === 'numberOfPackages' ? parseInt(value) || 0 : parseInt(updated.numberOfPackages) || 0;
-          const units = field === 'unitPerPackage' ? parseInt(value) || 0 : parseInt(updated.unitPerPackage) || 0;
-          updated.quantity = packages * units;
+    const validateGrossWeight = (branchIndex, weight) => {
+      if (!selectedVehicle) return null;
+      
+      const weightValue = parseFloat(weight) || 0;
+      const totalWeight = selectedBranches.reduce((total, branch, idx) => {
+        if (idx === branchIndex) {
+          return total + weightValue;
         }
-
-        return updated;
-      })
-    );
-  };
+        return total + (parseFloat(branch.grossWeight) || 0);
+      }, 0);
+      
+      const vehicleCapacity = selectedVehicle.maxWeightCapacity || 0;
+      
+      if (totalWeight > vehicleCapacity) {
+        return `Total weight (${totalWeight.toFixed(2)} kg) exceeds vehicle capacity (${vehicleCapacity.toLocaleString()} kg)`;
+      }
+      
+      return null;
+    };
 
 // Geocode address to get coordinates with multiple fallback attempts
 const geocodeAddressForRoute = async (address) => {
@@ -527,8 +538,6 @@ const geocodeAddressForRoute = async (address) => {
         productName: booking.productName,
         quantity: booking.quantity,
         grossWeight: booking.grossWeight,
-        unitPerPackage: booking.unitPerPackage,
-        numberOfPackages: booking.numberOfPackages,
         companyName: booking.companyName,
         customerEstablishmentName: booking.customerEstablishmentName || "",
         originAddress: booking.originAddress,
@@ -563,8 +572,6 @@ const geocodeAddressForRoute = async (address) => {
             latitude: dest.latitude || null,
             longitude: dest.longitude || null,
             productName: dest.productName || '',
-            numberOfPackages: dest.numberOfPackages || '',
-            unitPerPackage: dest.unitPerPackage || '',
             quantity: dest.quantity || '',
             grossWeight: dest.grossWeight || '',
             key: Date.now() + index
@@ -585,8 +592,6 @@ const geocodeAddressForRoute = async (address) => {
           branch: '',
           address: '',
           productName: '',
-          numberOfPackages: '',
-          unitPerPackage: '',
           quantity: '',
           grossWeight: '',
           key: Date.now()
@@ -596,8 +601,6 @@ const geocodeAddressForRoute = async (address) => {
         productName: "",
         quantity: "",
         grossWeight: "",
-        unitPerPackage: "",
-        numberOfPackages: "",
         companyName: "",
         customerEstablishmentName: "",
         originAddress: "",
@@ -625,20 +628,10 @@ const geocodeAddressForRoute = async (address) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => {
-      const newFormData = {
-        ...prev,
-        [name]: value
-      };
-
-      if (name === 'numberOfPackages' || name === 'unitPerPackage') {
-        const packages = name === 'numberOfPackages' ? parseInt(value) || 0 : parseInt(prev.numberOfPackages) || 0;
-        const unitsPerPackage = name === 'unitPerPackage' ? parseInt(value) || 0 : parseInt(prev.unitPerPackage) || 0;
-        newFormData.quantity = packages * unitsPerPackage;
-      }
-
-      return newFormData;
-    });
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleCompanyChange = async (e) => {
@@ -925,16 +918,18 @@ const nextStep = async () => {
           alert(`Please fill in Product Name for Stop ${i + 1}`);
           return;
         }
-        if (!branch.numberOfPackages || parseInt(branch.numberOfPackages) <= 0) {
-          alert(`Please fill in valid Number of Packages for Stop ${i + 1}`);
-          return;
-        }
-        if (!branch.unitPerPackage || parseInt(branch.unitPerPackage) <= 0) {
-          alert(`Please fill in valid Units per Package for Stop ${i + 1}`);
+        if (!branch.quantity || parseInt(branch.quantity) <= 0) {
+          alert(`Please fill in valid Quantity for Stop ${i + 1}`);
           return;
         }
         if (!branch.grossWeight || parseFloat(branch.grossWeight) <= 0) {
           alert(`Please fill in valid Gross Weight for Stop ${i + 1}`);
+          return;
+        }
+
+        const weightError = validateGrossWeight(i, branch.grossWeight);
+        if (weightError) {
+          alert(`Stop ${i + 1}: ${weightError}`);
           return;
         }
       }
@@ -945,10 +940,8 @@ const nextStep = async () => {
         destinationIndex: index,
         typeOfOrder: 'Delivery',
         productName: branch.productName,
-        quantity: parseInt(branch.quantity) || 0,
+        quantity: branch.quantity,
         grossWeight: parseFloat(branch.grossWeight) || 0,
-        unitPerPackage: parseInt(branch.unitPerPackage) || 0,
-        numberOfPackages: parseInt(branch.numberOfPackages) || 0,
         status: 'pending'
       }));
 
@@ -1518,7 +1511,7 @@ const nextStep = async () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Select Company *
+                              Select Company
                             </label>
                             <select
                               name="companyName"
@@ -1538,7 +1531,7 @@ const nextStep = async () => {
 
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Origin/From *
+                              Origin/From
                             </label>
                             <input
                               type="text"
@@ -1560,7 +1553,7 @@ const nextStep = async () => {
                         <div className="gap-4 mt-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Destinations *
+                              Destinations
                             </label>
                             
                             <div className="space-y-4">
@@ -1583,7 +1576,7 @@ const nextStep = async () => {
 
                                   <div className="mb-4">
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                      Select Branch *
+                                      Select Branch
                                     </label>
                                     <select
                                       value={branchData.branch}
@@ -1627,7 +1620,7 @@ const nextStep = async () => {
 
                                     <div className="mb-4">
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                      Product Name *
+                                      Product Name
                                     </label>
                                     <input
                                       type="text"
@@ -1639,66 +1632,51 @@ const nextStep = async () => {
                                     />
                                   </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                      <div>
-                                        <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                          Number of Packages *
-                                        </label>
-                                        <input
-                                          type="number"
-                                          value={branchData.numberOfPackages}
-                                          onChange={(e) => handleBranchProductChange(index, 'numberOfPackages', e.target.value)}
-                                          placeholder="e.g., 10"
-                                          required
-                                          min="1"
-                                          className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
-                                        />
-                                      </div>
-
-                                      <div>
-                                        <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                          Units per Package *
-                                        </label>
-                                        <input
-                                          type="number"
-                                          value={branchData.unitPerPackage}
-                                          onChange={(e) => handleBranchProductChange(index, 'unitPerPackage', e.target.value)}
-                                          placeholder="e.g., 200"
-                                          required
-                                          min="1"
-                                          className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
-                                        />
-                                      </div>
-
-                                      <div>
-                                        <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                          Total Quantity (Auto)
-                                        </label>
-                                        <input
-                                          type="number"
-                                          value={branchData.quantity}
-                                          readOnly
-                                          placeholder="Auto-calculated"
-                                          className="w-full px-3 py-2 border border-purple-200 rounded-lg bg-purple-50/70 text-gray-700 text-sm font-semibold"
-                                        />
-                                      </div>
-
-                                      <div>
-                                        <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                          Gross Weight (KG) *
-                                        </label>
-                                        <input
-                                          type="number"
-                                          value={branchData.grossWeight}
-                                          onChange={(e) => handleBranchProductChange(index, 'grossWeight', e.target.value)}
-                                          placeholder="e.g., 5.5"
-                                          required
-                                          min="0.1"
-                                          step="0.1"
-                                          className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
-                                        />
-                                      </div>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Quantity
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={branchData.quantity}
+                                        onChange={(e) => handleBranchProductChange(index, 'quantity', e.target.value)}
+                                        placeholder="Enter quantity"
+                                        required
+                                        className="w-full px-4 py-2.5 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium"
+                                      />
                                     </div>
+
+                                    <div>
+                                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Gross Weight (KG)
+                                      </label>
+                                      <input
+                                        type="number"
+                                        value={branchData.grossWeight}
+                                        onChange={(e) => handleBranchProductChange(index, 'grossWeight', e.target.value)}
+                                        placeholder="Enter weight in kg"
+                                        required
+                                        min="0.1"
+                                        step="0.1"
+                                        className={`w-full px-4 py-2.5 border-2 rounded-xl focus:outline-none focus:ring-2 font-medium ${
+                                          validateGrossWeight(index, branchData.grossWeight)
+                                            ? 'border-red-300 focus:ring-red-500 bg-red-50'
+                                            : 'border-purple-300 focus:ring-purple-500'
+                                        }`}
+                                      />
+                                      {validateGrossWeight(index, branchData.grossWeight) && (
+                                        <p className="text-xs text-red-600 mt-1 font-semibold">
+                                          ⚠️ {validateGrossWeight(index, branchData.grossWeight)}
+                                        </p>
+                                      )}
+                                      {selectedVehicle && !validateGrossWeight(index, branchData.grossWeight) && branchData.grossWeight && (
+                                        <p className="text-xs text-green-600 mt-1 font-semibold">
+                                          ✓ Within capacity ({getTotalGrossWeight().toFixed(2)} / {selectedVehicle.maxWeightCapacity?.toLocaleString()} kg)
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
                                   </div>
                                 </div>
                               ))}
@@ -1974,14 +1952,38 @@ const nextStep = async () => {
                                         <div>
                                           <span className="text-gray-600">Weight:</span> <span className="font-semibold">{branch.grossWeight} kg</span>
                                         </div>
-                                        <div>
-                                          <span className="text-gray-600">Packages:</span> <span className="font-semibold">{branch.numberOfPackages}</span>
-                                        </div>
                                       </div>
                                     </div>
                                   </div>
                                 </div>
                               ))}
+
+                              {/* Total Weight Summary */}
+                              <div className="bg-gradient-to-r from-purple-100 to-indigo-100 p-3 rounded-lg border-2 border-purple-300">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-sm font-semibold text-gray-700">Total Gross Weight</p>
+                                    <p className="text-xs text-gray-600">
+                                      Vehicle capacity: {selectedVehicle?.maxWeightCapacity?.toLocaleString() || 0} kg
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className={`text-2xl font-bold ${
+                                      getTotalGrossWeight() > (selectedVehicle?.maxWeightCapacity || 0)
+                                        ? 'text-red-600'
+                                        : 'text-green-600'
+                                    }`}>
+                                      {getTotalGrossWeight().toFixed(2)} kg
+                                    </p>
+                                    {getTotalGrossWeight() > (selectedVehicle?.maxWeightCapacity || 0) && (
+                                      <p className="text-xs text-red-600 font-semibold mt-1">
+                                        ⚠️ Exceeds capacity!
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
                             </div>
                           </div>
                         </div>

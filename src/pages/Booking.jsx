@@ -797,98 +797,172 @@ const geocodeAddressForRoute = async (address) => {
     }
   };
 
-const nextStep = async () => {
-  if (currentStep === 1 && !selectedVehicle) {
-    alert("Please select a vehicle before proceeding");
-    return;
-  }
-  
-  // Calculate route when moving to summary step
-  if (currentStep === 3 && selectedVehicle) {
-    setCalculatingRoute(true);
+  const nextStep = async () => {
+    // STEP 1 VALIDATION: Check if vehicle is selected
+    if (currentStep === 1) {
+      if (!selectedVehicle) {
+        alert("Please select a vehicle before proceeding");
+        return;
+      }
+    }
     
-    // Declare variables outside try block
-    let originCoords = null;
-    const destCoords = [];
-    
-    try {
-      console.log('🚀 Starting route calculation...');
-      
-      // ORIGIN: Get origin coordinates with fallbacks
-      console.log('📍 Getting origin coordinates...');
-      if (formData.latitude && formData.longitude) {
-        originCoords = [formData.latitude, formData.longitude];
-        console.log('  ✅ Using stored origin coordinates:', originCoords);
-      } else if (formData.originAddress) {
-        console.log('  🔍 Geocoding origin address:', formData.originAddress);
-        originCoords = await geocodeAddressForRoute(formData.originAddress);
-        if (originCoords) {
-          console.log('  ✅ Origin geocoded to:', originCoords);
-        } else {
-          console.error('  ❌ Failed to geocode origin');
-        }
+    // STEP 2 VALIDATION: Check all destination fields and weight
+    if (currentStep === 2) {
+      // Check if company is selected
+      if (!formData.companyName || formData.companyName.trim() === '') {
+        alert("Please select a company");
+        return;
       }
       
-      // DESTINATIONS: Get destination coordinates with fallbacks
-      console.log('📍 Getting destination coordinates...');
+      // Check if origin address is populated
+      if (!formData.originAddress || formData.originAddress.trim() === '') {
+        alert("Please ensure origin address is populated");
+        return;
+      }
+      
+      // Validate each destination
       for (let i = 0; i < selectedBranches.length; i++) {
         const branch = selectedBranches[i];
-        console.log(`  Processing destination ${i + 1}/${selectedBranches.length}: ${branch.branch}`);
         
-        // PRIORITY 1: Use stored coordinates from branch selection
-        if (branch.latitude && branch.longitude) {
-          console.log(`    ✅ Using stored coordinates for "${branch.branch}":`, [branch.latitude, branch.longitude]);
-          destCoords.push([branch.latitude, branch.longitude]);
-        } 
-        // PRIORITY 2: Try geocoding the address
-        else if (branch.address) {
-          console.log(`    🔍 No stored coords, geocoding address: "${branch.address}"`);
-          const coords = await geocodeAddressForRoute(branch.address);
-          if (coords) {
-            console.log(`    ✅ Geocoded to:`, coords);
-            destCoords.push(coords);
-          } else {
-            console.warn(`    ❌ Failed to geocode: "${branch.address}"`);
-          }
-        } else {
-          console.warn(`    ⚠️ No address or coordinates available for destination ${i + 1}`);
+        // Check branch selection
+        if (!branch.branch || branch.branch.trim() === '') {
+          alert(`Please select a branch for Stop ${i + 1}`);
+          return;
+        }
+        
+        // Check destination address
+        if (!branch.address || branch.address.trim() === '') {
+          alert(`Please ensure destination address is populated for Stop ${i + 1}`);
+          return;
+        }
+        
+        // Check product name
+        if (!branch.productName || branch.productName.trim() === '') {
+          alert(`Please fill in Product Name for Stop ${i + 1}`);
+          return;
+        }
+        
+        // Check quantity
+        if (!branch.quantity || branch.quantity.trim() === '') {
+          alert(`Please fill in Quantity for Stop ${i + 1}`);
+          return;
+        }
+        
+        // Check gross weight
+        if (!branch.grossWeight || parseFloat(branch.grossWeight) <= 0) {
+          alert(`Please fill in valid Gross Weight for Stop ${i + 1}`);
+          return;
+        }
+        
+        // Validate weight capacity
+        const weightError = validateGrossWeight(i, branch.grossWeight);
+        if (weightError) {
+          alert(`Stop ${i + 1}: ${weightError}\n\nPlease reduce the weight before proceeding.`);
+          return;
         }
       }
-      
-      // Summary
-      console.log('📊 Coordinate collection complete:');
-      console.log('  Origin:', originCoords);
-      console.log('  Destinations:', destCoords.length, 'of', selectedBranches.length);
-      console.log('  Vehicle rate: ₱', selectedVehicle.kmRate);
-      
-      // Calculate if we have all coordinates
-      if (originCoords && destCoords.length > 0) {
-        console.log('✅ Proceeding with route calculation...');
-        await calculateTotalRouteDistance(originCoords, destCoords, selectedVehicle.kmRate || 0);
-      } else {
-        console.warn('⚠️ Insufficient coordinates for route calculation');
-        console.warn('  - Origin available:', !!originCoords);
-        console.warn('  - Destinations found:', destCoords.length, '/', selectedBranches.length);
-        
-        alert(`⚠️ Unable to calculate route distance.\n\nMissing coordinates:\n${!originCoords ? '- Origin location\n' : ''}${destCoords.length === 0 ? '- All destination locations' : destCoords.length < selectedBranches.length ? `- ${selectedBranches.length - destCoords.length} destination(s)` : ''}\n\nDelivery fee will be set to 0. You can update it manually later.`);
-        
-        setRouteDistance(0);
-        setDeliveryFee(0);
-      }
-    } catch (error) {
-      console.error('❌ Error in route calculation:', error);
-      alert('An error occurred while calculating the route. Delivery fee will be set to 0.');
-      setRouteDistance(0);
-      setDeliveryFee(0);
-    } finally {
-      setCalculatingRoute(false);
     }
-  }
-  
-  if (currentStep < 4) {
-    setCurrentStep(currentStep + 1);
-  }
-};
+    
+    // STEP 3 VALIDATION: Check schedule and employees
+    if (currentStep === 3) {
+      // Check date
+      if (!formData.dateNeeded || formData.dateNeeded.trim() === '') {
+        alert("Please select a date");
+        return;
+      }
+      
+      // Check time
+      if (!formData.timeNeeded || formData.timeNeeded.trim() === '') {
+        alert("Please select a time");
+        return;
+      }
+      
+      // Check if at least driver is assigned
+      if (!formData.employeeAssigned[0] || formData.employeeAssigned[0].trim() === '') {
+        alert("Please assign at least a driver");
+        return;
+      }
+      
+      // Calculate route and proceed to Step 4
+      if (selectedVehicle) {
+        setCalculatingRoute(true);
+        
+        let originCoords = null;
+        const destCoords = [];
+        
+        try {
+          console.log('🚀 Starting route calculation...');
+          
+          console.log('📍 Getting origin coordinates...');
+          if (formData.latitude && formData.longitude) {
+            originCoords = [formData.latitude, formData.longitude];
+            console.log('  ✅ Using stored origin coordinates:', originCoords);
+          } else if (formData.originAddress) {
+            console.log('  🔍 Geocoding origin address:', formData.originAddress);
+            originCoords = await geocodeAddressForRoute(formData.originAddress);
+            if (originCoords) {
+              console.log('  ✅ Origin geocoded to:', originCoords);
+            } else {
+              console.error('  ❌ Failed to geocode origin');
+            }
+          }
+          
+          console.log('📍 Getting destination coordinates...');
+          for (let i = 0; i < selectedBranches.length; i++) {
+            const branch = selectedBranches[i];
+            console.log(`  Processing destination ${i + 1}/${selectedBranches.length}: ${branch.branch}`);
+            
+            if (branch.latitude && branch.longitude) {
+              console.log(`    ✅ Using stored coordinates for "${branch.branch}":`, [branch.latitude, branch.longitude]);
+              destCoords.push([branch.latitude, branch.longitude]);
+            } else if (branch.address) {
+              console.log(`    🔍 No stored coords, geocoding address: "${branch.address}"`);
+              const coords = await geocodeAddressForRoute(branch.address);
+              if (coords) {
+                console.log(`    ✅ Geocoded to:`, coords);
+                destCoords.push(coords);
+              } else {
+                console.warn(`    ❌ Failed to geocode: "${branch.address}"`);
+              }
+            } else {
+              console.warn(`    ⚠️ No address or coordinates available for destination ${i + 1}`);
+            }
+          }
+          
+          console.log('📊 Coordinate collection complete:');
+          console.log('  Origin:', originCoords);
+          console.log('  Destinations:', destCoords.length, 'of', selectedBranches.length);
+          console.log('  Vehicle rate: ₱', selectedVehicle.kmRate);
+          
+          if (originCoords && destCoords.length > 0) {
+            console.log('✅ Proceeding with route calculation...');
+            await calculateTotalRouteDistance(originCoords, destCoords, selectedVehicle.kmRate || 0);
+          } else {
+            console.warn('⚠️ Insufficient coordinates for route calculation');
+            console.warn('  - Origin available:', !!originCoords);
+            console.warn('  - Destinations found:', destCoords.length, '/', selectedBranches.length);
+            
+            alert(`⚠️ Unable to calculate route distance.\n\nMissing coordinates:\n${!originCoords ? '- Origin location\n' : ''}${destCoords.length === 0 ? '- All destination locations' : destCoords.length < selectedBranches.length ? `- ${selectedBranches.length - destCoords.length} destination(s)` : ''}\n\nDelivery fee will be set to 0. You can update it manually later.`);
+            
+            setRouteDistance(0);
+            setDeliveryFee(0);
+          }
+        } catch (error) {
+          console.error('❌ Error in route calculation:', error);
+          alert('An error occurred while calculating the route. Delivery fee will be set to 0.');
+          setRouteDistance(0);
+          setDeliveryFee(0);
+        } finally {
+          setCalculatingRoute(false);
+        }
+      }
+    }
+    
+    // Move to next step
+    if (currentStep < 4) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
 
   const prevStep = () => {
     if (currentStep > 1) {

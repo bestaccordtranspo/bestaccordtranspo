@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { axiosClient } from '../api/axiosClient';
-import { Archive as ArchiveIcon, Package, Truck, Users, FileText, Trash, History, User, UserRoundCheck } from 'lucide-react';
+import { Archive as ArchiveIcon, Package, Truck, Users, FileText, Trash, History, User, UserRoundCheck, Warehouse } from 'lucide-react';
 
 export default function Archive() {
   const [activeTab, setActiveTab] = useState('bookings');
@@ -83,6 +83,7 @@ export default function Archive() {
     { id: 'bookings', label: 'Bookings', icon: Package },
     { id: 'trip-reports', label: 'Trip Reports', icon: FileText },
     { id: 'clients', label: 'Clients', icon: User },
+    { id: 'branches', label: 'Branches', icon: Warehouse },
     { id: 'vehicles', label: 'Vehicles', icon: Truck },
     { id: 'employees', label: 'Employees (Drivers/Helpers)', icon: Users },
     { id: 'staffs', label: 'Staffs', icon: UserRoundCheck },
@@ -263,7 +264,25 @@ export default function Archive() {
   );
 }
 
-// Helper function to get table cells based on active tab
+// Helper to build a readable address string (works for Client and Branch docs)
+function formatAddress(item) {
+  // prefer virtual formattedAddress or fullAddress if present
+  if (item.formattedAddress) return item.formattedAddress;
+  if (item.address?.fullAddress) return item.address.fullAddress;
+
+  const parts = [
+    item.address?.houseNumber,
+    item.address?.street,
+    item.address?.barangay,
+    item.address?.city,
+    item.address?.province,
+    item.address?.region
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(', ') : 'N/A';
+}
+
+// Helper function to get table headers based on active tab
 function getTableHeaders(tab) {
   switch (tab) {
     case 'bookings':
@@ -271,7 +290,9 @@ function getTableHeaders(tab) {
     case 'trip-reports':
       return ['Receipt Number', 'Document Type', 'File Name', 'Uploaded By', 'Notes'];
     case 'clients':
-      return ['Client Name', 'Location', 'Branch', 'Date Added'];
+      return ['Client Name', 'Address', 'Date Added'];
+    case 'branches':
+      return ['Branch Name', 'Address', 'Contact', 'Date Added'];
     case 'vehicles':
       return ['Vehicle ID', 'Type', 'Plate Number', 'Status'];
     case 'employees':
@@ -303,11 +324,21 @@ function getTableCells(tab, item) {
       return (
         <>
           <td className="px-6 py-4 font-medium text-gray-900">{item.clientName}</td>
+          <td className="px-6 py-4 text-gray-600">{formatAddress(item)}</td>
           <td className="px-6 py-4 text-gray-600">
-            {item.address?.city || item.city || 'N/A'}
+            {new Date(item.createdAt).toLocaleDateString()}
           </td>
+        </>
+      );
+    case 'branches':
+      return (
+        <>
+          <td className="px-6 py-4 font-medium text-gray-900">{item.branchName}</td>
+          <td className="px-6 py-4 text-gray-600">{formatAddress(item)}</td>
           <td className="px-6 py-4 text-gray-600">
-            {item.address?.barangay || item.barangay || 'N/A'}
+            <div className="text-sm text-gray-900 font-medium">{item.contactPerson || 'N/A'}</div>
+            <div className="text-sm text-gray-600">{item.contactNumber || 'N/A'}</div>
+            <div className="text-sm text-indigo-600">{item.email || 'N/A'}</div>
           </td>
           <td className="px-6 py-4 text-gray-600">
             {new Date(item.createdAt).toLocaleDateString()}

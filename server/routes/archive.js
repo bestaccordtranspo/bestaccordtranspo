@@ -2,6 +2,7 @@ import express from 'express';
 import Booking from '../models/Booking.js';
 import TripReport from '../models/TripReport.js';
 import Client from '../models/Client.js';
+import Branch from '../models/Branch.js';
 import Vehicle from '../models/Vehicle.js';
 import Employee from '../models/Employee.js';
 import Staff from '../models/Staff.js';
@@ -15,6 +16,8 @@ function getModelByType(type) {
             return Booking;
         case 'clients':
             return Client;
+        case 'Branches':
+            return Branch;
         case 'vehicles':
             return Vehicle;
         case 'employees':

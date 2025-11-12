@@ -733,58 +733,75 @@ function Booking() {
     }
   };
 
-    const nextStep = async () => {
-      if (currentStep === 1 && !selectedVehicle) {
-        alert("Please select a vehicle before proceeding");
-        return;
+const nextStep = async () => {
+  if (currentStep === 1 && !selectedVehicle) {
+    alert("Please select a vehicle before proceeding");
+    return;
+  }
+  
+  // Calculate route when moving to summary step
+  if (currentStep === 3 && selectedVehicle) {
+    setCalculatingRoute(true);
+    
+    // Declare variables outside try block
+    let originCoords = null;
+    const destCoords = [];
+    
+    try {
+      // Get origin coordinates
+      if (formData.latitude && formData.longitude) {
+        originCoords = [formData.latitude, formData.longitude];
+        console.log('✅ Using stored origin coordinates:', originCoords);
+      } else if (formData.originAddress) {
+        console.log('🔍 Geocoding origin address:', formData.originAddress);
+        originCoords = await geocodeAddressForRoute(formData.originAddress);
+        console.log('📍 Origin geocoded to:', originCoords);
       }
       
-      // Calculate route when moving to summary step
-      if (currentStep === 3 && selectedVehicle) {
-        setCalculatingRoute(true);
-        
-        try {
-          // Get origin coordinates
-          let originCoords = null;
-          if (formData.latitude && formData.longitude) {
-            originCoords = [formData.latitude, formData.longitude];
-          } else if (formData.originAddress) {
-            originCoords = await geocodeAddressForRoute(formData.originAddress);
-          }
-          
-          // Get destination coordinates
-          const destCoords = [];
-          for (const branch of selectedBranches) {
-            if (branch.address) {
-              const coords = await geocodeAddressForRoute(branch.address);
-              if (coords) {
-                destCoords.push(coords);
-              }
-            }
-          }
-          
-          // Calculate if we have all coordinates
-          if (originCoords && destCoords.length > 0) {
-            await calculateTotalRouteDistance(originCoords, destCoords, selectedVehicle.kmRate || 0);
+      // Get destination coordinates
+      console.log('🔍 Geocoding destinations...');
+      for (const branch of selectedBranches) {
+        if (branch.address) {
+          console.log('  - Geocoding:', branch.address);
+          const coords = await geocodeAddressForRoute(branch.address);
+          if (coords) {
+            console.log('    ✅ Got coords:', coords);
+            destCoords.push(coords);
           } else {
-            console.warn('⚠️ Missing coordinates for route calculation');
-            setRouteDistance(0);
-            setDeliveryFee(0);
+            console.warn('    ⚠️ Failed to geocode:', branch.address);
           }
-        } catch (error) {
-          console.error('Error in route calculation:', error);
-        } finally {
-          setCalculatingRoute(false);
         }
       }
       
-      if (currentStep < 4) {
-        setCurrentStep(currentStep + 1);
+      console.log('📊 Final coordinates:');
+      console.log('  Origin:', originCoords);
+      console.log('  Destinations:', destCoords);
+      console.log('  Vehicle rate: ₱', selectedVehicle.kmRate);
+      
+      // Calculate if we have all coordinates
+      if (originCoords && destCoords.length > 0) {
+        console.log('✅ All coordinates ready, calculating route...');
+        await calculateTotalRouteDistance(originCoords, destCoords, selectedVehicle.kmRate || 0);
+      } else {
+        console.warn('⚠️ Missing coordinates for route calculation');
+        console.warn('  - Origin coords:', originCoords);
+        console.warn('  - Destination count:', destCoords.length);
+        setRouteDistance(0);
+        setDeliveryFee(0);
       }
-      console.log('🔍 Origin coords:', originCoords);
-      console.log('🔍 Destination coords:', destCoords);
-      console.log('🔍 Selected vehicle rate:', selectedVehicle.kmRate);
-    };
+    } catch (error) {
+      console.error('❌ Error in route calculation:', error);
+      setRouteDistance(0);
+      setDeliveryFee(0);
+    } finally {
+      setCalculatingRoute(false);
+    }
+  }
+  
+  if (currentStep < 4) {
+    setCurrentStep(currentStep + 1);
+  }
+};
 
   const prevStep = () => {
     if (currentStep > 1) {

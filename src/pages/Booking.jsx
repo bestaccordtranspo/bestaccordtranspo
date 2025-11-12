@@ -11,28 +11,28 @@ const VEHICLE_CATEGORIES = [
     name: "1000 kg Truck",
     maxWeightCapacity: 1000,
     vehicleType: "4-Wheeler",
-    image: "/truck-1000.png"
+    image: "../assets/truck-1000.png"
   },
   {
     id: 2,
     name: "2000 kg Truck",
     maxWeightCapacity: 2000,
     vehicleType: "4-Wheeler",
-    image: "/truck-2000.png"
+    image: "../assets/truck-2000.png"
   },
   {
     id: 3,
     name: "3000 kg Truck",
     maxWeightCapacity: 3000,
     vehicleType: "6-Wheeler",
-    image: "/truck-3000.png"
+    image: "../assets/truck-3000.png"
   },
   {
     id: 4,
     name: "7000 kg Truck",
     maxWeightCapacity: 7000,
     vehicleType: "6-Wheeler",
-    image: "/truck-7000.png"
+    image: "../assets/truck-7000.png"
   }
 ];
 

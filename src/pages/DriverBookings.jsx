@@ -34,6 +34,8 @@ export default function DriverBookings() {
   const [locationError, setLocationError] = useState(null);
   const [selectedDestinationIndex, setSelectedDestinationIndex] = useState(null);
   const [destinationNotes, setDestinationNotes] = useState('');
+  const [showDestinationSelector, setShowDestinationSelector] = useState(false);
+  const [selectedDeliveryDestination, setSelectedDeliveryDestination] = useState(null);
   const locationIntervalRef = useRef(null);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -414,6 +416,27 @@ const createMap = async () => {
     }
   };
 
+  // OSRM Routing function to get actual road routes
+  const getRoute = async (start, end) => {
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson&steps=true`;
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.routes && data.routes.length > 0) {
+        const route = data.routes[0];
+        return {
+          coordinates: route.geometry.coordinates.map(coord => [coord[1], coord[0]]),
+          distance: (route.distance / 1000).toFixed(2), // km
+          duration: Math.round(route.duration / 60), // minutes
+        };
+      }
+    } catch (error) {
+      console.error('OSRM routing error:', error);
+      return null;
+    }
+  };
+
   // Hardcoded coordinates for common Metro Manila areas as fallback
   const getHardcodedCoordinates = (address) => {
     const lowerAddress = address.toLowerCase();
@@ -553,15 +576,45 @@ const createMap = async () => {
             </div>
           `);
 
-          // Draw route line from origin to each destination
+          // Draw OSRM route line from origin to each destination
           if (allCoordinates.length > 1) {
             const originCoords = allCoordinates[0];
-            L.polyline([originCoords, destResult.coords], {
-              color: color.fill,
-              weight: 3,
-              opacity: 0.7,
-              dashArray: '10, 5'
-            }).addTo(map);
+            
+            // Try to get OSRM route
+            const route = await getRoute(originCoords, destResult.coords);
+            
+            if (route && route.coordinates) {
+              console.log(`🗺️ OSRM route to destination ${i + 1}: ${route.distance}km, ${route.duration}min`);
+              
+              // Draw the actual road route
+              L.polyline(route.coordinates, {
+                color: color.fill,
+                weight: 4,
+                opacity: 0.8,
+              }).addTo(map);
+              
+              // Add distance label
+              const midpoint = route.coordinates[Math.floor(route.coordinates.length / 2)];
+              L.marker(midpoint, {
+                icon: L.divIcon({
+                  className: 'route-label',
+                  html: `<div style="background: white; padding: 4px 8px; border-radius: 4px; border: 2px solid ${color.fill}; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); white-space: nowrap;">
+                          ${route.distance}km • ${route.duration}min
+                        </div>`,
+                  iconSize: [100, 30],
+                  iconAnchor: [50, 15]
+                })
+              }).addTo(map);
+            } else {
+              // Fallback to straight line if OSRM fails
+              console.log(`⚠️ OSRM routing failed for destination ${i + 1}, using straight line`);
+              L.polyline([originCoords, destResult.coords], {
+                color: color.fill,
+                weight: 3,
+                opacity: 0.7,
+                dashArray: '10, 5'
+              }).addTo(map);
+            }
           }
         }
       }

@@ -272,6 +272,8 @@ function Booking() {
         // Store coordinates from branch
         latitude = branch.address?.latitude;
         longitude = branch.address?.longitude;
+
+        console.log(`📍 Branch "${branchName}" coordinates:`, { latitude, longitude });
       }
 
       setSelectedBranches(prev =>
@@ -690,44 +692,51 @@ const geocodeAddressForRoute = async (address) => {
     // Find the full client object
     const client = clients.find(c => c.clientName === selectedCompanyName);
       
-      if (client) {
-        console.log('✅ Client found:', {
-          id: client._id,
-          name: client.clientName
-        });
-        
-        const fullAddress = client.formattedAddress || [
-          client.address?.houseNumber,
-          client.address?.street,
-          client.address?.barangay,
-          client.address?.city,
-          client.address?.province,
-          client.address?.region
-        ].filter(Boolean).join(', ');
+    if (client) {
+      console.log('✅ Client found:', {
+        id: client._id,
+        name: client.clientName,
+        hasCoords: !!(client.address?.latitude && client.address?.longitude)
+      });
+      
+      const fullAddress = client.formattedAddress || [
+        client.address?.houseNumber,
+        client.address?.street,
+        client.address?.barangay,
+        client.address?.city,
+        client.address?.province,
+        client.address?.region
+      ].filter(Boolean).join(', ');
 
-        setFormData(prev => ({
-          ...prev,
-          originAddress: fullAddress || "",
-          latitude: client.address?.latitude || null,
-          longitude: client.address?.longitude || null
-        }));
+      // IMPORTANT: Store coordinates from client
+      setFormData(prev => ({
+        ...prev,
+        originAddress: fullAddress || "",
+        latitude: client.address?.latitude || null,
+        longitude: client.address?.longitude || null
+      }));
 
-        setSelectedClient(client);
-        
-        // IMPORTANT: Use client._id (MongoDB ObjectId) to fetch branches
-        await fetchBranchesForClient(client._id);
-      } else {
-        console.warn('⚠️ No client found for company name:', selectedCompanyName);
-        setFormData(prev => ({ 
-          ...prev, 
-          originAddress: "", 
-          latitude: null, 
-          longitude: null 
-        }));
-        setSelectedClient(null);
-        setClientBranches([]);
-      }
-    };
+      console.log('📍 Origin coordinates set:', {
+        lat: client.address?.latitude,
+        lng: client.address?.longitude
+      });
+
+      setSelectedClient(client);
+      
+      // Use client._id to fetch branches
+      await fetchBranchesForClient(client._id);
+    } else {
+      console.warn('⚠️ No client found for company name:', selectedCompanyName);
+      setFormData(prev => ({ 
+        ...prev, 
+        originAddress: "", 
+        latitude: null, 
+        longitude: null 
+      }));
+      setSelectedClient(null);
+      setClientBranches([]);
+    }
+  };
 
   const handleEmployeeChange = (index, employeeId) => {
     const newEmployeeAssigned = [...formData.employeeAssigned];
@@ -1073,12 +1082,16 @@ const geocodeAddressForRoute = async (address) => {
         customerEstablishmentName: branch.branch,
         destinationAddress: branch.address,
         destinationIndex: index,
+        latitude: branch.latitude || null,
+        longitude: branch.longitude || null,
         typeOfOrder: 'Delivery',
         productName: branch.productName,
         quantity: branch.quantity,
         grossWeight: parseFloat(branch.grossWeight) || 0,
         status: 'pending'
       }));
+
+      console.log('📍 Destination deliveries with coordinates:', destinationDeliveries);
 
       const originAddressDetails = selectedClient
         ? { ...(selectedClient.address || {}), formattedAddress: formData.originAddress || selectedClient.formattedAddress || "" }

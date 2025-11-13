@@ -564,57 +564,29 @@ const getRoute = async (start, end) => {
       let currentRouteInfo = null;
 
       try {
-        // Add origin marker
-        let originResult = null;
-        if (selectedBooking.originAddress) {
-          if (selectedBooking.latitude && selectedBooking.longitude) {
-            originResult = {
-              coords: [selectedBooking.latitude, selectedBooking.longitude],
-              displayName: selectedBooking.originAddress,
-              confidence: 'exact',
-              source: 'booking'
-            };
-            console.log('✅ Using stored origin coordinates from booking');
-          } else {
-            originResult = await fetchClientCoordinates(selectedBooking.originAddress);
-          }
+      // Add origin marker with improved priority
+      let originResult = null;
+      if (selectedBooking.originAddress) {
+        // PRIORITY 1: Check booking coordinates first
+        if (selectedBooking.latitude && selectedBooking.longitude) {
+          originResult = {
+            coords: [selectedBooking.latitude, selectedBooking.longitude],
+            displayName: selectedBooking.originAddress,
+            confidence: 'exact',
+            source: 'booking'
+          };
+          console.log('✅ Using stored origin coordinates from booking');
+        } 
+        // PRIORITY 2: Try client database
+        else {
+          originResult = await fetchClientCoordinates(selectedBooking.originAddress);
+        }
 
-          if (!originResult) {
-            originResult = await geocodeAddress(selectedBooking.originAddress);
-          }
-
-          if (originResult && originResult.coords) {
-            allCoordinates.push(originResult.coords);
-
-            const confidenceText = originResult.source === 'booking' || originResult.source === 'database'
-              ? '✓ Exact location (from database)'
-              : originResult.confidence === 'high'
-                ? '✓ Geocoded (high accuracy)'
-                : originResult.confidence === 'medium'
-                  ? '⚠️ Approximate area'
-                  : originResult.confidence === 'fallback'
-                    ? '📍 City center (approximate)'
-                    : '📍 General area';
-
-            const originMarker = L.circleMarker(originResult.coords, {
-              radius: 10,
-              fillColor: '#10b981',
-              color: '#ffffff',
-              weight: 3,
-              opacity: 1,
-              fillOpacity: 0.9
-            }).addTo(map);
-
-            originMarker.bindPopup(`
-              <div style="min-width: 200px;">
-                <strong style="color: #10b981; font-size: 14px;">📍 Origin</strong><br/>
-                <p style="margin: 8px 0 0 0; font-size: 12px;">${selectedBooking.originAddress}</p>
-                <p style="margin: 4px 0 0 0; font-size: 10px; color: #6b7280;">${confidenceText}</p>
-              </div>
-            `);
-
-            markers.push({ type: 'origin', marker: originMarker, coords: originResult.coords });
-          }
+        // PRIORITY 3: Fallback to geocoding
+        if (!originResult) {
+          console.log(`⚠️ No stored coordinates for origin, using geocoding...`);
+          originResult = await geocodeAddress(selectedBooking.originAddress);
+        }
         }
 
         // Get all destinations

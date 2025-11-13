@@ -35,4 +35,32 @@ router.put("/bookings/:id/location", driverAuth, updateDriverLocation);
 // Mark individual destination as delivered
 router.put("/bookings/:id/deliver-destination", driverAuth, markDestinationDelivered);
 
+// Confirm origin pickup
+router.put("/bookings/:id/pickup-origin", authenticateDriver, async (req, res) => {
+  try {
+    const { originPickupProof } = req.body;
+    const booking = await Booking.findById(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({ success: false, msg: "Booking not found" });
+    }
+
+    // Update origin pickup
+    booking.originPickedUp = true;
+    booking.originPickupAt = new Date();
+    booking.originPickupProof = originPickupProof;
+    
+    await booking.save();
+
+    res.json({
+      success: true,
+      msg: "Origin pickup confirmed",
+      booking
+    });
+  } catch (err) {
+    console.error("Error confirming origin pickup:", err);
+    res.status(500).json({ success: false, msg: "Server error" });
+  }
+});
+
 export default router;

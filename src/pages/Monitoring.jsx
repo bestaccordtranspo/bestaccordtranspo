@@ -43,6 +43,8 @@ export default function Monitoring() {
   const [showReceiptGenerator, setShowReceiptGenerator] = useState(false);
   const [showProofModal, setShowProofModal] = useState(false);
   const [showDestProofModal, setShowDestProofModal] = useState(false);
+  const [showOriginPickup, setShowOriginPickup] = useState(false);
+  const [originPickupProof, setOriginPickupProof] = useState(null);
   const [selectedDestProof, setSelectedDestProof] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -657,20 +659,38 @@ const getRoute = async (start, end) => {
 
         console.log(`🗺️ Displaying ${destinationsToDisplay.length} destinations:`, destinationsToDisplay);
 
-        // Add destination markers
-        for (let i = 0; i < destinationsToDisplay.length; i++) {
-          const destInfo = destinationsToDisplay[i];
-          const destAddress = destInfo.address;
-          
-          if (destAddress) {
-            let destResult = await fetchClientCoordinates(destAddress);
+          // Add destination markers
+          for (let i = 0; i < destinationsToDisplay.length; i++) {
+            const destInfo = destinationsToDisplay[i];
+            const destAddress = destInfo.address;
+            
+            if (destAddress) {
+              let destResult = null;
+              
+              // PRIORITY 1: Check if destination has stored coordinates in destinationDeliveries
+              if (selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries[destInfo.index]) {
+                const dest = selectedBooking.destinationDeliveries[destInfo.index];
+                if (dest.latitude && dest.longitude) {
+                  destResult = {
+                    coords: [dest.latitude, dest.longitude],
+                    displayName: destAddress,
+                    confidence: 'exact',
+                    source: 'booking'
+                  };
+                  console.log(`✅ Using stored destination coordinates from booking for stop ${destInfo.index + 1}`);
+                }
+              }
+              
+              // PRIORITY 2: Try branch database
+              if (!destResult) {
+                destResult = await fetchClientCoordinates(destAddress);
+              }
 
-            if (!destResult) {
-              console.log(`⚠️ No stored coordinates for "${destAddress}", using geocoding...`);
-              destResult = await geocodeAddress(destAddress);
-            } else {
-              console.log(`✅ Using stored coordinates from database for "${destAddress}"`);
-            }
+              // PRIORITY 3: Fallback to geocoding
+              if (!destResult) {
+                console.log(`⚠️ No stored coordinates for "${destAddress}", using geocoding...`);
+                destResult = await geocodeAddress(destAddress);
+              }
 
             if (destResult && destResult.coords) {
               allCoordinates.push(destResult.coords);
@@ -1745,17 +1765,70 @@ const handleManualRefresh = async () => {
                               </div>
                             </div>
 
-                            {/* Origin */}
+                            {/* Origin Pickup */}
                             <div className="flex items-start space-x-4">
                               <div className="relative flex flex-col items-center">
-                                <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center z-10">
-                                  <MapPin className="w-5 h-5 text-white" />
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center z-10 ${
+                                  selectedBooking.originPickedUp ? 'bg-green-500' : 'bg-gray-300'
+                                }`}>
+                                  {selectedBooking.originPickedUp ? (
+                                    <CheckCircle className="w-5 h-5 text-white" />
+                                  ) : (
+                                    <MapPin className="w-5 h-5 text-white" />
+                                  )}
                                 </div>
-                                <div className="w-0.5 h-full bg-gray-200 absolute top-10"></div>
+                                <div className={`w-0.5 h-full absolute top-10 ${
+                                  selectedBooking.originPickedUp ? 'bg-green-200' : 'bg-gray-200'
+                                }`}></div>
                               </div>
                               <div className="flex-1 pb-8">
-                                <p className="text-sm font-semibold text-gray-900">Picked up from Origin</p>
+                                <div className="flex items-center justify-between mb-1">
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    Picked up from Origin
+                                    {selectedBooking.originPickedUp && (
+                                      <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium">
+                                        ✓ Picked Up
+                                      </span>
+                                    )}
+                                  </p>
+                                  {selectedBooking.originPickedUp && selectedBooking.originPickupAt && (
+                                    <span className="text-xs text-gray-500">
+                                      {new Date(selectedBooking.originPickupAt).toLocaleString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-sm text-gray-600">{selectedBooking.originAddress}</p>
+                                {selectedBooking.originPickedUp ? (
+                                  <p className="text-xs text-green-600 mt-1 font-medium">
+                                    ✓ Cargo picked up successfully
+                                  </p>
+                                ) : selectedBooking.status === 'In Transit' ? (
+                                  <p className="text-xs text-orange-600 mt-1 font-medium">
+                                    → Driver en route to pickup location
+                                  </p>
+                                ) : (
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Awaiting pickup...
+                                  </p>
+                                )}
+                                
+                                {selectedBooking.originPickedUp && selectedBooking.originPickupProof && (
+                                  <button 
+                                    onClick={() => {
+                                      setOriginPickupProof(selectedBooking.originPickupProof);
+                                      setShowOriginPickup(true);
+                                    }}
+                                    className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1 mt-2 hover:underline"
+                                  >
+                                    <Camera className="w-3 h-3" />
+                                    View pickup proof
+                                  </button>
+                                )}
                               </div>
                             </div>
 
@@ -2431,6 +2504,84 @@ const handleManualRefresh = async () => {
                   <button
                     onClick={() => setShowDestProofModal(false)}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+          {/* Origin Pickup Proof Modal */}
+        <AnimatePresence>
+          {showOriginPickup && originPickupProof && (
+            <motion.div
+              className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+              style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)' }}
+              variants={backdropVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              onClick={() => setShowOriginPickup(false)}
+            >
+              <motion.div
+                className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+                variants={modalVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                  <div className="flex items-center gap-3">
+                    <Camera className="w-6 h-6" />
+                    <div>
+                      <h3 className="text-lg font-bold">Origin Pickup Proof</h3>
+                      <p className="text-sm text-blue-100">Trip: {selectedBooking.tripNumber}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowOriginPickup(false)}
+                    className="p-2 text-white hover:bg-white/20 transition-colors rounded-lg"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="p-6 bg-gray-50">
+                  <div className="bg-white rounded-lg overflow-hidden shadow-lg">
+                    <img
+                      src={originPickupProof}
+                      alt="Origin Pickup Proof"
+                      className="w-full h-auto max-h-[70vh] object-contain"
+                    />
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-4">
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                      <p className="text-xs text-gray-600 mb-1">Pickup Location</p>
+                      <p className="text-sm font-medium">{selectedBooking.originAddress}</p>
+                    </div>
+                    
+                    {selectedBooking.originPickupAt && (
+                      <div className="bg-white p-4 rounded-lg border border-gray-200">
+                        <p className="text-xs text-gray-600 mb-1">Pickup Time</p>
+                        <p className="text-sm font-medium">
+                          {new Date(selectedBooking.originPickupAt).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="px-6 py-4 bg-gray-50 border-t flex justify-between items-center">
+                  <p className="text-sm text-gray-600">
+                    Photo taken by driver upon cargo pickup
+                  </p>
+                  <button
+                    onClick={() => setShowOriginPickup(false)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     Close
                   </button>

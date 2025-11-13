@@ -646,54 +646,53 @@ const createMap = async () => {
   mapInstance.current = map;
 };
 
-const startTrip = async () => {
-  if (!selectedBooking) return;
+  const startTrip = async () => {
+    if (!selectedBooking) return;
 
-  setUpdating(true);
-  try {
-    const token = localStorage.getItem("driverToken");
+    setUpdating(true);
+    try {
+      const token = localStorage.getItem("driverToken");
 
-    // First update the booking status
-    const response = await axiosClient.put(
-      `/api/driver/bookings/${selectedBooking._id}/status`,
-      { status: "In Transit" },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    if (response.data.success) {
-      // Update local state
-      setBookings(prevBookings =>
-        prevBookings.map(booking =>
-          booking._id === selectedBooking._id
-            ? { ...booking, status: "In Transit" }
-            : booking
-        )
+      // Update booking status to In Transit
+      const response = await axiosClient.put(
+        `/api/driver/bookings/${selectedBooking._id}/status`,
+        { status: "In Transit" },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
 
-      setSelectedBooking(prev => ({
-        ...prev,
-        status: "In Transit"
-      }));
+      if (response.data.success) {
+        setBookings(prevBookings =>
+          prevBookings.map(booking =>
+            booking._id === selectedBooking._id
+              ? { ...booking, status: "In Transit", originPickedUp: false }
+              : booking
+          )
+        );
 
-      console.log("✅ Trip started successfully, now starting location tracking...");
-      
-      // Start location tracking AFTER status update succeeds
-      await startLocationTracking(selectedBooking._id);
-      
-      alert("Trip started! Your location will be tracked and updated every 5 minutes.");
+        setSelectedBooking(prev => ({
+          ...prev,
+          status: "In Transit",
+          originPickedUp: false
+        }));
+
+        console.log("✅ Trip started, now en route to origin for pickup");
+        
+        await startLocationTracking(selectedBooking._id);
+        
+        alert("Trip started! Navigate to origin to pick up cargo. Your location will be tracked every 5 minutes.");
+      }
+    } catch (err) {
+      console.error("❌ Error starting trip:", err);
+      setError("Failed to start trip. Please try again.");
+      setTimeout(() => setError(""), 5000);
+    } finally {
+      setUpdating(false);
     }
-  } catch (err) {
-    console.error("❌ Error starting trip:", err);
-    setError("Failed to start trip. Please try again.");
-    setTimeout(() => setError(""), 5000);
-  } finally {
-    setUpdating(false);
-  }
-};
+  };
 
   const markAsDelivered = async () => {
     if (!selectedBooking) return;
@@ -1521,81 +1520,152 @@ useEffect(() => {
 
                     {(selectedBooking.status === "In Transit" || selectedBooking.status === "On Trip") && (
                       <>
-                        {/* Check if we have destination tracking */}
-                        {selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries.length > 0 ? (
-                          <>
-                            {(() => {
-                              const nextDest = getNextPendingDestination(selectedBooking);
-                              const stats = getDeliveryStats(selectedBooking);
-                              
-                              // All destinations delivered - ready to complete
-                              if (!nextDest) {
-                                return (
-                                  <button
-                                    onClick={markAsCompleted}
-                                    disabled={updating || !capturedImage}
-                                    className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
-                                  >
-                                    {capturedImage ? (
-                                      <>
-                                        <Check className="w-4 h-4" />
-                                        {updating ? "Completing Trip..." : "Complete Entire Trip"}
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Camera className="w-4 h-4" />
-                                        Take Final Proof of delivery to Complete
-                                      </>
-                                    )}
-                                  </button>
-                                );
-                              }
-                              
-                              // Show next destination to deliver
-                              return (
-                                <div className="space-y-3">
-                                  {/* Next destination card */}
-                                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-3 rounded-lg border border-green-200">
-                                    <p className="text-xs font-medium text-green-700 mb-1">Next Stop ({nextDest.destinationIndex + 1} of {stats.total})</p>
-                                    <p className="text-sm font-bold text-gray-900">{nextDest.destinationAddress}</p>
-                                  </div>
+                        {/* Check if origin has been picked up */}
+                        {!selectedBooking.originPickedUp ? (
+                          /* Origin Pickup Flow */
+                          <div className="space-y-3">
+                            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-3 rounded-lg border border-blue-200">
+                              <p className="text-xs font-medium text-blue-700 mb-1">📦 Next Step</p>
+                              <p className="text-sm font-bold text-gray-900">Pick up cargo from origin</p>
+                              <p className="text-xs text-gray-600 mt-1">{selectedBooking.originAddress}</p>
+                            </div>
 
-                                  {/* Delivery button */}
-                                  {!capturedImage ? (
-                                    <button
-                                      onClick={() => {
-                                        setSelectedDestinationIndex(nextDest.destinationIndex);
-                                        startCamera();
-                                      }}
-                                      className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center justify-center gap-2 font-medium"
-                                    >
-                                      <CheckCircle2 className="w-4 h-4" />
-                                      Mark This Stop as Delivered
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={() => markSingleDestinationDelivered(nextDest.destinationIndex)}
-                                      disabled={updating}
-                                      className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
-                                    >
-                                      <Check className="w-4 h-4" />
-                                      {updating ? "Confirming..." : "Confirm Delivery"}
-                                    </button>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                          </>
+                            {!capturedImage ? (
+                              <button
+                                onClick={() => startCamera()}
+                                className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center justify-center gap-2 font-medium"
+                              >
+                                <Camera className="w-4 h-4" />
+                                Take Pickup Photo
+                              </button>
+                            ) : (
+                              <button
+                                onClick={async () => {
+                                  if (!capturedImage) return;
+                                  
+                                  setUpdating(true);
+                                  try {
+                                    const token = localStorage.getItem("driverToken");
+                                    const response = await axiosClient.put(
+                                      `/api/driver/bookings/${selectedBooking._id}/pickup-origin`,
+                                      { 
+                                        originPickupProof: capturedImage
+                                      },
+                                      {
+                                        headers: {
+                                          Authorization: `Bearer ${token}`,
+                                        },
+                                      }
+                                    );
+
+                                    if (response.data.success) {
+                                      setSelectedBooking(prev => ({
+                                        ...prev,
+                                        originPickedUp: true,
+                                        originPickupAt: new Date(),
+                                        originPickupProof: capturedImage
+                                      }));
+
+                                      setBookings(prevBookings =>
+                                        prevBookings.map(booking =>
+                                          booking._id === selectedBooking._id
+                                            ? { ...booking, originPickedUp: true }
+                                            : booking
+                                        )
+                                      );
+
+                                      setCapturedImage(null);
+                                      alert("✅ Origin pickup confirmed! Now proceed to deliver to destinations.");
+                                    }
+                                  } catch (err) {
+                                    console.error("❌ Error confirming pickup:", err);
+                                    alert("Failed to confirm pickup. Please try again.");
+                                  } finally {
+                                    setUpdating(false);
+                                  }
+                                }}
+                                disabled={updating}
+                                className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
+                              >
+                                <Check className="w-4 h-4" />
+                                {updating ? "Confirming..." : "Confirm Pickup"}
+                              </button>
+                            )}
+                          </div>
                         ) : (
-                          // Fallback for bookings without destination tracking
-                          <button
-                            onClick={markAsDelivered}
-                            disabled={updating}
-                            className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
-                          >
-                            <CheckCircle2 className="w-4 h-4" />
-                            {updating ? "Marking as Delivered..." : "Mark as Delivered"}
-                          </button>
+                          /* Destination Delivery Flow - Original Code */
+                          <>
+                            {selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries.length > 0 ? (
+                              <>
+                                {(() => {
+                                  const nextDest = getNextPendingDestination(selectedBooking);
+                                  const stats = getDeliveryStats(selectedBooking);
+                                  
+                                  if (!nextDest) {
+                                    return (
+                                      <button
+                                        onClick={markAsCompleted}
+                                        disabled={updating || !capturedImage}
+                                        className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
+                                      >
+                                        {capturedImage ? (
+                                          <>
+                                            <Check className="w-4 h-4" />
+                                            {updating ? "Completing Trip..." : "Complete Entire Trip"}
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Camera className="w-4 h-4" />
+                                            Take Final Proof of Delivery to Complete
+                                          </>
+                                        )}
+                                      </button>
+                                    );
+                                  }
+                                  
+                                  return (
+                                    <div className="space-y-3">
+                                      <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-3 rounded-lg border border-green-200">
+                                        <p className="text-xs font-medium text-green-700 mb-1">Next Stop ({nextDest.destinationIndex + 1} of {stats.total})</p>
+                                        <p className="text-sm font-bold text-gray-900">{nextDest.destinationAddress}</p>
+                                      </div>
+
+                                      {!capturedImage ? (
+                                        <button
+                                          onClick={() => {
+                                            setSelectedDestinationIndex(nextDest.destinationIndex);
+                                            startCamera();
+                                          }}
+                                          className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center justify-center gap-2 font-medium"
+                                        >
+                                          <CheckCircle2 className="w-4 h-4" />
+                                          Mark This Stop as Delivered
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => markSingleDestinationDelivered(nextDest.destinationIndex)}
+                                          disabled={updating}
+                                          className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
+                                        >
+                                          <Check className="w-4 h-4" />
+                                          {updating ? "Confirming..." : "Confirm Delivery"}
+                                        </button>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </>
+                            ) : (
+                              <button
+                                onClick={markAsDelivered}
+                                disabled={updating}
+                                className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
+                              >
+                                <CheckCircle2 className="w-4 h-4" />
+                                {updating ? "Marking as Delivered..." : "Mark as Delivered"}
+                              </button>
+                            )}
+                          </>
                         )}
                       </>
                     )}

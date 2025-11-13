@@ -89,6 +89,22 @@ const bookingSchema = new mongoose.Schema({
         enum: ["Pending", "Ready to go", "In Transit", "Delivered", "Completed"],
         default: "Pending"
     },
+
+    // Origin pickup tracking
+    originPickedUp: { 
+        type: Boolean, 
+        default: false 
+    },
+    originPickupAt: { 
+        type: Date, 
+        default: null 
+    },
+    originPickupProof: { 
+        type: String, 
+        default: null 
+    },
+
+    // Archival status
     isArchived: { type: Boolean, default: false },
     
     // Proof of delivery

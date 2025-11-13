@@ -349,6 +349,27 @@ const getDestinations = (booking) => {
     }
   };
 
+    // OSRM Routing function to get actual road routes
+    const getRoute = async (start, end) => {
+      try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson&steps=true`;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.routes && data.routes.length > 0) {
+          const route = data.routes[0];
+          return {
+            coordinates: route.geometry.coordinates.map(coord => [coord[1], coord[0]]),
+            distance: (route.distance / 1000).toFixed(2), // km
+            duration: Math.round(route.duration / 60), // minutes
+          };
+        }
+      } catch (error) {
+        console.error('OSRM routing error:', error);
+        return null;
+      }
+    };
+
 const createMap = async () => {
   if (!mapRef.current) return;
 
@@ -500,18 +521,63 @@ const createMap = async () => {
   const allCoordinates = [];
 
   try {
-    // Add origin marker
+  // Helper function to fetch client coordinates from database
+    const fetchClientCoordinates = async (address) => {
+      try {
+        console.log(`🔍 Fetching coordinates from database for: "${address}"`);
+        const response = await axiosClient.get(`/api/clients/by-address?address=${encodeURIComponent(address)}`);
+
+        if (response.data && response.data.address?.latitude && response.data.address?.longitude) {
+          console.log(`✅ Found coordinates in database: [${response.data.address.latitude}, ${response.data.address.longitude}]`);
+          return {
+            coords: [response.data.address.latitude, response.data.address.longitude],
+            displayName: address,
+            confidence: 'exact',
+            source: 'database'
+          };
+        }
+        return null;
+      } catch (error) {
+        console.error('Error fetching client coordinates:', error);
+        return null;
+      }
+    };
+
+    // Add origin marker with priority: booking coords -> database -> geocoding
+    let originResult = null;
     if (selectedBooking.originAddress) {
-      const originResult = await geocodeAddress(selectedBooking.originAddress);
+      // PRIORITY 1: Check booking coordinates first
+      if (selectedBooking.latitude && selectedBooking.longitude) {
+        originResult = {
+          coords: [selectedBooking.latitude, selectedBooking.longitude],
+          displayName: selectedBooking.originAddress,
+          confidence: 'exact',
+          source: 'booking'
+        };
+        console.log('✅ Using stored origin coordinates from booking');
+      } 
+      // PRIORITY 2: Try client database
+      else {
+        originResult = await fetchClientCoordinates(selectedBooking.originAddress);
+      }
+
+      // PRIORITY 3: Fallback to geocoding
+      if (!originResult) {
+        console.log(`⚠️ No stored coordinates for origin, using geocoding...`);
+        originResult = await geocodeAddressForRoute(selectedBooking.originAddress);
+      }
+
       if (originResult && originResult.coords) {
         allCoordinates.push(originResult.coords);
         
-        const confidenceText = originResult.confidence === 'high' 
-          ? '✓ Exact location' 
-          : originResult.confidence === 'medium' 
-          ? '⚠️ Approximate area' 
+        const confidenceText = originResult.source === 'database'
+          ? '✓ Exact location (from database)'
+          : originResult.confidence === 'high'
+          ? '✓ Geocoded (high accuracy)'
+          : originResult.confidence === 'medium'
+          ? '⚠️ Approximate area'
           : originResult.confidence === 'fallback'
-          ? '📍 City center'
+          ? '📍 City center (approximate)'
           : '📍 General area';
 
         L.circleMarker(originResult.coords, {
@@ -529,19 +595,45 @@ const createMap = async () => {
           </div>
         `);
       }
-    }
+        }
 
     // Get all destinations
     const destinations = getDestinations(selectedBooking);
     
-    // Add destination markers for each address
+    // Add destination markers
     for (let i = 0; i < destinations.length; i++) {
       const destAddress = destinations[i];
       if (destAddress) {
-        const destResult = await geocodeAddress(destAddress);
+        let destResult = null;
+        
+        // PRIORITY 1: Check if destination has stored coordinates in destinationDeliveries
+        if (selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries[i]) {
+          const dest = selectedBooking.destinationDeliveries[i];
+          if (dest.latitude && dest.longitude) {
+            destResult = {
+              coords: [dest.latitude, dest.longitude],
+              displayName: destAddress,
+              confidence: 'exact',
+              source: 'booking'
+            };
+            console.log(`✅ Using stored destination coordinates from booking for stop ${i + 1}`);
+          }
+        }
+        
+        // PRIORITY 2: Try branch database
+        if (!destResult) {
+          destResult = await fetchClientCoordinates(destAddress);
+        }
+
+        // PRIORITY 3: Fallback to geocoding
+        if (!destResult) {
+          console.log(`⚠️ No stored coordinates for "${destAddress}", using geocoding...`);
+          destResult = await geocodeAddressForRoute(destAddress);
+        }
+
         if (destResult && destResult.coords) {
           allCoordinates.push(destResult.coords);
-          
+
           const colors = [
             { fill: '#ef4444', name: 'red' },
             { fill: '#f59e0b', name: 'amber' },
@@ -553,12 +645,14 @@ const createMap = async () => {
           
           const stopLabel = destinations.length > 1 ? `Stop ${i + 1}` : 'Destination';
           
-          const confidenceText = destResult.confidence === 'high' 
-            ? '✓ Exact location' 
-            : destResult.confidence === 'medium' 
-            ? '⚠️ Approximate area' 
+          const confidenceText = destResult.source === 'database'
+            ? '✓ Exact location (from database)'
+            : destResult.confidence === 'high'
+            ? '✓ Geocoded (high accuracy)'
+            : destResult.confidence === 'medium'
+            ? '⚠️ Approximate area'
             : destResult.confidence === 'fallback'
-            ? '📍 City center'
+            ? '📍 City center (approximate)'
             : '📍 General area';
 
           L.circleMarker(destResult.coords, {
@@ -577,11 +671,8 @@ const createMap = async () => {
           `);
 
           // Draw OSRM route line from origin to each destination
-          if (allCoordinates.length > 1) {
-            const originCoords = allCoordinates[0];
-            
-            // Try to get OSRM route
-            const route = await getRoute(originCoords, destResult.coords);
+          if (originResult && originResult.coords) {
+            const route = await getRoute(originResult.coords, destResult.coords);
             
             if (route && route.coordinates) {
               console.log(`🗺️ OSRM route to destination ${i + 1}: ${route.distance}km, ${route.duration}min`);
@@ -608,7 +699,7 @@ const createMap = async () => {
             } else {
               // Fallback to straight line if OSRM fails
               console.log(`⚠️ OSRM routing failed for destination ${i + 1}, using straight line`);
-              L.polyline([originCoords, destResult.coords], {
+              L.polyline([originResult.coords, destResult.coords], {
                 color: color.fill,
                 weight: 3,
                 opacity: 0.7,
@@ -1468,27 +1559,75 @@ useEffect(() => {
                       </button>
                       {expandedSections.cargo && (
                         <div className="px-4 pb-4">
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div className="bg-gray-50 p-2 rounded">
-                              <p className="text-gray-600 text-xs">Product</p>
-                              <p className="font-medium">{selectedBooking.productName}</p>
+                          {/* Check if using new destinationDeliveries model */}
+                          {Array.isArray(selectedBooking.destinationDeliveries) && selectedBooking.destinationDeliveries.length > 0 ? (
+                            <div className="space-y-3">
+                              {selectedBooking.destinationDeliveries.map((dest, idx) => (
+                                <div key={idx} className="p-3 rounded border bg-gray-50">
+                                  <div className="flex justify-between items-center mb-2">
+                                    <div className="text-sm font-medium text-gray-800">
+                                      {`Stop ${dest.destinationIndex + 1 || idx + 1} — ${dest.customerEstablishmentName || 'N/A'}`}
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-gray-500 mb-2">{dest.destinationAddress}</div>
+                                  <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div className="bg-white p-2 rounded">
+                                      <p className="text-gray-600 text-xs">Product</p>
+                                      <p className="font-medium">{dest.productName || 'N/A'}</p>
+                                    </div>
+                                    <div className="bg-white p-2 rounded">
+                                      <p className="text-gray-600 text-xs">Quantity</p>
+                                      <p className="font-medium">{dest.quantity?.toLocaleString() || 'N/A'}</p>
+                                    </div>
+                                    <div className="bg-white p-2 rounded">
+                                      <p className="text-gray-600 text-xs">Weight</p>
+                                      <p className="font-medium flex items-center gap-1">
+                                        <Weight className="w-3 h-3" />
+                                        {dest.grossWeight || 'N/A'} kg
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                              
+                              {/* Total Summary */}
+                              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-3 rounded-lg border border-purple-200">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-semibold text-gray-700">Total Stops</span>
+                                  <span className="text-lg font-bold text-purple-600">{selectedBooking.destinationDeliveries.length}</span>
+                                </div>
+                                {selectedBooking.deliveryFee && (
+                                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-purple-200">
+                                    <span className="text-sm font-semibold text-gray-700">Delivery Fee</span>
+                                    <span className="text-lg font-bold text-green-600">₱{selectedBooking.deliveryFee.toLocaleString()}</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <div className="bg-gray-50 p-2 rounded">
-                              <p className="text-gray-600 text-xs">Quantity</p>
-                              <p className="font-medium">{selectedBooking.quantity?.toLocaleString()} pcs</p>
+                          ) : (
+                            // Fallback for old booking format
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div className="bg-gray-50 p-2 rounded">
+                                <p className="text-gray-600 text-xs">Product</p>
+                                <p className="font-medium">{selectedBooking.productName}</p>
+                              </div>
+                              <div className="bg-gray-50 p-2 rounded">
+                                <p className="text-gray-600 text-xs">Quantity</p>
+                                <p className="font-medium">{selectedBooking.quantity?.toLocaleString()} pcs</p>
+                              </div>
+                              <div className="bg-gray-50 p-2 rounded">
+                                <p className="text-gray-600 text-xs">Weight</p>
+                                <p className="font-medium flex items-center gap-1">
+                                  <Weight className="w-3 h-3" />
+                                  {selectedBooking.grossWeight} kg
+                                </p>
+                              </div>
+                              <div className="bg-gray-50 p-2 rounded">
+                                <p className="text-gray-600 text-xs">Delivery Fee</p>
+                                <p className="font-medium text-green-600">₱{selectedBooking.deliveryFee?.toLocaleString()}</p>
+                              </div>
                             </div>
-                            <div className="bg-gray-50 p-2 rounded">
-                              <p className="text-gray-600 text-xs">Weight</p>
-                              <p className="font-medium flex items-center gap-1">
-                                <Weight className="w-3 h-3" />
-                                {selectedBooking.grossWeight} tons
-                              </p>
-                            </div>
-                            <div className="bg-gray-50 p-2 rounded">
-                              <p className="text-gray-600 text-xs">Packages</p>
-                              <p className="font-medium">{selectedBooking.numberOfPackages} boxes</p>
-                            </div>
-                          </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1512,13 +1651,35 @@ useEffect(() => {
                             <p className="font-medium">{selectedBooking.companyName}</p>
                           </div>
                           <div className="bg-gray-50 p-3 rounded">
-                            <p className="text-gray-600 text-xs mb-1">Customer</p>
-                            <p className="font-medium">{selectedBooking.customerEstablishmentName || selectedBooking.shipperConsignorName || 'N/A'}</p>
+                            <p className="text-gray-600 text-xs mb-1">Company Address</p>
+                            <p className="font-medium">{selectedBooking.originAddress}</p>
                           </div>
-                          <div className="bg-gray-50 p-3 rounded">
-                            <p className="text-gray-600 text-xs mb-1">Delivery Fee</p>
-                            <p className="font-medium text-green-600">₱{selectedBooking.deliveryFee?.toLocaleString()}</p>
-                          </div>
+                          {selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries.length > 0 && (
+                            <div className="bg-gray-50 p-3 rounded">
+                              <p className="text-gray-600 text-xs mb-2">Delivery Branches</p>
+                              <div className="space-y-2">
+                                {selectedBooking.destinationDeliveries.map((dest, idx) => (
+                                  <div key={idx} className="text-sm">
+                                    <span className="inline-block bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded mr-2">
+                                      Stop {idx + 1}
+                                    </span>
+                                    <span className="font-medium">{dest.customerEstablishmentName || 'N/A'}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {selectedBooking.deliveryFee && (
+                            <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-3 rounded border border-green-200">
+                              <p className="text-gray-600 text-xs mb-1">Total Delivery Fee</p>
+                              <p className="text-2xl font-bold text-green-600">₱{selectedBooking.deliveryFee.toLocaleString()}</p>
+                              {selectedBooking.totalDistance && (
+                                <p className="text-xs text-gray-600 mt-1">
+                                  Total Distance: {selectedBooking.totalDistance.toFixed(2)} km
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

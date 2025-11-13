@@ -186,6 +186,96 @@ export const getDriverBookings = async (req, res) => {
 };
 
 /**
+ * PUT /api/driver/bookings/:id/pickup-origin
+ * Confirm origin pickup with proof
+ */
+export const confirmOriginPickup = async (req, res) => {
+  try {
+    const driver = req.driver;
+    const bookingId = req.params.id;
+    const { originPickupProof } = req.body;
+
+    console.log("📦 Confirming origin pickup:", {
+      bookingId,
+      driverId: driver.employeeId,
+      hasProof: !!originPickupProof
+    });
+
+    if (!originPickupProof) {
+      return res.status(400).json({
+        success: false,
+        msg: "Pickup proof is required"
+      });
+    }
+
+    if (!originPickupProof.startsWith('data:image/')) {
+      return res.status(400).json({
+        success: false,
+        msg: "Invalid proof format. Must be a base64 image."
+      });
+    }
+
+    const sizeInMB = (originPickupProof.length * 0.75) / (1024 * 1024);
+    if (sizeInMB > 10) {
+      return res.status(413).json({
+        success: false,
+        msg: `Image too large (${sizeInMB.toFixed(2)} MB). Maximum 10MB allowed.`
+      });
+    }
+
+    const booking = await Booking.findOne({
+      _id: bookingId,
+      employeeAssigned: { $in: [driver.employeeId] }
+    });
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        msg: "Booking not found or you are not assigned to this booking"
+      });
+    }
+
+    if (booking.status !== "In Transit") {
+      return res.status(400).json({
+        success: false,
+        msg: "Can only confirm pickup when trip is In Transit"
+      });
+    }
+
+    // Update origin pickup details
+    booking.originPickedUp = true;
+    booking.originPickupAt = new Date();
+    booking.originPickupProof = originPickupProof;
+    booking.updatedAt = new Date();
+
+    await booking.save();
+
+    console.log(`✅ Origin pickup confirmed for booking ${booking.reservationId}`);
+
+    res.json({
+      success: true,
+      msg: "Origin pickup confirmed successfully",
+      booking: {
+        _id: booking._id,
+        reservationId: booking.reservationId,
+        tripNumber: booking.tripNumber,
+        originPickedUp: booking.originPickedUp,
+        originPickupAt: booking.originPickupAt,
+        updatedAt: booking.updatedAt
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ Error confirming origin pickup:", err);
+    res.status(500).json({
+      success: false,
+      msg: "Server error while confirming pickup",
+      error: err.message
+    });
+  }
+};
+
+/**
  * GET /api/driver/bookings/:id
  * Get specific booking details for the logged-in driver
  */

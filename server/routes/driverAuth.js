@@ -1,6 +1,7 @@
 // server/routes/driverAuth.js (Updated with location tracking and destination delivery)
 import express from "express";
 import Employee from "../models/Employee.js";
+import Booking from "../models/Booking.js";
 import jwt from "jsonwebtoken";
 import { driverLogin, getDriverProfile } from "../controllers/driverAuthController.js";
 import { 
@@ -12,6 +13,7 @@ import {
   markDestinationDelivered
 } from "../controllers/driverBookingsController.js";
 import driverAuth from "../middleware/driverAuth1.js";
+import { confirmOriginPickup } from "../controllers/driverBookingsController.js";
 
 const router = express.Router();
 
@@ -36,31 +38,6 @@ router.put("/bookings/:id/location", driverAuth, updateDriverLocation);
 router.put("/bookings/:id/deliver-destination", driverAuth, markDestinationDelivered);
 
 // Confirm origin pickup
-router.put("/bookings/:id/pickup-origin", authenticateDriver, async (req, res) => {
-  try {
-    const { originPickupProof } = req.body;
-    const booking = await Booking.findById(req.params.id);
-
-    if (!booking) {
-      return res.status(404).json({ success: false, msg: "Booking not found" });
-    }
-
-    // Update origin pickup
-    booking.originPickedUp = true;
-    booking.originPickupAt = new Date();
-    booking.originPickupProof = originPickupProof;
-    
-    await booking.save();
-
-    res.json({
-      success: true,
-      msg: "Origin pickup confirmed",
-      booking
-    });
-  } catch (err) {
-    console.error("Error confirming origin pickup:", err);
-    res.status(500).json({ success: false, msg: "Server error" });
-  }
-});
+router.put("/bookings/:id/pickup-origin", driverAuth, confirmOriginPickup);
 
 export default router;

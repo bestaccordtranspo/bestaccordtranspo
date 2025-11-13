@@ -35,8 +35,6 @@ const bookingSchema = new mongoose.Schema({
         productName: { type: String, required: true },
         quantity: { type: Number, required: true },
         grossWeight: { type: Number, required: true },
-        unitPerPackage: { type: Number, required: true },
-        numberOfPackages: { type: Number, required: true },
         
         // Delivery status
         status: { 

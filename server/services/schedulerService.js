@@ -1,7 +1,7 @@
 import cron from 'node-cron';
-import Booking from './models/Booking.js';
-import Vehicle from './models/Vehicle.js';
-import Employee from './models/Employee.js';
+import Booking from '../models/Booking.js';
+import Vehicle from '../models/Vehicle.js';
+import Employee from '../models/Employee.js';
 
 // Update vehicle and employee status
 async function updateVehicleAndEmployeeStatus(booking, newStatus) {

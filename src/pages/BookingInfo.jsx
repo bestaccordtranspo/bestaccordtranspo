@@ -152,10 +152,6 @@ function BookingInfo() {
                                             <div className="text-gray-600">Gross Weight (kg)</div>
                                             <div className="font-semibold">{d.grossWeight ?? 'N/A'}</div>
                                         </div>
-                                        <div>
-                                            <div className="text-gray-600">Units / Packages</div>
-                                            <div className="font-semibold">{`${d.unitPerPackage ?? 'N/A'} / ${d.numberOfPackages ?? 'N/A'}`}</div>
-                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -178,14 +174,6 @@ function BookingInfo() {
                                         <div className="flex justify-between">
                                             <span className="text-gray-600">Gross Weight:</span>
                                             <span className="font-semibold">{d.grossWeight ?? 'N/A'}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Units per Package:</span>
-                                            <span className="font-semibold">{d.unitPerPackage ?? 'N/A'}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Number of Packages:</span>
-                                            <span className="font-semibold">{d.numberOfPackages ?? 'N/A'}</span>
                                         </div>
                                     </>
                                 );
@@ -301,10 +289,6 @@ function BookingInfo() {
                                                 <div>
                                                     <div className="text-gray-600">Gross Weight</div>
                                                     <div className="font-semibold">{d.grossWeight ?? 'N/A'}</div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-gray-600">Packages</div>
-                                                    <div className="font-semibold">{d.numberOfPackages ?? 'N/A'}</div>
                                                 </div>
                                             </div>
                                         </div>

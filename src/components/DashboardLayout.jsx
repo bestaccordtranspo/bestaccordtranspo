@@ -13,6 +13,7 @@ import {
   Package,
   UserRoundCheck,
   ChevronDown,
+  Warehouse
 } from "lucide-react";
 import logo from "../assets/bestaccord_logo.png";
 
@@ -43,7 +44,7 @@ export default function DashboardLayout() {
         icon: <User size={20} />,
         subItems: [
           { name: "Clients", path: "/dashboard/client", icon: <User size={16} /> },
-          { name: "Branches", path: "/dashboard/branch", icon: <Package size={16} /> },
+          { name: "Branches", path: "/dashboard/branch", icon: <Warehouse size={16} /> },
         ],
       },
       { name: "Staff", path: "/dashboard/staff", icon: <UserRoundCheck size={20} /> },

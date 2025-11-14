@@ -2005,7 +2005,7 @@ const handleManualRefresh = async () => {
 
                       {/* Product Details */}
                       <motion.div
-                        className="bg-white rounded-lg border border-gray-200 p-6"
+                        className="bg-white p-6"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: 0.2 }}
@@ -2032,10 +2032,6 @@ const handleManualRefresh = async () => {
                                     <div className="text-gray-600">Gross Weight</div>
                                     <div className="font-semibold">{d.grossWeight ?? 'N/A'}</div>
                                   </div>
-                                  <div>
-                                    <div className="text-gray-600">Units / Packages</div>
-                                    <div className="font-semibold">{`${d.unitPerPackage ?? 'N/A'} / ${d.numberOfPackages ?? 'N/A'}`}</div>
-                                  </div>
                                   {d.notes && (
                                     <div className="col-span-2 text-sm text-gray-600">
                                       <div className="text-gray-600">Notes</div>
@@ -2060,14 +2056,6 @@ const handleManualRefresh = async () => {
                             <div>
                               <h4 className="text-sm font-medium text-gray-600 mb-2">Gross Weight</h4>
                               <p className="text-gray-900">{selectedBooking.grossWeight || "N/A"}</p>
-                            </div>
-                            <div>
-                              <h4 className="text-sm font-medium text-gray-600 mb-2">Units per package</h4>
-                              <p className="text-gray-900">{selectedBooking.unitPerPackage || "N/A"} pcs/box</p>
-                            </div>
-                            <div>
-                              <h4 className="text-sm font-medium text-gray-600 mb-2">Number of Package</h4>
-                              <p className="text-gray-900">{selectedBooking.numberOfPackages || "N/A"} box</p>
                             </div>
                             <div>
                               <h4 className="text-sm font-medium text-gray-600 mb-2">Delivery Fee</h4>

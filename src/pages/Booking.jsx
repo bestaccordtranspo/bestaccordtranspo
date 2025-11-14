@@ -1320,6 +1320,7 @@ const geocodeAddressForRoute = async (address) => {
                       (booking.status || "Pending") === "Pending" ? "bg-yellow-100 text-yellow-800" :
                       (booking.status || "Pending") === "In Transit" ? "bg-blue-100 text-blue-800" :
                       (booking.status || "Pending") === "Delivered" ? "bg-green-100 text-green-800" :
+                      
                       (booking.status || "Pending") === "Completed" ? "bg-gray-200 text-gray-800" :
                       "bg-gray-100 text-gray-800"
                     }`}>

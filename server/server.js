@@ -13,6 +13,7 @@ import driverAuthRoutes from "./routes/driverAuth.js";
 import staffRoutes from "./routes/staff.js";
 import { initGridFS } from "./config/gridfs.js";
 import tripReportsRoutes from './routes/tripReports.js';
+import { startScheduler } from "./services/schedulerService.js"; 
 
 
 
@@ -47,12 +48,16 @@ app.use("/api/staffs", staffRoutes);
 app.use("/api/archive", archiveRoutes);
 app.use('/api/trip-reports', tripReportsRoutes);
 
+
+
 const PORT = process.env.PORT || 5000;
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log("✅ MongoDB connected");
     initGridFS();
+
+    startScheduler();
 
     app.listen(PORT, () =>
       console.log(`Server running on http://localhost:${PORT}`)

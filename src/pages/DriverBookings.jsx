@@ -28,6 +28,7 @@ import {
 import { axiosClient } from "../api/axiosClient";
 import driverloginbg from "../assets/driver_login_bg.png";
 import { createTruckDivIcon } from '../components/TruckMarkerIcon';
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function DriverBookings() {
   const [driverLocation, setDriverLocation] = useState(null);

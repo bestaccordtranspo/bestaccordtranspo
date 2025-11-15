@@ -772,7 +772,7 @@ const createMap = async () => {
       if (!selectedBooking.originPickedUp && originResult && originResult.coords) {
         // Route to origin for pickup
         routeDestination = originResult.coords;
-        routeLabel = '🚚 En route to Origin for Pickup';
+        routeLabel = 'En route to Pickup Location';
         console.log('📍 Drawing route from driver to origin (pickup pending)');
       } else if (activeDestCoords) {
         // Route to active (next pending) destination
@@ -988,6 +988,52 @@ const markSingleDestinationDelivered = async (destinationIndex) => {
   }
 };
 
+// Update destination order
+const updateDestinationOrder = async (destinationIndex) => {
+  if (!selectedBooking) return;
+
+  setUpdating(true);
+  try {
+    const token = localStorage.getItem("driverToken");
+
+    // This will update the selected destination to be the next active one
+    const response = await axiosClient.put(
+      `/api/driver/bookings/${selectedBooking._id}/set-active-destination`,
+      { 
+        destinationIndex: destinationIndex
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (response.data.success) {
+      // Update local state
+      setSelectedBooking(prev => ({
+        ...prev,
+        activeDestinationIndex: destinationIndex
+      }));
+
+      // Close selector
+      setShowDestinationSelector(false);
+
+      // Refresh the map to show new route
+      setTimeout(() => {
+        initializeMap();
+      }, 100);
+
+      alert(`✅ Route updated! Now heading to Stop ${destinationIndex + 1}`);
+    }
+  } catch (err) {
+    console.error("❌ Error updating destination order:", err);
+    alert(err.response?.data?.msg || "Failed to update destination order");
+  } finally {
+    setUpdating(false);
+  }
+};
+
 const markAsCompleted = async () => {
   if (!selectedBooking || !capturedImage) return;
 
@@ -1047,11 +1093,23 @@ useEffect(() => {
   };
 }, []);
 
-// Get next pending destination
+// Get next pending destination (respects activeDestinationIndex if set)
 const getNextPendingDestination = (booking) => {
   if (!booking.destinationDeliveries || booking.destinationDeliveries.length === 0) {
     return null;
   }
+  
+  // If driver has selected an active destination, return that one (if still pending)
+  if (booking.activeDestinationIndex !== undefined && booking.activeDestinationIndex !== null) {
+    const activeDestination = booking.destinationDeliveries.find(
+      d => d.destinationIndex === booking.activeDestinationIndex && d.status === 'pending'
+    );
+    if (activeDestination) {
+      return activeDestination;
+    }
+  }
+  
+  // Otherwise return the first pending destination
   return booking.destinationDeliveries.find(d => d.status === 'pending');
 };
 
@@ -1846,6 +1904,168 @@ useEffect(() => {
                       )}
                     </div>
 
+                    {/* Destination Selector Modal */}
+                    <AnimatePresence>
+                      {showDestinationSelector && selectedBooking?.destinationDeliveries && selectedBooking.destinationDeliveries.length > 1 && (
+                        <motion.div
+                          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+                          style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)' }}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          onClick={() => setShowDestinationSelector(false)}
+                        >
+                          <motion.div
+                            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden"
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {/* Header */}
+                            <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                              <div className="flex items-center gap-3">
+                                <MapPin className="w-6 h-6" />
+                                <div>
+                                  <h3 className="text-lg font-bold">Select Next Destination</h3>
+                                  <p className="text-sm text-blue-100">Choose which stop to deliver to first</p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => setShowDestinationSelector(false)}
+                                className="p-2 text-white hover:bg-white/20 transition-colors rounded-lg"
+                              >
+                                <X className="w-5 h-5" />
+                              </button>
+                            </div>
+
+                            {/* Body - Scrollable destination list */}
+                            <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(80vh - 180px)' }}>
+                              <div className="space-y-3">
+                                {selectedBooking.destinationDeliveries
+                                  .filter(dest => dest.status === 'pending')
+                                  .map((dest, idx) => {
+                                    const actualIndex = dest.destinationIndex;
+                                    const isActive = actualIndex === getNextPendingDestination(selectedBooking)?.destinationIndex;
+                                    
+                                    return (
+                                      <motion.button
+                                        key={actualIndex}
+                                        onClick={() => {
+                                          if (window.confirm(`Navigate to Stop ${actualIndex + 1} first?\n\n${dest.destinationAddress}`)) {
+                                            updateDestinationOrder(actualIndex);
+                                          }
+                                        }}
+                                        disabled={updating}
+                                        className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                                          isActive
+                                            ? 'border-blue-500 bg-blue-50 shadow-lg'
+                                            : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                        whileHover={!updating ? { scale: 1.02 } : {}}
+                                        whileTap={!updating ? { scale: 0.98 } : {}}
+                                      >
+                                        <div className="flex items-start gap-3">
+                                          {/* Stop Number Badge */}
+                                          <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
+                                            isActive 
+                                              ? 'bg-blue-600 text-white' 
+                                              : 'bg-gray-200 text-gray-700'
+                                          }`}>
+                                            {actualIndex + 1}
+                                          </div>
+
+                                          {/* Destination Details */}
+                                          <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-2">
+                                              <h4 className="font-semibold text-gray-900">
+                                                Stop {actualIndex + 1}
+                                                {isActive && (
+                                                  <span className="ml-2 text-xs bg-blue-600 text-white px-2 py-1 rounded-full">
+                                                    Current Route
+                                                  </span>
+                                                )}
+                                              </h4>
+                                            </div>
+
+                                            {/* Branch Name */}
+                                            {dest.customerEstablishmentName && (
+                                              <div className="flex items-center gap-1 mb-1">
+                                                <Building className="w-4 h-4 text-gray-500" />
+                                                <p className="text-sm font-medium text-gray-700">
+                                                  {dest.customerEstablishmentName}
+                                                </p>
+                                              </div>
+                                            )}
+
+                                            {/* Address */}
+                                            <div className="flex items-start gap-1 mb-2">
+                                              <MapPin className="w-4 h-4 text-gray-500 mt-0.5" />
+                                              <p className="text-sm text-gray-600">
+                                                {dest.destinationAddress}
+                                              </p>
+                                            </div>
+
+                                            {/* Product Info */}
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                              <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
+                                                {dest.productName}
+                                              </span>
+                                              <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">
+                                                Qty: {dest.quantity}
+                                              </span>
+                                              <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">
+                                                {dest.grossWeight} kg
+                                              </span>
+                                            </div>
+                                          </div>
+
+                                          {/* Arrow Icon */}
+                                          <div className="flex-shrink-0">
+                                            <ChevronRight className={`w-6 h-6 ${
+                                              isActive ? 'text-blue-600' : 'text-gray-400'
+                                            }`} />
+                                          </div>
+                                        </div>
+                                      </motion.button>
+                                    );
+                                  })}
+                              </div>
+
+                              {/* Info Box */}
+                              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="flex items-start gap-2">
+                                  <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                  <div className="text-sm text-blue-800">
+                                    <p className="font-semibold mb-1">How it works:</p>
+                                    <ul className="list-disc list-inside space-y-1 text-xs">
+                                      <li>Select the destination you want to deliver to next</li>
+                                      <li>The route on the map will update to guide you there</li>
+                                      <li>You can change the route anytime before delivery</li>
+                                      <li>Once delivered, the next pending stop will become active</li>
+                                    </ul>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="px-6 py-4 bg-gray-50 border-t flex justify-between items-center">
+                              <p className="text-sm text-gray-600">
+                                {selectedBooking.destinationDeliveries.filter(d => d.status === 'pending').length} pending stops
+                              </p>
+                              <button
+                                onClick={() => setShowDestinationSelector(false)}
+                                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </motion.div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
                   </div>
 
                   {/* Modal Footer - Sticky */}
@@ -1938,6 +2158,19 @@ useEffect(() => {
                         ) : (
                           /* Destination Delivery Flow - Original Code */
                           <>
+                            {/* Change Route Button (only show when multiple pending destinations) */}
+                            {selectedBooking.destinationDeliveries && 
+                            selectedBooking.destinationDeliveries.length > 1 && 
+                            selectedBooking.destinationDeliveries.filter(d => d.status === 'pending').length > 1 && (
+                              <button
+                                onClick={() => setShowDestinationSelector(true)}
+                                className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center justify-center gap-2 font-medium mb-3"
+                              >
+                                <MapPin className="w-4 h-4" />
+                                Change Route / Select Next Stop
+                              </button>
+                            )}
+
                             {selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries.length > 0 ? (
                               <>
                                 {(() => {

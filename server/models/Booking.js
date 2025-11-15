@@ -127,6 +127,12 @@ const bookingSchema = new mongoose.Schema({
         longitude: { type: Number, default: null },
         lastUpdated: { type: Date, default: null },
         accuracy: { type: Number, default: null }
+    },
+
+    // Active destination selection by driver
+    activeDestinationIndex: { 
+        type: Number, 
+        default: null 
     }
 }, {
     timestamps: true,

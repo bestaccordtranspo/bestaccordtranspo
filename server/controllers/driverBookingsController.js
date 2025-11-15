@@ -729,3 +729,93 @@ export const markDestinationDelivered = async (req, res) => {
     });
   }
 };
+
+/**
+ * PUT /api/driver/bookings/:id/set-active-destination
+ * Driver can select which destination to deliver to next
+ */
+export const setActiveDestination = async (req, res) => {
+  try {
+    const driver = req.driver;
+    const bookingId = req.params.id;
+    const { destinationIndex } = req.body;
+
+    console.log("🎯 Setting active destination:", {
+      bookingId,
+      driverId: driver.employeeId,
+      destinationIndex
+    });
+
+    if (destinationIndex === undefined || destinationIndex === null) {
+      return res.status(400).json({
+        success: false,
+        msg: "Destination index is required"
+      });
+    }
+
+    const booking = await Booking.findOne({
+      _id: bookingId,
+      employeeAssigned: { $in: [driver.employeeId] }
+    });
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        msg: "Booking not found or you are not assigned to this booking"
+      });
+    }
+
+    if (booking.status !== "In Transit") {
+      return res.status(400).json({
+        success: false,
+        msg: "Can only change route when trip is In Transit"
+      });
+    }
+
+    // Validate that the destination exists and is pending
+    const targetDestination = booking.destinationDeliveries.find(
+      d => d.destinationIndex === destinationIndex
+    );
+
+    if (!targetDestination) {
+      return res.status(404).json({
+        success: false,
+        msg: "Destination not found"
+      });
+    }
+
+    if (targetDestination.status === 'delivered') {
+      return res.status(400).json({
+        success: false,
+        msg: "This destination has already been delivered"
+      });
+    }
+
+    // Store the active destination preference
+    booking.activeDestinationIndex = destinationIndex;
+    booking.updatedAt = new Date();
+    await booking.save();
+
+    console.log(`✅ Active destination set to index ${destinationIndex} for booking ${booking.reservationId}`);
+
+    res.json({
+      success: true,
+      msg: `Route updated to Stop ${destinationIndex + 1}`,
+      booking: {
+        _id: booking._id,
+        reservationId: booking.reservationId,
+        tripNumber: booking.tripNumber,
+        activeDestinationIndex: booking.activeDestinationIndex,
+        updatedAt: booking.updatedAt
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ Error setting active destination:", err);
+    res.status(500).json({
+      success: false,
+      msg: "Server error while updating destination order",
+      error: err.message
+    });
+  }
+};

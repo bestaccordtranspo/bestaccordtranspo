@@ -990,7 +990,7 @@ const markSingleDestinationDelivered = async (destinationIndex) => {
   }
 };
 
-// Update destination order
+// Update active destination order
 const updateDestinationOrder = async (destinationIndex) => {
   if (!selectedBooking) return;
 
@@ -998,7 +998,7 @@ const updateDestinationOrder = async (destinationIndex) => {
   try {
     const token = localStorage.getItem("driverToken");
 
-    // This will update the selected destination to be the next active one
+    // Update the selected destination to be the next active one
     const response = await axiosClient.put(
       `/api/driver/bookings/${selectedBooking._id}/set-active-destination`,
       { 
@@ -1012,21 +1012,41 @@ const updateDestinationOrder = async (destinationIndex) => {
     );
 
     if (response.data.success) {
-      // Update local state
-      setSelectedBooking(prev => ({
-        ...prev,
-        activeDestinationIndex: destinationIndex
-      }));
+      // Fetch fresh booking data from server
+      const updatedBookingResponse = await axiosClient.get(
+        `/api/driver/bookings/${selectedBooking._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-      // Close selector
-      setShowDestinationSelector(false);
+      if (updatedBookingResponse.data.success) {
+        // Update local state with fresh data
+        const freshBooking = updatedBookingResponse.data.booking;
+        setSelectedBooking(freshBooking);
 
-      // Refresh the map to show new route
-      setTimeout(() => {
-        initializeMap();
-      }, 100);
+        // Also update the bookings list
+        setBookings(prevBookings =>
+          prevBookings.map(booking =>
+            booking._id === selectedBooking._id
+              ? freshBooking
+              : booking
+          )
+        );
 
-      alert(`✅ Route updated! Now heading to Stop ${destinationIndex + 1}`);
+        // Close selector
+        setShowDestinationSelector(false);
+
+        // Wait for state to update, then reinitialize map with new route
+        setTimeout(() => {
+          console.log('🗺️ Reinitializing map with new active destination:', destinationIndex);
+          initializeMap();
+        }, 300);
+
+        alert(`✅ Route updated! Now heading to Stop ${destinationIndex + 1}`);
+      }
     }
   } catch (err) {
     console.error("❌ Error updating destination order:", err);
@@ -1209,9 +1229,10 @@ const fetchBookings = async () => {
 
   useEffect(() => {
     if (showModal && selectedBooking && mapRef.current) {
+      console.log('🗺️ Booking or modal state changed, updating map...');
       setTimeout(() => initializeMap(), 100);
     }
-  }, [showModal, selectedBooking]);
+  }, [showModal, selectedBooking, selectedBooking?.activeDestinationIndex]);
 
   useEffect(() => {
     fetchBookings();
@@ -1603,7 +1624,7 @@ useEffect(() => {
 
                     {/* Map Section */}
                     <div className="p-4 border-b border-gray-100">
-                      <div className="bg-gray-100 rounded-lg overflow-hidden">
+                      <div className="bg-gray-100 rounded-lg overflow-hidden relative z-0">
                         <div
                           ref={mapRef}
                           className="w-full h-48"
@@ -1909,9 +1930,9 @@ useEffect(() => {
                     {/* Destination Selector Modal */}
                     <AnimatePresence>
                       {showDestinationSelector && selectedBooking?.destinationDeliveries && selectedBooking.destinationDeliveries.length > 1 && (
-                        <motion.div
-                          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
-                          style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)' }}
+                      <motion.div
+                        className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+                        style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)' }}
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}

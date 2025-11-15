@@ -610,57 +610,73 @@ const createMap = async () => {
     // Get all destinations
     const destinations = getDestinations(selectedBooking);
     
-    // 🎯 Determine which destinations to show based on delivery status
-    let destinationsToDisplay = [];
-    let activeDestinationIndex = -1;
-    let activeDestCoords = null;
+// 🎯 Determine which destinations to show based on delivery status
+let destinationsToDisplay = [];
+let activeDestinationIndex = -1;
+let activeDestCoords = null;
 
-    if (selectedBooking.status === "In Transit" || selectedBooking.status === "On Trip") {
-      // Show only pending destinations
-      if (selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries.length > 0) {
-        destinationsToDisplay = selectedBooking.destinationDeliveries
-          .filter(d => d.status === 'pending')
-          .map(d => ({
-            address: d.destinationAddress,
-            index: d.destinationIndex,
-            isPending: true,
-            latitude: d.latitude,
-            longitude: d.longitude
-          }));
-        
-        // The first pending destination is the active one
-        if (destinationsToDisplay.length > 0) {
-          activeDestinationIndex = destinationsToDisplay[0].index;
-        }
+if (selectedBooking.status === "In Transit" || selectedBooking.status === "On Trip") {
+  // Show only pending destinations
+  if (selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries.length > 0) {
+    destinationsToDisplay = selectedBooking.destinationDeliveries
+      .filter(d => d.status === 'pending')
+      .map(d => ({
+        address: d.destinationAddress,
+        index: d.destinationIndex,
+        isPending: true,
+        latitude: d.latitude,
+        longitude: d.longitude
+      }));
+    
+    // CRITICAL FIX: Use the driver's selected active destination if it exists
+    if (selectedBooking.activeDestinationIndex !== undefined && 
+        selectedBooking.activeDestinationIndex !== null) {
+      // Check if the selected destination is still pending
+      const selectedDest = selectedBooking.destinationDeliveries.find(
+        d => d.destinationIndex === selectedBooking.activeDestinationIndex && d.status === 'pending'
+      );
+      if (selectedDest) {
+        activeDestinationIndex = selectedBooking.activeDestinationIndex;
+        console.log(`✅ Using driver-selected active destination: ${activeDestinationIndex}`);
       } else {
-        // Fallback for old bookings without destination tracking
-        destinationsToDisplay = destinations.map((addr, idx) => ({
-          address: addr,
-          index: idx,
-          isPending: true
-        }));
-        activeDestinationIndex = 0;
+        // Fall back to first pending if selected one is no longer pending
+        activeDestinationIndex = destinationsToDisplay.length > 0 ? destinationsToDisplay[0].index : -1;
+        console.log(`⚠️ Selected destination no longer pending, using first pending: ${activeDestinationIndex}`);
       }
     } else {
-      // For non-active trips, show all destinations
-      if (selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries.length > 0) {
-        destinationsToDisplay = selectedBooking.destinationDeliveries.map(d => ({
-          address: d.destinationAddress,
-          index: d.destinationIndex,
-          isPending: false,
-          latitude: d.latitude,
-          longitude: d.longitude
-        }));
-      } else {
-        destinationsToDisplay = destinations.map((addr, idx) => ({
-          address: addr,
-          index: idx,
-          isPending: false
-        }));
-      }
+      // No active destination set, use the first pending destination
+      activeDestinationIndex = destinationsToDisplay.length > 0 ? destinationsToDisplay[0].index : -1;
+      console.log(`📍 No active destination set, using first pending: ${activeDestinationIndex}`);
     }
+  } else {
+    // Fallback for old bookings without destination tracking
+    destinationsToDisplay = destinations.map((addr, idx) => ({
+      address: addr,
+      index: idx,
+      isPending: true
+    }));
+    activeDestinationIndex = selectedBooking.activeDestinationIndex ?? 0;
+  }
+} else {
+  // For non-active trips, show all destinations
+  if (selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries.length > 0) {
+    destinationsToDisplay = selectedBooking.destinationDeliveries.map(d => ({
+      address: d.destinationAddress,
+      index: d.destinationIndex,
+      isPending: false,
+      latitude: d.latitude,
+      longitude: d.longitude
+    }));
+  } else {
+    destinationsToDisplay = destinations.map((addr, idx) => ({
+      address: addr,
+      index: idx,
+      isPending: false
+    }));
+  }
+}
 
-    console.log(`🗺️ Displaying ${destinationsToDisplay.length} destinations:`, destinationsToDisplay);
+console.log(`🗺️ Displaying ${destinationsToDisplay.length} destinations, active index: ${activeDestinationIndex}`);
 
     // Add destination markers
     for (let i = 0; i < destinationsToDisplay.length; i++) {

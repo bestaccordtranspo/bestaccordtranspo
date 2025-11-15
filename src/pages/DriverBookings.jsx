@@ -18,6 +18,7 @@ import {
   Building,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Phone,
   Weight,
   Award,

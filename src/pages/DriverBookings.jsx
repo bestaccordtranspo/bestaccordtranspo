@@ -384,6 +384,12 @@ const getDestinations = (booking) => {
 const createMap = async () => {
   if (!mapRef.current) return;
 
+  // Check if map already exists and return early
+  if (mapInstance.current) {
+    console.warn('⚠️ Map already exists, skipping creation');
+    return;
+  }
+
   const L = window.L;
   const map = L.map(mapRef.current).setView([14.5995, 120.9842], 10);
 

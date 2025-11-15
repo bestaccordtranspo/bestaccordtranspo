@@ -332,18 +332,27 @@ const getDestinations = (booking) => {
   const initializeMap = async () => {
     if (!selectedBooking || !mapRef.current) return;
 
+    // IMPORTANT: Clean up existing map instance properly
     if (mapInstance.current) {
-      mapInstance.current.remove();
-      mapInstance.current = null;
+      try {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      } catch (err) {
+        console.warn("Error removing map:", err);
+        mapInstance.current = null;
+      }
     }
+
+    // Small delay to ensure DOM is ready
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     try {
       if (window.L) {
-        createMap();
+        await createMap();
       } else {
         const leafletScript = document.createElement('script');
         leafletScript.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        leafletScript.onload = createMap;
+        leafletScript.onload = () => createMap();
         document.head.appendChild(leafletScript);
       }
     } catch (error) {
@@ -1042,7 +1051,17 @@ const updateDestinationOrder = async (destinationIndex) => {
         // Wait for state to update, then reinitialize map with new route
         setTimeout(() => {
           console.log('🗺️ Reinitializing map with new active destination:', destinationIndex);
-          initializeMap();
+          // Force cleanup before reinitializing
+          if (mapInstance.current) {
+            try {
+              mapInstance.current.remove();
+              mapInstance.current = null;
+            } catch (err) {
+              console.warn("Cleanup error:", err);
+            }
+          }
+          // Reinitialize after cleanup
+          setTimeout(() => initializeMap(), 150);
         }, 300);
 
         alert(`✅ Route updated! Now heading to Stop ${destinationIndex + 1}`);

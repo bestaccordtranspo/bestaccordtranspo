@@ -1285,17 +1285,35 @@ useEffect(() => {
                         </span>
                       </div>
                       
-                      {getDestinations(booking).map((dest, idx) => (
-                        <div key={idx} className="flex items-center gap-2 mt-1">
-                          <MapPin className="w-3 h-3 text-red-400 flex-shrink-0" />
-                          <span className="text-xs text-purple-300">
-                            {getDestinations(booking).length > 1 ? `To (${idx + 1}):` : 'To:'}
-                          </span>
-                          <span className="font-medium text-xs text-white">
-                            {dest.length > 30 ? dest.substring(0, 30) + '...' : dest}
-                          </span>
-                        </div>
-                      ))}
+                      {/* Display destinations from destinationDeliveries if available */}
+                      {booking.destinationDeliveries && booking.destinationDeliveries.length > 0 ? (
+                        booking.destinationDeliveries.map((dest, idx) => (
+                          <div key={idx} className="flex items-center gap-2 mt-1">
+                            <MapPin className="w-3 h-3 text-red-400 flex-shrink-0" />
+                            <span className="text-xs text-purple-300">
+                              {booking.destinationDeliveries.length > 1 ? `To (${idx + 1}):` : 'To:'}
+                            </span>
+                            <span className="font-medium text-xs text-white">
+                              {dest.destinationAddress && dest.destinationAddress.length > 30 
+                                ? dest.destinationAddress.substring(0, 30) + '...' 
+                                : dest.destinationAddress || 'N/A'}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        /* Fallback for old booking format */
+                        getDestinations(booking).map((dest, idx) => (
+                          <div key={idx} className="flex items-center gap-2 mt-1">
+                            <MapPin className="w-3 h-3 text-red-400 flex-shrink-0" />
+                            <span className="text-xs text-purple-300">
+                              {getDestinations(booking).length > 1 ? `To (${idx + 1}):` : 'To:'}
+                            </span>
+                            <span className="font-medium text-xs text-white">
+                              {dest.length > 30 ? dest.substring(0, 30) + '...' : dest}
+                            </span>
+                          </div>
+                        ))
+                      )}
                     </div>
 
                     {/* Date & Time */}
@@ -1508,6 +1526,7 @@ useEffect(() => {
                       </button>
                       {expandedSections.route && (
                         <div className="px-4 pb-4 space-y-3">
+                          {/* Origin */}
                           <div className="flex items-start gap-3">
                             <div className="w-3 h-3 bg-green-500 rounded-full mt-1.5 flex-shrink-0"></div>
                             <div className="flex-1">
@@ -1516,21 +1535,61 @@ useEffect(() => {
                             </div>
                           </div>
                           
-                          {getDestinations(selectedBooking).map((destination, idx) => (
-                            <React.Fragment key={idx}>
-                              <div className="border-l-2 border-gray-200 ml-1.5 h-4"></div>
-                              <div className="flex items-start gap-3">
-                                <div className="w-3 h-3 bg-red-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                                <div className="flex-1">
-                                  <p className="text-sm font-medium text-gray-900">
-                                    {getDestinations(selectedBooking).length > 1 ? `Destination ${idx + 1}` : 'Destination'}
-                                  </p>
-                                  <p className="text-sm text-gray-600">{destination}</p>
+                          {/* Destinations - Using destinationDeliveries for accurate data */}
+                          {selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries.length > 0 ? (
+                            selectedBooking.destinationDeliveries.map((dest, idx) => (
+                              <React.Fragment key={idx}>
+                                <div className="border-l-2 border-gray-200 ml-1.5 h-4"></div>
+                                <div className="flex items-start gap-3">
+                                  <div className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${
+                                    dest.status === 'delivered' ? 'bg-green-500' : 'bg-red-500'
+                                  }`}></div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <p className="text-sm font-medium text-gray-900">
+                                        {selectedBooking.destinationDeliveries.length > 1 ? `Destination ${idx + 1}` : 'Destination'}
+                                      </p>
+                                      {dest.status === 'delivered' && (
+                                        <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-medium">
+                                          Delivered
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-sm text-gray-600">{dest.destinationAddress}</p>
+                                    {dest.customerEstablishmentName && (
+                                      <p className="text-xs text-gray-500 mt-1">
+                                        <Building className="w-3 h-3 inline mr-1" />
+                                        {dest.customerEstablishmentName}
+                                      </p>
+                                    )}
+                                    {dest.deliveredAt && (
+                                      <p className="text-xs text-green-600 mt-1">
+                                        Delivered at {new Date(dest.deliveredAt).toLocaleString()}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            </React.Fragment>
-                          ))}
+                              </React.Fragment>
+                            ))
+                          ) : (
+                            /* Fallback for old booking format */
+                            getDestinations(selectedBooking).map((destination, idx) => (
+                              <React.Fragment key={idx}>
+                                <div className="border-l-2 border-gray-200 ml-1.5 h-4"></div>
+                                <div className="flex items-start gap-3">
+                                  <div className="w-3 h-3 bg-red-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                                  <div className="flex-1">
+                                    <p className="text-sm font-medium text-gray-900">
+                                      {getDestinations(selectedBooking).length > 1 ? `Destination ${idx + 1}` : 'Destination'}
+                                    </p>
+                                    <p className="text-sm text-gray-600">{destination}</p>
+                                  </div>
+                                </div>
+                              </React.Fragment>
+                            ))
+                          )}
                           
+                          {/* Schedule Info */}
                           <div className="flex items-center gap-4 text-sm text-gray-600 mt-4 bg-gray-50 p-2 rounded">
                             <div className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
@@ -1541,6 +1600,28 @@ useEffect(() => {
                               {selectedBooking.timeNeeded}
                             </div>
                           </div>
+                          
+                          {/* Distance and Fee if available */}
+                          {(selectedBooking.totalDistance || selectedBooking.deliveryFee) && (
+                            <div className="mt-3 pt-3 border-t border-gray-200 grid grid-cols-2 gap-3">
+                              {selectedBooking.totalDistance && (
+                                <div className="bg-blue-50 p-2 rounded">
+                                  <p className="text-xs text-gray-600">Total Distance</p>
+                                  <p className="text-sm font-semibold text-blue-700">
+                                    {selectedBooking.totalDistance.toFixed(2)} km
+                                  </p>
+                                </div>
+                              )}
+                              {selectedBooking.deliveryFee && (
+                                <div className="bg-green-50 p-2 rounded">
+                                  <p className="text-xs text-gray-600">Delivery Fee</p>
+                                  <p className="text-sm font-semibold text-green-700">
+                                    ₱{selectedBooking.deliveryFee.toLocaleString()}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

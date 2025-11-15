@@ -521,29 +521,7 @@ const createMap = async () => {
   const allCoordinates = [];
 
   try {
-  // Helper function to fetch client coordinates from database
-    const fetchClientCoordinates = async (address) => {
-      try {
-        console.log(`🔍 Fetching coordinates from database for: "${address}"`);
-        const response = await axiosClient.get(`/api/clients/by-address?address=${encodeURIComponent(address)}`);
-
-        if (response.data && response.data.address?.latitude && response.data.address?.longitude) {
-          console.log(`✅ Found coordinates in database: [${response.data.address.latitude}, ${response.data.address.longitude}]`);
-          return {
-            coords: [response.data.address.latitude, response.data.address.longitude],
-            displayName: address,
-            confidence: 'exact',
-            source: 'database'
-          };
-        }
-        return null;
-      } catch (error) {
-        console.error('Error fetching client coordinates:', error);
-        return null;
-      }
-    };
-
-    // Add origin marker with priority: booking coords -> database -> geocoding
+    // Add origin marker
     let originResult = null;
     if (selectedBooking.originAddress) {
       // PRIORITY 1: Check booking coordinates first
@@ -555,24 +533,14 @@ const createMap = async () => {
           source: 'booking'
         };
         console.log('✅ Using stored origin coordinates from booking');
-      } 
-      // PRIORITY 2: Try client database
-      else {
-        originResult = await fetchClientCoordinates(selectedBooking.originAddress);
-      }
-
-      // PRIORITY 3: Fallback to geocoding
-      if (!originResult) {
-        console.log(`⚠️ No stored coordinates for origin, using geocoding...`);
-        originResult = await geocodeAddressForRoute(selectedBooking.originAddress);
+      } else {
+        originResult = await geocodeAddress(selectedBooking.originAddress);
       }
 
       if (originResult && originResult.coords) {
         allCoordinates.push(originResult.coords);
         
-        const confidenceText = originResult.source === 'database'
-          ? '✓ Exact location (from database)'
-          : originResult.confidence === 'high'
+        const confidenceText = originResult.confidence === 'high'
           ? '✓ Geocoded (high accuracy)'
           : originResult.confidence === 'medium'
           ? '⚠️ Approximate area'
@@ -595,132 +563,136 @@ const createMap = async () => {
           </div>
         `);
       }
-        }
+    }
 
     // Get all destinations
     const destinations = getDestinations(selectedBooking);
     
+    // 🎯 Determine which destinations to show based on delivery status
+    let destinationsToDisplay = [];
+    let activeDestinationIndex = -1;
+    let activeDestCoords = null;
+
+    if (selectedBooking.status === "In Transit" || selectedBooking.status === "On Trip") {
+      // Show only pending destinations
+      if (selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries.length > 0) {
+        destinationsToDisplay = selectedBooking.destinationDeliveries
+          .filter(d => d.status === 'pending')
+          .map(d => ({
+            address: d.destinationAddress,
+            index: d.destinationIndex,
+            isPending: true,
+            latitude: d.latitude,
+            longitude: d.longitude
+          }));
+        
+        // The first pending destination is the active one
+        if (destinationsToDisplay.length > 0) {
+          activeDestinationIndex = destinationsToDisplay[0].index;
+        }
+      } else {
+        // Fallback for old bookings without destination tracking
+        destinationsToDisplay = destinations.map((addr, idx) => ({
+          address: addr,
+          index: idx,
+          isPending: true
+        }));
+        activeDestinationIndex = 0;
+      }
+    } else {
+      // For non-active trips, show all destinations
+      if (selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries.length > 0) {
+        destinationsToDisplay = selectedBooking.destinationDeliveries.map(d => ({
+          address: d.destinationAddress,
+          index: d.destinationIndex,
+          isPending: false,
+          latitude: d.latitude,
+          longitude: d.longitude
+        }));
+      } else {
+        destinationsToDisplay = destinations.map((addr, idx) => ({
+          address: addr,
+          index: idx,
+          isPending: false
+        }));
+      }
+    }
+
+    console.log(`🗺️ Displaying ${destinationsToDisplay.length} destinations:`, destinationsToDisplay);
+
     // Add destination markers
-    for (let i = 0; i < destinations.length; i++) {
-      const destAddress = destinations[i];
+    for (let i = 0; i < destinationsToDisplay.length; i++) {
+      const destInfo = destinationsToDisplay[i];
+      const destAddress = destInfo.address;
+      
       if (destAddress) {
         let destResult = null;
         
-        // PRIORITY 1: Check if destination has stored coordinates in destinationDeliveries
-        if (selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries[i]) {
-          const dest = selectedBooking.destinationDeliveries[i];
-          if (dest.latitude && dest.longitude) {
-            destResult = {
-              coords: [dest.latitude, dest.longitude],
-              displayName: destAddress,
-              confidence: 'exact',
-              source: 'booking'
-            };
-            console.log(`✅ Using stored destination coordinates from booking for stop ${i + 1}`);
-          }
-        }
-        
-        // PRIORITY 2: Try branch database
-        if (!destResult) {
-          destResult = await fetchClientCoordinates(destAddress);
-        }
-
-        // PRIORITY 3: Fallback to geocoding
-        if (!destResult) {
-          console.log(`⚠️ No stored coordinates for "${destAddress}", using geocoding...`);
-          destResult = await geocodeAddressForRoute(destAddress);
+        // PRIORITY 1: Check if destination has stored coordinates
+        if (destInfo.latitude && destInfo.longitude) {
+          destResult = {
+            coords: [destInfo.latitude, destInfo.longitude],
+            displayName: destAddress,
+            confidence: 'exact',
+            source: 'booking'
+          };
+          console.log(`✅ Using stored destination coordinates from booking for stop ${destInfo.index + 1}`);
+        } else {
+          // PRIORITY 2: Fallback to geocoding
+          destResult = await geocodeAddress(destAddress);
         }
 
         if (destResult && destResult.coords) {
           allCoordinates.push(destResult.coords);
 
           const colors = [
-            { fill: '#ef4444', name: 'red' },
-            { fill: '#f59e0b', name: 'amber' },
-            { fill: '#8b5cf6', name: 'purple' },
-            { fill: '#ec4899', name: 'pink' },
-            { fill: '#06b6d4', name: 'cyan' }
+            { fill: '#ef4444', border: '#dc2626' },
+            { fill: '#f59e0b', border: '#d97706' },
+            { fill: '#8b5cf6', border: '#7c3aed' },
+            { fill: '#ec4899', border: '#db2777' },
+            { fill: '#06b6d4', border: '#0891b2' }
           ];
-          const color = colors[i % colors.length];
-          
-          const stopLabel = destinations.length > 1 ? `Stop ${i + 1}` : 'Destination';
-          
-          const confidenceText = destResult.source === 'database'
-            ? '✓ Exact location (from database)'
-            : destResult.confidence === 'high'
-            ? '✓ Geocoded (high accuracy)'
-            : destResult.confidence === 'medium'
-            ? '⚠️ Approximate area'
-            : destResult.confidence === 'fallback'
-            ? '📍 City center (approximate)'
-            : '📍 General area';
+          const color = colors[destInfo.index % colors.length];
+
+          // Highlight the active destination differently
+          const isActive = destInfo.index === activeDestinationIndex;
+          const markerRadius = isActive ? 12 : 10;
+          const markerColor = isActive ? '#ff0000' : color.fill;
+
+          // Store active destination coordinates for routing
+          if (isActive) {
+            activeDestCoords = destResult.coords;
+          }
 
           L.circleMarker(destResult.coords, {
-            radius: 10,
-            fillColor: color.fill,
+            radius: markerRadius,
+            fillColor: markerColor,
             color: '#ffffff',
-            weight: 3,
+            weight: isActive ? 4 : 3,
             opacity: 1,
-            fillOpacity: 0.9
+            fillOpacity: isActive ? 1 : 0.9
           }).addTo(map).bindPopup(`
-            <div style="min-width: 150px;">
-              <strong style="color: ${color.fill};">📍 ${stopLabel}</strong><br/>
-              <p style="margin: 4px 0; font-size: 11px;">${destAddress}</p>
-              <p style="margin: 2px 0 0 0; font-size: 9px; color: #6b7280;">${confidenceText}</p>
+            <div style="min-width: 200px;">
+              <strong style="color: ${markerColor}; font-size: 14px;">📍 ${destinations.length > 1 ? `Stop ${destInfo.index + 1}` : 'Destination'}${isActive ? ' (Next)' : ''}</strong><br/>
+              <p style="margin: 8px 0 0 0; font-size: 12px;">${destAddress}</p>
+              ${isActive ? '<p style="margin: 4px 0 0 0; font-size: 10px; color: #ef4444; font-weight: bold;">→ Current destination</p>' : ''}
             </div>
           `);
-
-          // Draw OSRM route line from origin to each destination
-          if (originResult && originResult.coords) {
-            const route = await getRoute(originResult.coords, destResult.coords);
-            
-            if (route && route.coordinates) {
-              console.log(`🗺️ OSRM route to destination ${i + 1}: ${route.distance}km, ${route.duration}min`);
-              
-              // Draw the actual road route
-              L.polyline(route.coordinates, {
-                color: color.fill,
-                weight: 4,
-                opacity: 0.8,
-              }).addTo(map);
-              
-              // Add distance label
-              const midpoint = route.coordinates[Math.floor(route.coordinates.length / 2)];
-              L.marker(midpoint, {
-                icon: L.divIcon({
-                  className: 'route-label',
-                  html: `<div style="background: white; padding: 4px 8px; border-radius: 4px; border: 2px solid ${color.fill}; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); white-space: nowrap;">
-                          ${route.distance}km • ${route.duration}min
-                        </div>`,
-                  iconSize: [100, 30],
-                  iconAnchor: [50, 15]
-                })
-              }).addTo(map);
-            } else {
-              // Fallback to straight line if OSRM fails
-              console.log(`⚠️ OSRM routing failed for destination ${i + 1}, using straight line`);
-              L.polyline([originResult.coords, destResult.coords], {
-                color: color.fill,
-                weight: 3,
-                opacity: 0.7,
-                dashArray: '10, 5'
-              }).addTo(map);
-            }
-          }
         }
       }
     }
 
-    // Add driver's current location marker (truck icon)
-    if (selectedBooking.driverLocation && 
-        selectedBooking.driverLocation.latitude && 
-        selectedBooking.driverLocation.longitude) {
-      
+    // 🚚 ADD DRIVER LOCATION AND ROUTE LOGIC HERE
+    if (selectedBooking.driverLocation &&
+        selectedBooking.driverLocation.latitude &&
+        selectedBooking.driverLocation.longitude &&
+        (selectedBooking.status === "In Transit" || selectedBooking.status === "On Trip")) {
+
       const driverCoords = [
-        selectedBooking.driverLocation.latitude, 
+        selectedBooking.driverLocation.latitude,
         selectedBooking.driverLocation.longitude
       ];
-      
+
       allCoordinates.push(driverCoords);
 
       // Create custom truck icon
@@ -741,21 +713,42 @@ const createMap = async () => {
         ? `±${Math.round(selectedBooking.driverLocation.accuracy)}m`
         : 'Unknown';
 
+      const getTimeSinceUpdate = () => {
+        if (!selectedBooking.driverLocation.lastUpdated) return 'Unknown';
+
+        const now = new Date();
+        const lastUpdateTime = new Date(selectedBooking.driverLocation.lastUpdated);
+        const diffMs = now - lastUpdateTime;
+        const diffMins = Math.floor(diffMs / 60000);
+
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+
+        const diffHours = Math.floor(diffMins / 60);
+        return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+      };
+
       truckMarker.bindPopup(`
-        <div style="min-width: 180px;">
-          <strong style="color: #3B82F6; font-size: 14px;">🚚 Your Location</strong><br/>
+        <div style="min-width: 220px;">
+          <strong style="color: #3B82F6; font-size: 14px;">🚚 Your Current Location</strong><br/>
           <p style="margin: 8px 0 4px 0; font-size: 11px;">
+            <strong>Trip:</strong> ${selectedBooking.tripNumber}<br/>
+            <strong>Status:</strong> ${selectedBooking.status}
+          </p>
+          <hr style="margin: 8px 0; border: 0; border-top: 1px solid #e5e7eb;"/>
+          <p style="margin: 4px 0; font-size: 11px;">
             <strong>Coordinates:</strong><br/>
             ${driverCoords[0].toFixed(6)}, ${driverCoords[1].toFixed(6)}
           </p>
           <p style="margin: 4px 0; font-size: 10px; color: #6b7280;">
-            <strong>Last Updated:</strong> ${lastUpdated}
+            <strong>Last Updated:</strong> ${getTimeSinceUpdate()}<br/>
+            <span style="font-size: 9px;">${lastUpdated}</span>
           </p>
           <p style="margin: 4px 0; font-size: 10px; color: #6b7280;">
-            <strong>Accuracy:</strong> ${accuracy}
+            <strong>GPS Accuracy:</strong> ${accuracy}
           </p>
-          <p style="margin: 4px 0 0 0; font-size: 9px; color: #059669;">
-            ✓ Real-time GPS tracking
+          <p style="margin: 6px 0 0 0; font-size: 9px; color: #059669; background: #d1fae5; padding: 4px 6px; border-radius: 4px;">
+            ✓ Live GPS tracking (updates every 5 min)
           </p>
         </div>
       `);
@@ -771,18 +764,73 @@ const createMap = async () => {
           opacity: 0.3
         }).addTo(map);
       }
+
+      // 🎯 DRAW ROUTE TO APPROPRIATE DESTINATION
+      let routeDestination = null;
+      let routeLabel = '';
+
+      if (!selectedBooking.originPickedUp && originResult && originResult.coords) {
+        // Route to origin for pickup
+        routeDestination = originResult.coords;
+        routeLabel = '🚚 En route to Origin for Pickup';
+        console.log('📍 Drawing route from driver to origin (pickup pending)');
+      } else if (activeDestCoords) {
+        // Route to active (next pending) destination
+        routeDestination = activeDestCoords;
+        routeLabel = `🚚 En route to ${destinationsToDisplay.length > 1 ? `Stop ${activeDestinationIndex + 1}` : 'Destination'}`;
+        console.log(`📍 Drawing route from driver to active destination (index ${activeDestinationIndex})`);
+      }
+
+      if (routeDestination) {
+        const driverRoute = await getRoute(driverCoords, routeDestination);
+        
+        if (driverRoute && driverRoute.coordinates) {
+          console.log(`✅ Route found! Distance: ${driverRoute.distance}km, Duration: ${driverRoute.duration}min`);
+          
+          // Draw the route in bold blue
+          L.polyline(driverRoute.coordinates, {
+            color: '#3B82F6',
+            weight: 5,
+            opacity: 0.8,
+          }).addTo(map);
+
+          // Add distance/time label on the route
+          const midpoint = driverRoute.coordinates[Math.floor(driverRoute.coordinates.length / 2)];
+          L.marker(midpoint, {
+            icon: L.divIcon({
+              className: 'route-label',
+              html: `<div style="background: white; padding: 6px 10px; border-radius: 6px; border: 2px solid #3B82F6; font-size: 12px; font-weight: bold; box-shadow: 0 2px 6px rgba(0,0,0,0.2); white-space: nowrap;">
+                      ${routeLabel}<br/>
+                      <span style="font-size: 11px; color: #6b7280;">${driverRoute.distance}km • ${driverRoute.duration} min</span>
+                    </div>`,
+              iconSize: [180, 40],
+              iconAnchor: [90, 20]
+            })
+          }).addTo(map);
+
+        } else {
+          console.log(`⚠️ OSRM routing failed, using straight line`);
+          L.polyline([driverCoords, routeDestination], {
+            color: '#3B82F6',
+            weight: 4,
+            opacity: 0.7,
+            dashArray: '10, 5'
+          }).addTo(map);
+        }
+      }
     }
 
     // Fit map to show all markers
     if (allCoordinates.length > 0) {
       const bounds = L.latLngBounds(allCoordinates);
       map.fitBounds(bounds, { 
-        padding: [20, 20],
-        maxZoom: 14
+        padding: [50, 50],
+        maxZoom: 15
       });
     } else {
       map.setView([14.5995, 120.9842], 10);
     }
+
   } catch (error) {
     console.error('Error creating map markers:', error);
   }

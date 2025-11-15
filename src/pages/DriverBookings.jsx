@@ -203,6 +203,7 @@ const stopLocationTracking = () => {
   const mapInstance = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const mapInitializing = useRef(false);
 
 const getDestinations = (booking) => {
   if (!booking.destinationAddress) return [];
@@ -335,26 +336,33 @@ const getDestinations = (booking) => {
       return;
     }
 
-    console.log('🗺️ Initializing map for booking:', selectedBooking.tripNumber);
-
-    // Clean up existing map instance if it exists
-    if (mapInstance.current) {
-      console.log('🗺️ Cleaning up existing map instance...');
-      try {
-        mapInstance.current.off(); // Remove all event listeners
-        mapInstance.current.remove();
-        mapInstance.current = null;
-        console.log('✅ Existing map cleaned up');
-      } catch (err) {
-        console.warn("⚠️ Error removing map:", err);
-        mapInstance.current = null;
-      }
-      
-      // Wait for cleanup to fully complete
-      await new Promise(resolve => setTimeout(resolve, 150));
+    // CRITICAL: Prevent concurrent initializations
+    if (mapInitializing.current) {
+      console.warn('⚠️ Map is already being initialized, skipping...');
+      return;
     }
 
+    mapInitializing.current = true;
+    console.log('🗺️ Initializing map for booking:', selectedBooking.tripNumber);
+
     try {
+      // Clean up existing map instance if it exists
+      if (mapInstance.current) {
+        console.log('🗺️ Cleaning up existing map instance...');
+        try {
+          mapInstance.current.off();
+          mapInstance.current.remove();
+          mapInstance.current = null;
+          console.log('✅ Existing map cleaned up');
+        } catch (err) {
+          console.warn("⚠️ Error removing map:", err);
+          mapInstance.current = null;
+        }
+        
+        // Wait for cleanup to fully complete
+        await new Promise(resolve => setTimeout(resolve, 150));
+      }
+
       if (window.L) {
         console.log('✅ Leaflet loaded, creating map...');
         await createMap();
@@ -362,14 +370,18 @@ const getDestinations = (booking) => {
         console.log('📦 Loading Leaflet library...');
         const leafletScript = document.createElement('script');
         leafletScript.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        leafletScript.onload = () => {
+        leafletScript.onload = async () => {
           console.log('✅ Leaflet loaded, creating map...');
-          createMap();
+          await createMap();
+          mapInitializing.current = false;
         };
         document.head.appendChild(leafletScript);
+        return; // Exit early, the onload will handle the flag
       }
     } catch (error) {
       console.error('❌ Error loading map:', error);
+    } finally {
+      mapInitializing.current = false;
     }
   };
 
@@ -1018,31 +1030,19 @@ const markSingleDestinationDelivered = async (destinationIndex) => {
   }
 };
 
-// Update active destination order
-const updateDestinationOrder = async (destinationIndex) => {
-  if (!selectedBooking) return;
+  const updateDestinationOrder = async (destinationIndex) => {
+    if (!selectedBooking) return;
 
-  setUpdating(true);
-  try {
-    const token = localStorage.getItem("driverToken");
+    setUpdating(true);
+    try {
+      const token = localStorage.getItem("driverToken");
 
-    // Update the selected destination to be the next active one
-    const response = await axiosClient.put(
-      `/api/driver/bookings/${selectedBooking._id}/set-active-destination`,
-      { 
-        destinationIndex: destinationIndex
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      // Update the selected destination to be the next active one
+      const response = await axiosClient.put(
+        `/api/driver/bookings/${selectedBooking._id}/set-active-destination`,
+        { 
+          destinationIndex: destinationIndex
         },
-      }
-    );
-
-    if (response.data.success) {
-      // Fetch fresh booking data from server
-      const updatedBookingResponse = await axiosClient.get(
-        `/api/driver/bookings/${selectedBooking._id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1050,59 +1050,46 @@ const updateDestinationOrder = async (destinationIndex) => {
         }
       );
 
-      if (updatedBookingResponse.data.success) {
-        // Update local state with fresh data
-        const freshBooking = updatedBookingResponse.data.booking;
-        setSelectedBooking(freshBooking);
-
-        // Also update the bookings list
-        setBookings(prevBookings =>
-          prevBookings.map(booking =>
-            booking._id === selectedBooking._id
-              ? freshBooking
-              : booking
-          )
+      if (response.data.success) {
+        // Fetch fresh booking data from server
+        const updatedBookingResponse = await axiosClient.get(
+          `/api/driver/bookings/${selectedBooking._id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
 
-        // Close selector first
-        setShowDestinationSelector(false);
+        if (updatedBookingResponse.data.success) {
+          // Update local state with fresh data
+          const freshBooking = updatedBookingResponse.data.booking;
+          
+          // Close selector first
+          setShowDestinationSelector(false);
+          
+          // Update state - this will trigger useEffect to reinitialize the map
+          setSelectedBooking(freshBooking);
 
-        // Wait a moment, then clean up and reinitialize map
-        setTimeout(async () => {
-          console.log('🗺️ Preparing to update route to destination:', destinationIndex);
-          
-          // Force complete cleanup
-          if (mapInstance.current) {
-            try {
-              console.log('🗺️ Removing existing map...');
-              mapInstance.current.remove();
-              mapInstance.current = null;
-              console.log('✅ Map removed successfully');
-            } catch (err) {
-              console.warn("⚠️ Cleanup error:", err);
-              mapInstance.current = null;
-            }
-          }
-          
-          // Wait for cleanup to complete
-          await new Promise(resolve => setTimeout(resolve, 200));
-          
-          // Now reinitialize with fresh data
-          console.log('🗺️ Reinitializing map with new route...');
-          await initializeMap();
-          console.log('✅ Map reinitialized');
-        }, 400);
+          // Also update the bookings list
+          setBookings(prevBookings =>
+            prevBookings.map(booking =>
+              booking._id === selectedBooking._id
+                ? freshBooking
+                : booking
+            )
+          );
 
-        alert(`✅ Route updated! Now heading to Stop ${destinationIndex + 1}`);
+          alert(`✅ Route updated! Now heading to Stop ${destinationIndex + 1}`);
+        }
       }
+    } catch (err) {
+      console.error("❌ Error updating destination order:", err);
+      alert(err.response?.data?.msg || "Failed to update destination order");
+    } finally {
+      setUpdating(false);
     }
-  } catch (err) {
-    console.error("❌ Error updating destination order:", err);
-    alert(err.response?.data?.msg || "Failed to update destination order");
-  } finally {
-    setUpdating(false);
-  }
-};
+  };
 
 const markAsCompleted = async () => {
   if (!selectedBooking || !capturedImage) return;
@@ -1277,31 +1264,19 @@ const fetchBookings = async () => {
 
   useEffect(() => {
     if (showModal && selectedBooking && mapRef.current) {
-      console.log('🗺️ Modal/booking state changed, updating map...', {
+      console.log('🗺️ Modal/booking state changed, scheduling map update...', {
         tripNumber: selectedBooking.tripNumber,
         activeDestinationIndex: selectedBooking.activeDestinationIndex
       });
       
-      // Use async function to handle the delay properly
-      const updateMap = async () => {
-        // Clean up first
-        if (mapInstance.current) {
-          try {
-            mapInstance.current.remove();
-            mapInstance.current = null;
-          } catch (err) {
-            mapInstance.current = null;
-          }
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        
-        // Then initialize
-        await initializeMap();
-      };
+      // Add a small delay to let React finish updating
+      const timer = setTimeout(() => {
+        initializeMap();
+      }, 200);
       
-      updateMap();
+      return () => clearTimeout(timer);
     }
-  }, [showModal, selectedBooking, selectedBooking?.activeDestinationIndex]);
+  }, [showModal, selectedBooking?.tripNumber, selectedBooking?.activeDestinationIndex]);
 
   useEffect(() => {
     fetchBookings();

@@ -345,68 +345,20 @@ function Client() {
   const closeModal = () => setShowModal(false);
 
   useEffect(() => {
-    // Build formatted address from selected fields
+    // Build formatted address from selected fields - ONLY HOUSE NUMBER
     const buildAddressString = () => {
-      const parts = [];
-
-      // Add house number and street if available
-      if (formData.houseNumber) parts.push(formData.houseNumber);
-      if (formData.street) parts.push(formData.street);
-
-      // Add barangay
-      if (formData.barangay) {
-        const barangay = barangays.find((b) => b.code === formData.barangay);
-        if (barangay) parts.push(barangay.name);
-      }
-
-      // Add city/municipality
-      if (formData.city) {
-        const city = cities.find((c) => c.code === formData.city);
-        if (city) parts.push(city.name);
-      }
-
-      // Add province (skip for Metro Manila)
-      if (formData.region !== "130000000" && formData.province) {
-        const province = provinces.find((p) => p.code === formData.province);
-        if (province) parts.push(province.name);
-      }
-
-      // Add region
-      if (formData.region) {
-        const region = regions.find((r) => r.code === formData.region);
-        if (region) {
-          // Simplify region name for better geocoding
-          if (formData.region === "130000000") {
-            parts.push("Metro Manila");
-          } else {
-            parts.push(region.name);
-          }
-        }
-      }
-
-      // Always add Philippines for better geocoding accuracy
-      parts.push("Philippines");
-
-      return parts.filter(Boolean).join(", ");
+      // ONLY return house/building number, nothing else
+      return formData.houseNumber || "";
     };
 
-    // Update address search when any address field changes
-    if (formData.region && formData.city) {
+    // Update address search when house number changes
+    if (formData.houseNumber) {
       const formattedAddress = buildAddressString();
       setAddressSearch(formattedAddress);
+    } else {
+      setAddressSearch(""); // Clear if no house number
     }
-  }, [
-    formData.houseNumber,
-    formData.street,
-    formData.barangay,
-    formData.city,
-    formData.province,
-    formData.region,
-    barangays,
-    cities,
-    provinces,
-    regions,
-  ]);
+  }, [formData.houseNumber]);
 
   // Initialize map when modal opens
   useEffect(() => {
@@ -509,38 +461,83 @@ function Client() {
     }
 
     try {
-      console.log("🔍 Searching for address:", addressSearch);
+      console.log("🔍 Starting intelligent address search:", addressSearch);
 
-      // Try multiple search strategies
-      const searchQueries = [
-        addressSearch, // Full address as is
-        addressSearch.replace(/Barangay /gi, ""), // Remove "Barangay" prefix if exists
-        // Simplified version with just city and region
-        (() => {
-          const parts = addressSearch.split(",").map((s) => s.trim());
-          if (parts.length >= 3) {
-            // Take last 3 parts: City, Province/Metro Manila, Philippines
-            return parts.slice(-3).join(", ");
-          }
-          return addressSearch;
-        })(),
-      ];
+      // Build progressive search queries from most detailed to least detailed
+      const searchStrategies = [];
 
-      let foundLocation = null;
+      // Get component values
+      const getComponentValue = (list, code) => {
+        const found = list.find((item) => item.code === code);
+        return found ? found.name : null;
+      };
 
-      for (let i = 0; i < searchQueries.length; i++) {
-        const query = searchQueries[i];
-        console.log(`📍 Attempt ${i + 1}/${searchQueries.length}: "${query}"`);
+      const houseNum = formData.houseNumber;
+      // const street = formData.street; // REMOVED - not using street
+      const barangay = getComponentValue(barangays, formData.barangay);
+      const city = getComponentValue(cities, formData.city);
+      const province =
+        formData.region === "130000000"
+          ? "Metro Manila"
+          : getComponentValue(provinces, formData.province);
+
+      // Strategy 1: House number + Barangay + City (without street)
+      if (houseNum && barangay && city) {
+        searchStrategies.push({
+          query: `${houseNum}, ${barangay}, ${city}, ${province}, Philippines`,
+          label: "House number with Barangay and City",
+          zoom: 17,
+        });
+      }
+
+      // Strategy 2: Barangay + City (most reliable for PH)
+      if (barangay && city) {
+        searchStrategies.push({
+          query: `${barangay}, ${city}, ${province}, Philippines`,
+          label: "Barangay and City",
+          zoom: 16,
+        });
+      }
+
+      // Strategy 4: Just City and Province (fallback)
+      if (city && province) {
+        searchStrategies.push({
+          query: `${city}, ${province}, Philippines`,
+          label: "City only",
+          zoom: 14,
+        });
+      }
+
+      // Strategy 5: User's custom input
+      if (addressSearch !== searchStrategies[0]?.query) {
+        searchStrategies.push({
+          query: addressSearch,
+          label: "Custom search",
+          zoom: 15,
+        });
+      }
+
+      console.log(`📋 Prepared ${searchStrategies.length} search strategies`);
+
+      let bestResult = null;
+      let usedStrategy = null;
+
+      for (let i = 0; i < searchStrategies.length; i++) {
+        const strategy = searchStrategies[i];
+        console.log(
+          `\n🔍 Strategy ${i + 1}/${searchStrategies.length}: ${strategy.label}`
+        );
+        console.log(`   Query: "${strategy.query}"`);
 
         try {
           const response = await axios.get(
             "https://nominatim.openstreetmap.org/search",
             {
               params: {
-                q: query,
+                q: strategy.query,
                 format: "json",
-                limit: 5, // Get more results to find best match
-                countrycodes: "ph", // Restrict to Philippines
+                limit: 3,
+                countrycodes: "ph",
                 addressdetails: 1,
               },
               headers: {
@@ -549,50 +546,71 @@ function Client() {
             }
           );
 
-          console.log(
-            `✅ Attempt ${i + 1} returned ${response.data?.length || 0} results`
-          );
-
           if (response.data && response.data.length > 0) {
-            // Find best match - prefer results that match city/municipality
-            const cityName = cities.find((c) => c.code === formData.city)?.name;
+            console.log(`   ✅ Found ${response.data.length} result(s)`);
 
-            let bestMatch = response.data[0]; // Default to first result
+            // Score each result based on how well it matches our components
+            const scoredResults = response.data.map((result) => {
+              let score = 0;
+              const displayLower = result.display_name.toLowerCase();
 
-            if (cityName) {
-              const cityMatch = response.data.find((result) =>
-                result.display_name
-                  .toLowerCase()
-                  .includes(cityName.toLowerCase())
+              // Higher scores for more specific matches
+              if (city && displayLower.includes(city.toLowerCase()))
+                score += 10;
+              if (barangay && displayLower.includes(barangay.toLowerCase()))
+                score += 8;
+              // Removed street scoring since we're not using it
+              if (province && displayLower.includes(province.toLowerCase()))
+                score += 4;
+
+              // Prefer results with higher OSM place_rank (more specific locations)
+              if (result.place_rank) score += (100 - result.place_rank) / 10;
+
+              console.log(
+                `   📊 Result score: ${score} - ${result.display_name.substring(
+                  0,
+                  80
+                )}...`
               );
-              if (cityMatch) {
-                bestMatch = cityMatch;
-                console.log(`✅ Found match containing city "${cityName}"`);
-              }
-            }
 
-            foundLocation = bestMatch;
-            break;
+              return { ...result, score };
+            });
+
+            // Sort by score (highest first)
+            scoredResults.sort((a, b) => b.score - a.score);
+
+            // Take best result if it has a reasonable score
+            if (scoredResults[0].score > 0) {
+              bestResult = scoredResults[0];
+              usedStrategy = strategy;
+              console.log(
+                `   ✅ Selected best match with score: ${bestResult.score}`
+              );
+              break; // Stop searching once we have a good match
+            }
+          } else {
+            console.log(`   ⚠️ No results found`);
           }
 
-          // Rate limiting delay between requests
-          if (i < searchQueries.length - 1) {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+          // Rate limiting between requests
+          if (i < searchStrategies.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 1200));
           }
         } catch (fetchError) {
-          console.warn(`⚠️ Attempt ${i + 1} failed:`, fetchError.message);
+          console.warn(`   ❌ Error:`, fetchError.message);
           continue;
         }
       }
 
-      if (foundLocation) {
-        const { lat, lon } = foundLocation;
+      if (bestResult) {
+        const { lat, lon } = bestResult;
         const newCenter = [parseFloat(lat), parseFloat(lon)];
 
-        console.log(`✅ Location found:`, {
+        console.log(`\n✅ Final result using "${usedStrategy.label}":`, {
           lat: parseFloat(lat),
           lon: parseFloat(lon),
-          display_name: foundLocation.display_name,
+          display_name: bestResult.display_name,
+          score: bestResult.score,
         });
 
         setMapCenter(newCenter);
@@ -603,9 +621,9 @@ function Client() {
           longitude: parseFloat(lon),
         }));
 
-        // Update map view
+        // Update map view with appropriate zoom
         if (mapRef.current) {
-          mapRef.current.setView(newCenter, 16); // Zoom in closer
+          mapRef.current.setView(newCenter, usedStrategy.zoom);
 
           if (markerRef.current) {
             markerRef.current.setLatLng(newCenter);
@@ -627,21 +645,31 @@ function Client() {
           }
         }
 
-        // Show success message
-        console.log("✅ Location pinned successfully");
+        // Show which level of detail was used
+        const accuracyMessage = usedStrategy.label.includes("House number")
+          ? "✅ Location found with house number! Drag marker if needed for exact spot."
+          : usedStrategy.label.includes("Barangay")
+          ? "⚠️ Barangay-level location found. Please drag marker to your exact location."
+          : "⚠️ City-level location found. Please click/drag marker to your exact address.";
+
+        alert(accuracyMessage);
       } else {
-        console.error("❌ Address not found in any attempt");
+        console.error("\n❌ No results found in any strategy");
         alert(
-          "Address not found. Please try:\n" +
-            "1. Selecting more specific location details\n" +
-            "2. Manually editing the search text\n" +
-            "3. Clicking directly on the map to pin your location"
+          "Could not find this address on the map.\n\n" +
+            "This might be because:\n" +
+            "• House numbers are not mapped in OpenStreetMap\n" +
+            "• The barangay name needs verification\n\n" +
+            "Please try:\n" +
+            "1. Click directly on the map to pin your location manually\n" +
+            "2. Search for a nearby landmark (e.g., church, school, mall)\n" +
+            "3. We'll show the barangay center - just drag the marker to your spot"
         );
       }
     } catch (err) {
       console.error("❌ Error searching address:", err);
       alert(
-        "Failed to search address. Please try again or pin location manually on the map."
+        "Failed to search address. Please pin location manually on the map."
       );
     }
   };
@@ -1153,11 +1181,39 @@ function Client() {
                       </h3>
                     </div>
                     <p className="text-sm text-gray-600 mb-4">
-                      The address will be auto-filled based on your selections
-                      above. Click "Find on Map" to geocode, or click directly
-                      on the map to pin your exact location. You can also drag
-                      the marker to adjust.
+                      <strong>📍 How it works:</strong> We'll search using
+                      house/building number + barangay + city (street name is
+                      saved but not used for map search). The map will show your
+                      barangay/city area. You can then{" "}
+                      <strong>drag the marker</strong> or{" "}
+                      <strong>click the map</strong> to pinpoint your exact
+                      location.
                     </p>
+
+                    {/* Search tips */}
+                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-xs text-blue-900 font-semibold mb-1">
+                        💡 Tips for accurate pinning:
+                      </p>
+                      <ul className="text-xs text-blue-800 space-y-1 ml-4 list-disc">
+                        <li>
+                          <strong>Street names are stored</strong> but not used
+                          for searching (most PH streets aren't in OSM)
+                        </li>
+                        <li>
+                          Search uses: House # → Barangay → City (progressively
+                          less detailed)
+                        </li>
+                        <li>
+                          Barangay-level accuracy is typical - drag marker to
+                          your exact spot
+                        </li>
+                        <li>
+                          Try searching nearby landmarks (e.g., "SM Mall",
+                          "Parish Church") for reference
+                        </li>
+                      </ul>
+                    </div>
 
                     {/* Auto-fill indicator */}
                     {isAddressComplete && (

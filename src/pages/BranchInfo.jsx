@@ -29,10 +29,24 @@ function BranchInfo() {
   // Fetch single branch info
   useEffect(() => {
     if (!id) return;
-    fetch(`${baseURL}/api/branches/${id}`)
-      .then((res) => res.json())
-      .then((data) => setBranch(data))
-      .catch((err) => console.error(err));
+
+    const fetchBranch = async () => {
+      setIsLoadingBranch(true);
+      setError(null);
+      try {
+        const res = await fetch(`${baseURL}/api/branches/${id}`);
+        if (!res.ok) throw new Error("Failed to fetch branch");
+        const data = await res.json();
+        setBranch(data);
+      } catch (err) {
+        console.error("Error fetching branch:", err);
+        setError(err.message);
+      } finally {
+        setIsLoadingBranch(false);
+      }
+    };
+
+    fetchBranch();
   }, [id]);
 
   // Update index whenever branches list or current id changes
@@ -82,28 +96,32 @@ function BranchInfo() {
   const fetchBookingHistory = async () => {
     if (!branch) return;
     setIsLoadingBookings(true);
+    setError(null);
     try {
       const res = await fetch(`${baseURL}/api/branches/${id}/bookings`);
-      const text = await res.text();
+
       if (!res.ok) {
-        throw new Error(`Server error ${res.status}: ${text.slice(0, 200)}`);
+        const errorText = await res.text();
+        throw new Error(
+          `Server error ${res.status}: ${errorText.slice(0, 200)}`
+        );
       }
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (parseErr) {
-        throw new Error("Invalid JSON response from server");
+
+      const data = await res.json();
+
+      if (!Array.isArray(data)) {
+        throw new Error("Invalid response format: expected array");
       }
+
       setBookings(data);
       setShowModal(true);
     } catch (err) {
       console.error("Error fetching bookings:", err);
-      alert("Failed to load booking history: " + err.message);
+      setError("Failed to load booking history: " + err.message);
     } finally {
       setIsLoadingBookings(false);
     }
   };
-
   const clearFilter = () => {
     setSelectedDateRange({
       start: "",
@@ -305,7 +323,8 @@ function BranchInfo() {
                         <th className="px-4 py-3">Trip Number</th>
                         <th className="px-4 py-3">Company Name</th>
                         <th className="px-4 py-3">Origin Address</th>
-                        <th className="px-4 py-3">Destination Address</th>
+                        <th className="px-4 py-3">Destinations</th>
+                        <th className="px-4 py-3">Vehicle</th>
                         <th className="px-4 py-3">Status</th>
                         <th className="px-4 py-3">Date Needed</th>
                       </tr>
@@ -333,27 +352,49 @@ function BranchInfo() {
                             {booking.tripNumber || "N/A"}
                           </td>
                           <td className="px-4 py-3">{booking.companyName}</td>
-                          <td
-                            className="px-4 py-3 max-w-xs truncate"
-                            title={booking.originAddress}
-                          >
-                            {booking.originAddress}
+                          <td className="px-4 py-3 max-w-xs">
+                            <div
+                              className="truncate"
+                              title={booking.originAddress}
+                            >
+                              {booking.originAddress}
+                            </div>
                           </td>
-                          <td
-                            className="px-4 py-3 max-w-xs truncate"
-                            title={booking.destinationAddress}
-                          >
-                            {booking.destinationAddress}
+                          <td className="px-4 py-3 max-w-xs">
+                            <div className="space-y-1">
+                              {booking.destinationDeliveries?.map(
+                                (delivery, idx) => (
+                                  <div key={idx} className="text-sm">
+                                    <div className="font-medium">
+                                      {delivery.customerEstablishmentName}
+                                    </div>
+                                    <div
+                                      className="text-gray-500 truncate"
+                                      title={delivery.destinationAddress}
+                                    >
+                                      {delivery.destinationAddress}
+                                    </div>
+                                  </div>
+                                )
+                              ) || "No destinations"}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-sm">
+                              <div>{booking.vehicleType}</div>
+                              <div className="text-gray-500">
+                                {booking.plateNumber}
+                              </div>
+                            </div>
                           </td>
                           <td className="px-4 py-3">
                             <span
                               className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                booking.status === "Completed"
+                                booking.status === "Completed" ||
+                                booking.status === "Delivered"
                                   ? "bg-green-100 text-green-800"
                                   : booking.status === "In Transit"
                                   ? "bg-blue-100 text-blue-800"
-                                  : booking.status === "Delivered"
-                                  ? "bg-purple-100 text-purple-800"
                                   : booking.status === "Ready to go"
                                   ? "bg-yellow-100 text-yellow-800"
                                   : "bg-gray-100 text-gray-800"
@@ -367,7 +408,7 @@ function BranchInfo() {
                               ? new Date(
                                   booking.dateNeeded
                                 ).toLocaleDateString()
-                              : ""}
+                              : "N/A"}
                           </td>
                         </tr>
                       ))}

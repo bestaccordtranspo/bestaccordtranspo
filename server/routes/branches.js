@@ -77,24 +77,45 @@ router.get("/by-address", async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-
-// GET bookings for a branch (place BEFORE the `/:id` route)
+// GET bookings for a branch - Address-based search
 router.get("/:id/bookings", async (req, res) => {
   try {
     const branchId = req.params.id;
-    // adjust fields below to match how bookings reference branches in your Booking model
+    
+    // First, get the branch details to find its address
+    const branch = await Branch.findById(branchId);
+    if (!branch) {
+      return res.status(404).json({ message: "Branch not found" });
+    }
+
+    // Extract address components for searching
+    const branchAddress = branch.address?.fullAddress || 
+                         [branch.address?.barangay, branch.address?.city, branch.address?.province]
+                         .filter(Boolean).join(", ");
+
+    console.log(`🔍 Searching bookings for branch: ${branch.branchName}`);
+    console.log(`📍 Branch address: ${branchAddress}`);
+
+    if (!branchAddress) {
+      return res.status(400).json({ message: "Branch address not found" });
+    }
+
+    // Find bookings where origin or destination addresses match this branch's address
     const bookings = await Booking.find({
       $or: [
-        { originBranch: branchId },
-        { destinationBranch: branchId },
-        { branch: branchId },
-        { originBranchId: branchId },
-        { destinationBranchId: branchId }
+        { originAddress: { $regex: branchAddress, $options: 'i' } },
+        { 
+          'destinationDeliveries.destinationAddress': { 
+            $regex: branchAddress, $options: 'i' 
+          } 
+        }
       ]
     })
-      .sort({ createdAt: -1 })
-      .lean();
+    .sort({ createdAt: -1 })
+    .lean();
 
+    console.log(`📊 Found ${bookings.length} bookings for branch ${branch.branchName}`);
+    
     res.json(bookings);
   } catch (err) {
     console.error("Error fetching bookings for branch:", err);

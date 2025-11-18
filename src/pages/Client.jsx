@@ -345,20 +345,10 @@ function Client() {
   const closeModal = () => setShowModal(false);
 
   useEffect(() => {
-    // Build formatted address from selected fields - ONLY HOUSE NUMBER
-    const buildAddressString = () => {
-      // ONLY return house/building number, nothing else
-      return formData.houseNumber || "";
-    };
-
-    // Update address search when house number changes
-    if (formData.houseNumber) {
-      const formattedAddress = buildAddressString();
-      setAddressSearch(formattedAddress);
-    } else {
-      setAddressSearch(""); // Clear if no house number
+    if (showModal && formData.houseNumber) {
+      setAddressSearch(formData.houseNumber);
     }
-  }, [formData.houseNumber]);
+  }, [formData.houseNumber, showModal]);
 
   // Initialize map when modal opens
   useEffect(() => {
@@ -455,163 +445,23 @@ function Client() {
 
   // Search address function
   const handleAddressSearch = async () => {
-    if (!addressSearch.trim()) {
-      alert("Please enter an address to search");
-      return;
-    }
+    if (!addressSearch.trim()) return;
 
     try {
-      console.log("🔍 Starting intelligent address search:", addressSearch);
-
-      // Build progressive search queries from most detailed to least detailed
-      const searchStrategies = [];
-
-      // Get component values
-      const getComponentValue = (list, code) => {
-        const found = list.find((item) => item.code === code);
-        return found ? found.name : null;
-      };
-
-      const houseNum = formData.houseNumber;
-      // const street = formData.street; // REMOVED - not using street
-      const barangay = getComponentValue(barangays, formData.barangay);
-      const city = getComponentValue(cities, formData.city);
-      const province =
-        formData.region === "130000000"
-          ? "Metro Manila"
-          : getComponentValue(provinces, formData.province);
-
-      // Strategy 1: House number + Barangay + City (without street)
-      if (houseNum && barangay && city) {
-        searchStrategies.push({
-          query: `${houseNum}, ${barangay}, ${city}, ${province}, Philippines`,
-          label: "House number with Barangay and City",
-          zoom: 17,
-        });
-      }
-
-      // Strategy 2: Barangay + City (most reliable for PH)
-      if (barangay && city) {
-        searchStrategies.push({
-          query: `${barangay}, ${city}, ${province}, Philippines`,
-          label: "Barangay and City",
-          zoom: 16,
-        });
-      }
-
-      // Strategy 4: Just City and Province (fallback)
-      if (city && province) {
-        searchStrategies.push({
-          query: `${city}, ${province}, Philippines`,
-          label: "City only",
-          zoom: 14,
-        });
-      }
-
-      // Strategy 5: User's custom input
-      if (addressSearch !== searchStrategies[0]?.query) {
-        searchStrategies.push({
-          query: addressSearch,
-          label: "Custom search",
-          zoom: 15,
-        });
-      }
-
-      console.log(`📋 Prepared ${searchStrategies.length} search strategies`);
-
-      let bestResult = null;
-      let usedStrategy = null;
-
-      for (let i = 0; i < searchStrategies.length; i++) {
-        const strategy = searchStrategies[i];
-        console.log(
-          `\n🔍 Strategy ${i + 1}/${searchStrategies.length}: ${strategy.label}`
-        );
-        console.log(`   Query: "${strategy.query}"`);
-
-        try {
-          const response = await axios.get(
-            "https://nominatim.openstreetmap.org/search",
-            {
-              params: {
-                q: strategy.query,
-                format: "json",
-                limit: 3,
-                countrycodes: "ph",
-                addressdetails: 1,
-              },
-              headers: {
-                "User-Agent": "BestAccord-Client-Management",
-              },
-            }
-          );
-
-          if (response.data && response.data.length > 0) {
-            console.log(`   ✅ Found ${response.data.length} result(s)`);
-
-            // Score each result based on how well it matches our components
-            const scoredResults = response.data.map((result) => {
-              let score = 0;
-              const displayLower = result.display_name.toLowerCase();
-
-              // Higher scores for more specific matches
-              if (city && displayLower.includes(city.toLowerCase()))
-                score += 10;
-              if (barangay && displayLower.includes(barangay.toLowerCase()))
-                score += 8;
-              // Removed street scoring since we're not using it
-              if (province && displayLower.includes(province.toLowerCase()))
-                score += 4;
-
-              // Prefer results with higher OSM place_rank (more specific locations)
-              if (result.place_rank) score += (100 - result.place_rank) / 10;
-
-              console.log(
-                `   📊 Result score: ${score} - ${result.display_name.substring(
-                  0,
-                  80
-                )}...`
-              );
-
-              return { ...result, score };
-            });
-
-            // Sort by score (highest first)
-            scoredResults.sort((a, b) => b.score - a.score);
-
-            // Take best result if it has a reasonable score
-            if (scoredResults[0].score > 0) {
-              bestResult = scoredResults[0];
-              usedStrategy = strategy;
-              console.log(
-                `   ✅ Selected best match with score: ${bestResult.score}`
-              );
-              break; // Stop searching once we have a good match
-            }
-          } else {
-            console.log(`   ⚠️ No results found`);
-          }
-
-          // Rate limiting between requests
-          if (i < searchStrategies.length - 1) {
-            await new Promise((resolve) => setTimeout(resolve, 1200));
-          }
-        } catch (fetchError) {
-          console.warn(`   ❌ Error:`, fetchError.message);
-          continue;
+      const response = await axios.get(
+        "https://nominatim.openstreetmap.org/search",
+        {
+          params: {
+            q: addressSearch + ", Philippines",
+            format: "json",
+            limit: 1,
+          },
         }
-      }
+      );
 
-      if (bestResult) {
-        const { lat, lon } = bestResult;
+      if (response.data && response.data.length > 0) {
+        const { lat, lon } = response.data[0];
         const newCenter = [parseFloat(lat), parseFloat(lon)];
-
-        console.log(`\n✅ Final result using "${usedStrategy.label}":`, {
-          lat: parseFloat(lat),
-          lon: parseFloat(lon),
-          display_name: bestResult.display_name,
-          score: bestResult.score,
-        });
 
         setMapCenter(newCenter);
         setMarkerPosition(newCenter);
@@ -621,9 +471,9 @@ function Client() {
           longitude: parseFloat(lon),
         }));
 
-        // Update map view with appropriate zoom
+        // Update map view
         if (mapRef.current) {
-          mapRef.current.setView(newCenter, usedStrategy.zoom);
+          mapRef.current.setView(newCenter, 15);
 
           if (markerRef.current) {
             markerRef.current.setLatLng(newCenter);
@@ -644,38 +494,14 @@ function Client() {
             });
           }
         }
-
-        // Show which level of detail was used
-        const accuracyMessage = usedStrategy.label.includes("House number")
-          ? "✅ Location found with house number! Drag marker if needed for exact spot."
-          : usedStrategy.label.includes("Barangay")
-          ? "⚠️ Barangay-level location found. Please drag marker to your exact location."
-          : "⚠️ City-level location found. Please click/drag marker to your exact address.";
-
-        alert(accuracyMessage);
       } else {
-        console.error("\n❌ No results found in any strategy");
-        alert(
-          "Could not find this address on the map.\n\n" +
-            "This might be because:\n" +
-            "• House numbers are not mapped in OpenStreetMap\n" +
-            "• The barangay name needs verification\n\n" +
-            "Please try:\n" +
-            "1. Click directly on the map to pin your location manually\n" +
-            "2. Search for a nearby landmark (e.g., church, school, mall)\n" +
-            "3. We'll show the barangay center - just drag the marker to your spot"
-        );
+        alert("Address not found. Please try a different search.");
       }
     } catch (err) {
-      console.error("❌ Error searching address:", err);
-      alert(
-        "Failed to search address. Please pin location manually on the map."
-      );
+      console.error("Error searching address:", err);
+      alert("Failed to search address. Please try again.");
     }
   };
-
-  const isAddressComplete =
-    formData.region && formData.city && formData.barangay;
 
   // Cleanup map on modal close
   useEffect(() => {
@@ -1181,49 +1007,9 @@ function Client() {
                       </h3>
                     </div>
                     <p className="text-sm text-gray-600 mb-4">
-                      <strong>📍 How it works:</strong> We'll search using
-                      house/building number + barangay + city (street name is
-                      saved but not used for map search). The map will show your
-                      barangay/city area. You can then{" "}
-                      <strong>drag the marker</strong> or{" "}
-                      <strong>click the map</strong> to pinpoint your exact
-                      location.
+                      Search your address or click on the map to pin your exact
+                      location. You can also drag the marker to adjust.
                     </p>
-
-                    {/* Search tips */}
-                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-xs text-blue-900 font-semibold mb-1">
-                        💡 Tips for accurate pinning:
-                      </p>
-                      <ul className="text-xs text-blue-800 space-y-1 ml-4 list-disc">
-                        <li>
-                          <strong>Street names are stored</strong> but not used
-                          for searching (most PH streets aren't in OSM)
-                        </li>
-                        <li>
-                          Search uses: House # → Barangay → City (progressively
-                          less detailed)
-                        </li>
-                        <li>
-                          Barangay-level accuracy is typical - drag marker to
-                          your exact spot
-                        </li>
-                        <li>
-                          Try searching nearby landmarks (e.g., "SM Mall",
-                          "Parish Church") for reference
-                        </li>
-                      </ul>
-                    </div>
-
-                    {/* Auto-fill indicator */}
-                    {isAddressComplete && (
-                      <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-xs text-green-800">
-                          ✓ Address auto-filled from your selections. Click
-                          "Find on Map" to locate this address.
-                        </p>
-                      </div>
-                    )}
 
                     <div className="mb-4 flex gap-2">
                       <input
@@ -1234,23 +1020,18 @@ function Client() {
                           e.key === "Enter" &&
                           (e.preventDefault(), handleAddressSearch())
                         }
-                        placeholder="Address will auto-fill from selections above, or type manually..."
-                        className="flex-1 px-4 py-2.5 border border-violet-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent text-sm"
+                        placeholder="Search address (e.g., Quezon City, Metro Manila)..."
+                        className="flex-1 px-4 py-2.5 border border-violet-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent"
                       />
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         type="button"
                         onClick={handleAddressSearch}
-                        disabled={!addressSearch.trim()}
-                        className={`px-4 py-2.5 rounded-xl font-medium hover:shadow-lg transition-all duration-300 inline-flex items-center gap-2 ${
-                          addressSearch.trim()
-                            ? "bg-gradient-to-r from-purple-600 to-violet-600 text-white"
-                            : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                        }`}
+                        className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-300 inline-flex items-center gap-2"
                       >
                         <Search size={18} />
-                        Find on Map
+                        Search
                       </motion.button>
                     </div>
 
@@ -1262,22 +1043,9 @@ function Client() {
                     {markerPosition && (
                       <div className="mt-3 p-3 bg-white rounded-lg border border-violet-200">
                         <p className="text-xs text-gray-600">
-                          <strong>📍 Pinned Location:</strong>{" "}
+                          <strong>Coordinates:</strong>{" "}
                           {markerPosition[0].toFixed(6)},{" "}
                           {markerPosition[1].toFixed(6)}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Drag the marker or click the map to adjust the exact
-                          location
-                        </p>
-                      </div>
-                    )}
-
-                    {!markerPosition && (
-                      <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p className="text-xs text-yellow-800">
-                          ⚠️ No location pinned yet. Click "Find on Map" or
-                          click directly on the map to set location.
                         </p>
                       </div>
                     )}

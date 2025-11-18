@@ -1222,13 +1222,19 @@ function Booking() {
         }
 
         // Check quantity
-        if (!branch.quantity || branch.quantity.trim() === "") {
-          alert(`Please fill in Quantity for Stop ${i + 1}`);
+        if (
+          !branch.quantity ||
+          (typeof branch.quantity === "string" &&
+            branch.quantity.trim() === "") ||
+          (typeof branch.quantity === "number" && branch.quantity <= 0)
+        ) {
+          alert(`Please fill in valid Quantity for Stop ${i + 1}`);
           return;
         }
 
         // Check gross weight
-        if (!branch.grossWeight || parseFloat(branch.grossWeight) <= 0) {
+        const grossWeight = parseFloat(branch.grossWeight);
+        if (!grossWeight || grossWeight <= 0) {
           alert(`Please fill in valid Gross Weight for Stop ${i + 1}`);
           return;
         }
@@ -1424,11 +1430,13 @@ function Booking() {
           alert(`Please fill in Product Name for Stop ${i + 1}`);
           return;
         }
-        if (!branch.quantity || parseInt(branch.quantity) <= 0) {
+        const quantity = parseInt(branch.quantity);
+        if (!quantity || quantity <= 0) {
           alert(`Please fill in valid Quantity for Stop ${i + 1}`);
           return;
         }
-        if (!branch.grossWeight || parseFloat(branch.grossWeight) <= 0) {
+        const grossWeight = parseFloat(branch.grossWeight);
+        if (!grossWeight || grossWeight <= 0) {
           alert(`Please fill in valid Gross Weight for Stop ${i + 1}`);
           return;
         }
@@ -1448,7 +1456,7 @@ function Booking() {
         longitude: branch.longitude || null,
         typeOfOrder: "Delivery",
         productName: branch.productName,
-        quantity: branch.quantity,
+        quantity: parseInt(branch.quantity) || 0,
         grossWeight: parseFloat(branch.grossWeight) || 0,
         status: "pending",
       }));
@@ -2267,7 +2275,7 @@ function Booking() {
                                           Quantity
                                         </label>
                                         <input
-                                          type="text"
+                                          type="number"
                                           value={branchData.quantity}
                                           onChange={(e) =>
                                             handleBranchProductChange(

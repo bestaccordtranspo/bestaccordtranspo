@@ -18,6 +18,7 @@ import {
   Building,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Phone,
   Weight,
   Award,
@@ -28,6 +29,7 @@ import {
 import { axiosClient } from "../api/axiosClient";
 import driverloginbg from "../assets/driver_login_bg.png";
 import { createTruckDivIcon } from '../components/TruckMarkerIcon';
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function DriverBookings() {
   const [driverLocation, setDriverLocation] = useState(null);
@@ -201,6 +203,7 @@ const stopLocationTracking = () => {
   const mapInstance = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const mapInitializing = useRef(false);
 
 const getDestinations = (booking) => {
   if (!booking.destinationAddress) return [];
@@ -328,24 +331,57 @@ const getDestinations = (booking) => {
   };
 
   const initializeMap = async () => {
-    if (!selectedBooking || !mapRef.current) return;
-
-    if (mapInstance.current) {
-      mapInstance.current.remove();
-      mapInstance.current = null;
+    if (!selectedBooking || !mapRef.current) {
+      console.warn('⚠️ Cannot initialize map: missing booking or map ref');
+      return;
     }
 
+    // CRITICAL: Prevent concurrent initializations
+    if (mapInitializing.current) {
+      console.warn('⚠️ Map is already being initialized, skipping...');
+      return;
+    }
+
+    mapInitializing.current = true;
+    console.log('🗺️ Initializing map for booking:', selectedBooking.tripNumber);
+
     try {
+      // Clean up existing map instance if it exists
+      if (mapInstance.current) {
+        console.log('🗺️ Cleaning up existing map instance...');
+        try {
+          mapInstance.current.off();
+          mapInstance.current.remove();
+          mapInstance.current = null;
+          console.log('✅ Existing map cleaned up');
+        } catch (err) {
+          console.warn("⚠️ Error removing map:", err);
+          mapInstance.current = null;
+        }
+        
+        // Wait for cleanup to fully complete
+        await new Promise(resolve => setTimeout(resolve, 150));
+      }
+
       if (window.L) {
-        createMap();
+        console.log('✅ Leaflet loaded, creating map...');
+        await createMap();
       } else {
+        console.log('📦 Loading Leaflet library...');
         const leafletScript = document.createElement('script');
         leafletScript.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        leafletScript.onload = createMap;
+        leafletScript.onload = async () => {
+          console.log('✅ Leaflet loaded, creating map...');
+          await createMap();
+          mapInitializing.current = false;
+        };
         document.head.appendChild(leafletScript);
+        return; // Exit early, the onload will handle the flag
       }
     } catch (error) {
-      console.error('Error loading map:', error);
+      console.error('❌ Error loading map:', error);
+    } finally {
+      mapInitializing.current = false;
     }
   };
 
@@ -372,6 +408,12 @@ const getDestinations = (booking) => {
 
 const createMap = async () => {
   if (!mapRef.current) return;
+
+  // Check if map already exists and return early
+  if (mapInstance.current) {
+    console.warn('⚠️ Map already exists, skipping creation');
+    return;
+  }
 
   const L = window.L;
   const map = L.map(mapRef.current).setView([14.5995, 120.9842], 10);
@@ -521,29 +563,7 @@ const createMap = async () => {
   const allCoordinates = [];
 
   try {
-  // Helper function to fetch client coordinates from database
-    const fetchClientCoordinates = async (address) => {
-      try {
-        console.log(`🔍 Fetching coordinates from database for: "${address}"`);
-        const response = await axiosClient.get(`/api/clients/by-address?address=${encodeURIComponent(address)}`);
-
-        if (response.data && response.data.address?.latitude && response.data.address?.longitude) {
-          console.log(`✅ Found coordinates in database: [${response.data.address.latitude}, ${response.data.address.longitude}]`);
-          return {
-            coords: [response.data.address.latitude, response.data.address.longitude],
-            displayName: address,
-            confidence: 'exact',
-            source: 'database'
-          };
-        }
-        return null;
-      } catch (error) {
-        console.error('Error fetching client coordinates:', error);
-        return null;
-      }
-    };
-
-    // Add origin marker with priority: booking coords -> database -> geocoding
+    // Add origin marker
     let originResult = null;
     if (selectedBooking.originAddress) {
       // PRIORITY 1: Check booking coordinates first
@@ -555,24 +575,14 @@ const createMap = async () => {
           source: 'booking'
         };
         console.log('✅ Using stored origin coordinates from booking');
-      } 
-      // PRIORITY 2: Try client database
-      else {
-        originResult = await fetchClientCoordinates(selectedBooking.originAddress);
-      }
-
-      // PRIORITY 3: Fallback to geocoding
-      if (!originResult) {
-        console.log(`⚠️ No stored coordinates for origin, using geocoding...`);
-        originResult = await geocodeAddressForRoute(selectedBooking.originAddress);
+      } else {
+        originResult = await geocodeAddress(selectedBooking.originAddress);
       }
 
       if (originResult && originResult.coords) {
         allCoordinates.push(originResult.coords);
         
-        const confidenceText = originResult.source === 'database'
-          ? '✓ Exact location (from database)'
-          : originResult.confidence === 'high'
+        const confidenceText = originResult.confidence === 'high'
           ? '✓ Geocoded (high accuracy)'
           : originResult.confidence === 'medium'
           ? '⚠️ Approximate area'
@@ -595,132 +605,152 @@ const createMap = async () => {
           </div>
         `);
       }
-        }
+    }
 
     // Get all destinations
     const destinations = getDestinations(selectedBooking);
     
+// 🎯 Determine which destinations to show based on delivery status
+let destinationsToDisplay = [];
+let activeDestinationIndex = -1;
+let activeDestCoords = null;
+
+if (selectedBooking.status === "In Transit" || selectedBooking.status === "On Trip") {
+  // Show only pending destinations
+  if (selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries.length > 0) {
+    destinationsToDisplay = selectedBooking.destinationDeliveries
+      .filter(d => d.status === 'pending')
+      .map(d => ({
+        address: d.destinationAddress,
+        index: d.destinationIndex,
+        isPending: true,
+        latitude: d.latitude,
+        longitude: d.longitude
+      }));
+    
+    // CRITICAL FIX: Use the driver's selected active destination if it exists
+    if (selectedBooking.activeDestinationIndex !== undefined && 
+        selectedBooking.activeDestinationIndex !== null) {
+      // Check if the selected destination is still pending
+      const selectedDest = selectedBooking.destinationDeliveries.find(
+        d => d.destinationIndex === selectedBooking.activeDestinationIndex && d.status === 'pending'
+      );
+      if (selectedDest) {
+        activeDestinationIndex = selectedBooking.activeDestinationIndex;
+        console.log(`✅ Using driver-selected active destination: ${activeDestinationIndex}`);
+      } else {
+        // Fall back to first pending if selected one is no longer pending
+        activeDestinationIndex = destinationsToDisplay.length > 0 ? destinationsToDisplay[0].index : -1;
+        console.log(`⚠️ Selected destination no longer pending, using first pending: ${activeDestinationIndex}`);
+      }
+    } else {
+      // No active destination set, use the first pending destination
+      activeDestinationIndex = destinationsToDisplay.length > 0 ? destinationsToDisplay[0].index : -1;
+      console.log(`📍 No active destination set, using first pending: ${activeDestinationIndex}`);
+    }
+  } else {
+    // Fallback for old bookings without destination tracking
+    destinationsToDisplay = destinations.map((addr, idx) => ({
+      address: addr,
+      index: idx,
+      isPending: true
+    }));
+    activeDestinationIndex = selectedBooking.activeDestinationIndex ?? 0;
+  }
+} else {
+  // For non-active trips, show all destinations
+  if (selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries.length > 0) {
+    destinationsToDisplay = selectedBooking.destinationDeliveries.map(d => ({
+      address: d.destinationAddress,
+      index: d.destinationIndex,
+      isPending: false,
+      latitude: d.latitude,
+      longitude: d.longitude
+    }));
+  } else {
+    destinationsToDisplay = destinations.map((addr, idx) => ({
+      address: addr,
+      index: idx,
+      isPending: false
+    }));
+  }
+}
+
+console.log(`🗺️ Displaying ${destinationsToDisplay.length} destinations, active index: ${activeDestinationIndex}`);
+
     // Add destination markers
-    for (let i = 0; i < destinations.length; i++) {
-      const destAddress = destinations[i];
+    for (let i = 0; i < destinationsToDisplay.length; i++) {
+      const destInfo = destinationsToDisplay[i];
+      const destAddress = destInfo.address;
+      
       if (destAddress) {
         let destResult = null;
         
-        // PRIORITY 1: Check if destination has stored coordinates in destinationDeliveries
-        if (selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries[i]) {
-          const dest = selectedBooking.destinationDeliveries[i];
-          if (dest.latitude && dest.longitude) {
-            destResult = {
-              coords: [dest.latitude, dest.longitude],
-              displayName: destAddress,
-              confidence: 'exact',
-              source: 'booking'
-            };
-            console.log(`✅ Using stored destination coordinates from booking for stop ${i + 1}`);
-          }
-        }
-        
-        // PRIORITY 2: Try branch database
-        if (!destResult) {
-          destResult = await fetchClientCoordinates(destAddress);
-        }
-
-        // PRIORITY 3: Fallback to geocoding
-        if (!destResult) {
-          console.log(`⚠️ No stored coordinates for "${destAddress}", using geocoding...`);
-          destResult = await geocodeAddressForRoute(destAddress);
+        // PRIORITY 1: Check if destination has stored coordinates
+        if (destInfo.latitude && destInfo.longitude) {
+          destResult = {
+            coords: [destInfo.latitude, destInfo.longitude],
+            displayName: destAddress,
+            confidence: 'exact',
+            source: 'booking'
+          };
+          console.log(`✅ Using stored destination coordinates from booking for stop ${destInfo.index + 1}`);
+        } else {
+          // PRIORITY 2: Fallback to geocoding
+          destResult = await geocodeAddress(destAddress);
         }
 
         if (destResult && destResult.coords) {
           allCoordinates.push(destResult.coords);
 
           const colors = [
-            { fill: '#ef4444', name: 'red' },
-            { fill: '#f59e0b', name: 'amber' },
-            { fill: '#8b5cf6', name: 'purple' },
-            { fill: '#ec4899', name: 'pink' },
-            { fill: '#06b6d4', name: 'cyan' }
+            { fill: '#ef4444', border: '#dc2626' },
+            { fill: '#f59e0b', border: '#d97706' },
+            { fill: '#8b5cf6', border: '#7c3aed' },
+            { fill: '#ec4899', border: '#db2777' },
+            { fill: '#06b6d4', border: '#0891b2' }
           ];
-          const color = colors[i % colors.length];
-          
-          const stopLabel = destinations.length > 1 ? `Stop ${i + 1}` : 'Destination';
-          
-          const confidenceText = destResult.source === 'database'
-            ? '✓ Exact location (from database)'
-            : destResult.confidence === 'high'
-            ? '✓ Geocoded (high accuracy)'
-            : destResult.confidence === 'medium'
-            ? '⚠️ Approximate area'
-            : destResult.confidence === 'fallback'
-            ? '📍 City center (approximate)'
-            : '📍 General area';
+          const color = colors[destInfo.index % colors.length];
+
+          // Highlight the active destination differently
+          const isActive = destInfo.index === activeDestinationIndex;
+          const markerRadius = isActive ? 12 : 10;
+          const markerColor = isActive ? '#ff0000' : color.fill;
+
+          // Store active destination coordinates for routing
+          if (isActive) {
+            activeDestCoords = destResult.coords;
+          }
 
           L.circleMarker(destResult.coords, {
-            radius: 10,
-            fillColor: color.fill,
+            radius: markerRadius,
+            fillColor: markerColor,
             color: '#ffffff',
-            weight: 3,
+            weight: isActive ? 4 : 3,
             opacity: 1,
-            fillOpacity: 0.9
+            fillOpacity: isActive ? 1 : 0.9
           }).addTo(map).bindPopup(`
-            <div style="min-width: 150px;">
-              <strong style="color: ${color.fill};">📍 ${stopLabel}</strong><br/>
-              <p style="margin: 4px 0; font-size: 11px;">${destAddress}</p>
-              <p style="margin: 2px 0 0 0; font-size: 9px; color: #6b7280;">${confidenceText}</p>
+            <div style="min-width: 200px;">
+              <strong style="color: ${markerColor}; font-size: 14px;">📍 ${destinations.length > 1 ? `Stop ${destInfo.index + 1}` : 'Destination'}${isActive ? ' (Next)' : ''}</strong><br/>
+              <p style="margin: 8px 0 0 0; font-size: 12px;">${destAddress}</p>
+              ${isActive ? '<p style="margin: 4px 0 0 0; font-size: 10px; color: #ef4444; font-weight: bold;">→ Current destination</p>' : ''}
             </div>
           `);
-
-          // Draw OSRM route line from origin to each destination
-          if (originResult && originResult.coords) {
-            const route = await getRoute(originResult.coords, destResult.coords);
-            
-            if (route && route.coordinates) {
-              console.log(`🗺️ OSRM route to destination ${i + 1}: ${route.distance}km, ${route.duration}min`);
-              
-              // Draw the actual road route
-              L.polyline(route.coordinates, {
-                color: color.fill,
-                weight: 4,
-                opacity: 0.8,
-              }).addTo(map);
-              
-              // Add distance label
-              const midpoint = route.coordinates[Math.floor(route.coordinates.length / 2)];
-              L.marker(midpoint, {
-                icon: L.divIcon({
-                  className: 'route-label',
-                  html: `<div style="background: white; padding: 4px 8px; border-radius: 4px; border: 2px solid ${color.fill}; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); white-space: nowrap;">
-                          ${route.distance}km • ${route.duration}min
-                        </div>`,
-                  iconSize: [100, 30],
-                  iconAnchor: [50, 15]
-                })
-              }).addTo(map);
-            } else {
-              // Fallback to straight line if OSRM fails
-              console.log(`⚠️ OSRM routing failed for destination ${i + 1}, using straight line`);
-              L.polyline([originResult.coords, destResult.coords], {
-                color: color.fill,
-                weight: 3,
-                opacity: 0.7,
-                dashArray: '10, 5'
-              }).addTo(map);
-            }
-          }
         }
       }
     }
 
-    // Add driver's current location marker (truck icon)
-    if (selectedBooking.driverLocation && 
-        selectedBooking.driverLocation.latitude && 
-        selectedBooking.driverLocation.longitude) {
-      
+    // 🚚 ADD DRIVER LOCATION AND ROUTE LOGIC HERE
+    if (selectedBooking.driverLocation &&
+        selectedBooking.driverLocation.latitude &&
+        selectedBooking.driverLocation.longitude &&
+        (selectedBooking.status === "In Transit" || selectedBooking.status === "On Trip")) {
+
       const driverCoords = [
-        selectedBooking.driverLocation.latitude, 
+        selectedBooking.driverLocation.latitude,
         selectedBooking.driverLocation.longitude
       ];
-      
+
       allCoordinates.push(driverCoords);
 
       // Create custom truck icon
@@ -741,21 +771,42 @@ const createMap = async () => {
         ? `±${Math.round(selectedBooking.driverLocation.accuracy)}m`
         : 'Unknown';
 
+      const getTimeSinceUpdate = () => {
+        if (!selectedBooking.driverLocation.lastUpdated) return 'Unknown';
+
+        const now = new Date();
+        const lastUpdateTime = new Date(selectedBooking.driverLocation.lastUpdated);
+        const diffMs = now - lastUpdateTime;
+        const diffMins = Math.floor(diffMs / 60000);
+
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+
+        const diffHours = Math.floor(diffMins / 60);
+        return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+      };
+
       truckMarker.bindPopup(`
-        <div style="min-width: 180px;">
-          <strong style="color: #3B82F6; font-size: 14px;">🚚 Your Location</strong><br/>
+        <div style="min-width: 220px;">
+          <strong style="color: #3B82F6; font-size: 14px;">🚚 Your Current Location</strong><br/>
           <p style="margin: 8px 0 4px 0; font-size: 11px;">
+            <strong>Trip:</strong> ${selectedBooking.tripNumber}<br/>
+            <strong>Status:</strong> ${selectedBooking.status}
+          </p>
+          <hr style="margin: 8px 0; border: 0; border-top: 1px solid #e5e7eb;"/>
+          <p style="margin: 4px 0; font-size: 11px;">
             <strong>Coordinates:</strong><br/>
             ${driverCoords[0].toFixed(6)}, ${driverCoords[1].toFixed(6)}
           </p>
           <p style="margin: 4px 0; font-size: 10px; color: #6b7280;">
-            <strong>Last Updated:</strong> ${lastUpdated}
+            <strong>Last Updated:</strong> ${getTimeSinceUpdate()}<br/>
+            <span style="font-size: 9px;">${lastUpdated}</span>
           </p>
           <p style="margin: 4px 0; font-size: 10px; color: #6b7280;">
-            <strong>Accuracy:</strong> ${accuracy}
+            <strong>GPS Accuracy:</strong> ${accuracy}
           </p>
-          <p style="margin: 4px 0 0 0; font-size: 9px; color: #059669;">
-            ✓ Real-time GPS tracking
+          <p style="margin: 6px 0 0 0; font-size: 9px; color: #059669; background: #d1fae5; padding: 4px 6px; border-radius: 4px;">
+            ✓ Live GPS tracking (updates every 5 min)
           </p>
         </div>
       `);
@@ -771,18 +822,73 @@ const createMap = async () => {
           opacity: 0.3
         }).addTo(map);
       }
+
+      // 🎯 DRAW ROUTE TO APPROPRIATE DESTINATION
+      let routeDestination = null;
+      let routeLabel = '';
+
+      if (!selectedBooking.originPickedUp && originResult && originResult.coords) {
+        // Route to origin for pickup
+        routeDestination = originResult.coords;
+        routeLabel = 'En route to Pickup Location';
+        console.log('📍 Drawing route from driver to origin (pickup pending)');
+      } else if (activeDestCoords) {
+        // Route to active (next pending) destination
+        routeDestination = activeDestCoords;
+        routeLabel = `🚚 En route to ${destinationsToDisplay.length > 1 ? `Stop ${activeDestinationIndex + 1}` : 'Destination'}`;
+        console.log(`📍 Drawing route from driver to active destination (index ${activeDestinationIndex})`);
+      }
+
+      if (routeDestination) {
+        const driverRoute = await getRoute(driverCoords, routeDestination);
+        
+        if (driverRoute && driverRoute.coordinates) {
+          console.log(`✅ Route found! Distance: ${driverRoute.distance}km, Duration: ${driverRoute.duration}min`);
+          
+          // Draw the route in bold blue
+          L.polyline(driverRoute.coordinates, {
+            color: '#3B82F6',
+            weight: 5,
+            opacity: 0.8,
+          }).addTo(map);
+
+          // Add distance/time label on the route
+          const midpoint = driverRoute.coordinates[Math.floor(driverRoute.coordinates.length / 2)];
+          L.marker(midpoint, {
+            icon: L.divIcon({
+              className: 'route-label',
+              html: `<div style="background: white; padding: 6px 10px; border-radius: 6px; border: 2px solid #3B82F6; font-size: 12px; font-weight: bold; box-shadow: 0 2px 6px rgba(0,0,0,0.2); white-space: nowrap;">
+                      ${routeLabel}<br/>
+                      <span style="font-size: 11px; color: #6b7280;">${driverRoute.distance}km • ${driverRoute.duration} min</span>
+                    </div>`,
+              iconSize: [180, 40],
+              iconAnchor: [90, 20]
+            })
+          }).addTo(map);
+
+        } else {
+          console.log(`⚠️ OSRM routing failed, using straight line`);
+          L.polyline([driverCoords, routeDestination], {
+            color: '#3B82F6',
+            weight: 4,
+            opacity: 0.7,
+            dashArray: '10, 5'
+          }).addTo(map);
+        }
+      }
     }
 
     // Fit map to show all markers
     if (allCoordinates.length > 0) {
       const bounds = L.latLngBounds(allCoordinates);
       map.fitBounds(bounds, { 
-        padding: [20, 20],
-        maxZoom: 14
+        padding: [50, 50],
+        maxZoom: 15
       });
     } else {
       map.setView([14.5995, 120.9842], 10);
     }
+
   } catch (error) {
     console.error('Error creating map markers:', error);
   }
@@ -940,6 +1046,67 @@ const markSingleDestinationDelivered = async (destinationIndex) => {
   }
 };
 
+  const updateDestinationOrder = async (destinationIndex) => {
+    if (!selectedBooking) return;
+
+    setUpdating(true);
+    try {
+      const token = localStorage.getItem("driverToken");
+
+      // Update the selected destination to be the next active one
+      const response = await axiosClient.put(
+        `/api/driver/bookings/${selectedBooking._id}/set-active-destination`,
+        { 
+          destinationIndex: destinationIndex
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        // Fetch fresh booking data from server
+        const updatedBookingResponse = await axiosClient.get(
+          `/api/driver/bookings/${selectedBooking._id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (updatedBookingResponse.data.success) {
+          // Update local state with fresh data
+          const freshBooking = updatedBookingResponse.data.booking;
+          
+          // Close selector first
+          setShowDestinationSelector(false);
+          
+          // Update state - this will trigger useEffect to reinitialize the map
+          setSelectedBooking(freshBooking);
+
+          // Also update the bookings list
+          setBookings(prevBookings =>
+            prevBookings.map(booking =>
+              booking._id === selectedBooking._id
+                ? freshBooking
+                : booking
+            )
+          );
+
+          alert(`✅ Route updated! Now heading to Stop ${destinationIndex + 1}`);
+        }
+      }
+    } catch (err) {
+      console.error("❌ Error updating destination order:", err);
+      alert(err.response?.data?.msg || "Failed to update destination order");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
 const markAsCompleted = async () => {
   if (!selectedBooking || !capturedImage) return;
 
@@ -999,11 +1166,23 @@ useEffect(() => {
   };
 }, []);
 
-// Get next pending destination
+// Get next pending destination (respects activeDestinationIndex if set)
 const getNextPendingDestination = (booking) => {
   if (!booking.destinationDeliveries || booking.destinationDeliveries.length === 0) {
     return null;
   }
+  
+  // If driver has selected an active destination, return that one (if still pending)
+  if (booking.activeDestinationIndex !== undefined && booking.activeDestinationIndex !== null) {
+    const activeDestination = booking.destinationDeliveries.find(
+      d => d.destinationIndex === booking.activeDestinationIndex && d.status === 'pending'
+    );
+    if (activeDestination) {
+      return activeDestination;
+    }
+  }
+  
+  // Otherwise return the first pending destination
   return booking.destinationDeliveries.find(d => d.status === 'pending');
 };
 
@@ -1101,9 +1280,19 @@ const fetchBookings = async () => {
 
   useEffect(() => {
     if (showModal && selectedBooking && mapRef.current) {
-      setTimeout(() => initializeMap(), 100);
+      console.log('🗺️ Modal/booking state changed, scheduling map update...', {
+        tripNumber: selectedBooking.tripNumber,
+        activeDestinationIndex: selectedBooking.activeDestinationIndex
+      });
+      
+      // Add a small delay to let React finish updating
+      const timer = setTimeout(() => {
+        initializeMap();
+      }, 200);
+      
+      return () => clearTimeout(timer);
     }
-  }, [showModal, selectedBooking]);
+  }, [showModal, selectedBooking?.tripNumber, selectedBooking?.activeDestinationIndex]);
 
   useEffect(() => {
     fetchBookings();
@@ -1285,17 +1474,35 @@ useEffect(() => {
                         </span>
                       </div>
                       
-                      {getDestinations(booking).map((dest, idx) => (
-                        <div key={idx} className="flex items-center gap-2 mt-1">
-                          <MapPin className="w-3 h-3 text-red-400 flex-shrink-0" />
-                          <span className="text-xs text-purple-300">
-                            {getDestinations(booking).length > 1 ? `To (${idx + 1}):` : 'To:'}
-                          </span>
-                          <span className="font-medium text-xs text-white">
-                            {dest.length > 30 ? dest.substring(0, 30) + '...' : dest}
-                          </span>
-                        </div>
-                      ))}
+                      {/* Display destinations from destinationDeliveries if available */}
+                      {booking.destinationDeliveries && booking.destinationDeliveries.length > 0 ? (
+                        booking.destinationDeliveries.map((dest, idx) => (
+                          <div key={idx} className="flex items-center gap-2 mt-1">
+                            <MapPin className="w-3 h-3 text-red-400 flex-shrink-0" />
+                            <span className="text-xs text-purple-300">
+                              {booking.destinationDeliveries.length > 1 ? `To (${idx + 1}):` : 'To:'}
+                            </span>
+                            <span className="font-medium text-xs text-white">
+                              {dest.destinationAddress && dest.destinationAddress.length > 30 
+                                ? dest.destinationAddress.substring(0, 30) + '...' 
+                                : dest.destinationAddress || 'N/A'}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        /* Fallback for old booking format */
+                        getDestinations(booking).map((dest, idx) => (
+                          <div key={idx} className="flex items-center gap-2 mt-1">
+                            <MapPin className="w-3 h-3 text-red-400 flex-shrink-0" />
+                            <span className="text-xs text-purple-300">
+                              {getDestinations(booking).length > 1 ? `To (${idx + 1}):` : 'To:'}
+                            </span>
+                            <span className="font-medium text-xs text-white">
+                              {dest.length > 30 ? dest.substring(0, 30) + '...' : dest}
+                            </span>
+                          </div>
+                        ))
+                      )}
                     </div>
 
                     {/* Date & Time */}
@@ -1477,7 +1684,7 @@ useEffect(() => {
 
                     {/* Map Section */}
                     <div className="p-4 border-b border-gray-100">
-                      <div className="bg-gray-100 rounded-lg overflow-hidden">
+                      <div className="bg-gray-100 rounded-lg overflow-hidden relative z-0">
                         <div
                           ref={mapRef}
                           className="w-full h-48"
@@ -1508,6 +1715,7 @@ useEffect(() => {
                       </button>
                       {expandedSections.route && (
                         <div className="px-4 pb-4 space-y-3">
+                          {/* Origin */}
                           <div className="flex items-start gap-3">
                             <div className="w-3 h-3 bg-green-500 rounded-full mt-1.5 flex-shrink-0"></div>
                             <div className="flex-1">
@@ -1516,21 +1724,61 @@ useEffect(() => {
                             </div>
                           </div>
                           
-                          {getDestinations(selectedBooking).map((destination, idx) => (
-                            <React.Fragment key={idx}>
-                              <div className="border-l-2 border-gray-200 ml-1.5 h-4"></div>
-                              <div className="flex items-start gap-3">
-                                <div className="w-3 h-3 bg-red-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                                <div className="flex-1">
-                                  <p className="text-sm font-medium text-gray-900">
-                                    {getDestinations(selectedBooking).length > 1 ? `Destination ${idx + 1}` : 'Destination'}
-                                  </p>
-                                  <p className="text-sm text-gray-600">{destination}</p>
+                          {/* Destinations - Using destinationDeliveries for accurate data */}
+                          {selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries.length > 0 ? (
+                            selectedBooking.destinationDeliveries.map((dest, idx) => (
+                              <React.Fragment key={idx}>
+                                <div className="border-l-2 border-gray-200 ml-1.5 h-4"></div>
+                                <div className="flex items-start gap-3">
+                                  <div className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${
+                                    dest.status === 'delivered' ? 'bg-green-500' : 'bg-red-500'
+                                  }`}></div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <p className="text-sm font-medium text-gray-900">
+                                        {selectedBooking.destinationDeliveries.length > 1 ? `Destination ${idx + 1}` : 'Destination'}
+                                      </p>
+                                      {dest.status === 'delivered' && (
+                                        <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-medium">
+                                          Delivered
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-sm text-gray-600">{dest.destinationAddress}</p>
+                                    {dest.customerEstablishmentName && (
+                                      <p className="text-xs text-gray-500 mt-1">
+                                        <Building className="w-3 h-3 inline mr-1" />
+                                        {dest.customerEstablishmentName}
+                                      </p>
+                                    )}
+                                    {dest.deliveredAt && (
+                                      <p className="text-xs text-green-600 mt-1">
+                                        Delivered at {new Date(dest.deliveredAt).toLocaleString()}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            </React.Fragment>
-                          ))}
+                              </React.Fragment>
+                            ))
+                          ) : (
+                            /* Fallback for old booking format */
+                            getDestinations(selectedBooking).map((destination, idx) => (
+                              <React.Fragment key={idx}>
+                                <div className="border-l-2 border-gray-200 ml-1.5 h-4"></div>
+                                <div className="flex items-start gap-3">
+                                  <div className="w-3 h-3 bg-red-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                                  <div className="flex-1">
+                                    <p className="text-sm font-medium text-gray-900">
+                                      {getDestinations(selectedBooking).length > 1 ? `Destination ${idx + 1}` : 'Destination'}
+                                    </p>
+                                    <p className="text-sm text-gray-600">{destination}</p>
+                                  </div>
+                                </div>
+                              </React.Fragment>
+                            ))
+                          )}
                           
+                          {/* Schedule Info */}
                           <div className="flex items-center gap-4 text-sm text-gray-600 mt-4 bg-gray-50 p-2 rounded">
                             <div className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
@@ -1541,6 +1789,28 @@ useEffect(() => {
                               {selectedBooking.timeNeeded}
                             </div>
                           </div>
+                          
+                          {/* Distance and Fee if available */}
+                          {(selectedBooking.totalDistance || selectedBooking.deliveryFee) && (
+                            <div className="mt-3 pt-3 border-t border-gray-200 grid grid-cols-2 gap-3">
+                              {selectedBooking.totalDistance && (
+                                <div className="bg-blue-50 p-2 rounded">
+                                  <p className="text-xs text-gray-600">Total Distance</p>
+                                  <p className="text-sm font-semibold text-blue-700">
+                                    {selectedBooking.totalDistance.toFixed(2)} km
+                                  </p>
+                                </div>
+                              )}
+                              {selectedBooking.deliveryFee && (
+                                <div className="bg-green-50 p-2 rounded">
+                                  <p className="text-xs text-gray-600">Delivery Fee</p>
+                                  <p className="text-sm font-semibold text-green-700">
+                                    ₱{selectedBooking.deliveryFee.toLocaleString()}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1717,6 +1987,168 @@ useEffect(() => {
                       )}
                     </div>
 
+                    {/* Destination Selector Modal */}
+                    <AnimatePresence>
+                      {showDestinationSelector && selectedBooking?.destinationDeliveries && selectedBooking.destinationDeliveries.length > 1 && (
+                      <motion.div
+                        className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+                        style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)' }}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          onClick={() => setShowDestinationSelector(false)}
+                        >
+                          <motion.div
+                            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden"
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {/* Header */}
+                            <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                              <div className="flex items-center gap-3">
+                                <MapPin className="w-6 h-6" />
+                                <div>
+                                  <h3 className="text-lg font-bold">Select Next Destination</h3>
+                                  <p className="text-sm text-blue-100">Choose which stop to deliver to first</p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => setShowDestinationSelector(false)}
+                                className="p-2 text-white hover:bg-white/20 transition-colors rounded-lg"
+                              >
+                                <X className="w-5 h-5" />
+                              </button>
+                            </div>
+
+                            {/* Body - Scrollable destination list */}
+                            <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(80vh - 180px)' }}>
+                              <div className="space-y-3">
+                                {selectedBooking.destinationDeliveries
+                                  .filter(dest => dest.status === 'pending')
+                                  .map((dest, idx) => {
+                                    const actualIndex = dest.destinationIndex;
+                                    const isActive = actualIndex === getNextPendingDestination(selectedBooking)?.destinationIndex;
+                                    
+                                    return (
+                                      <motion.button
+                                        key={actualIndex}
+                                        onClick={() => {
+                                          if (window.confirm(`Navigate to Stop ${actualIndex + 1} first?\n\n${dest.destinationAddress}`)) {
+                                            updateDestinationOrder(actualIndex);
+                                          }
+                                        }}
+                                        disabled={updating}
+                                        className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                                          isActive
+                                            ? 'border-blue-500 bg-blue-50 shadow-lg'
+                                            : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                        whileHover={!updating ? { scale: 1.02 } : {}}
+                                        whileTap={!updating ? { scale: 0.98 } : {}}
+                                      >
+                                        <div className="flex items-start gap-3">
+                                          {/* Stop Number Badge */}
+                                          <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
+                                            isActive 
+                                              ? 'bg-blue-600 text-white' 
+                                              : 'bg-gray-200 text-gray-700'
+                                          }`}>
+                                            {actualIndex + 1}
+                                          </div>
+
+                                          {/* Destination Details */}
+                                          <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-2">
+                                              <h4 className="font-semibold text-gray-900">
+                                                Stop {actualIndex + 1}
+                                                {isActive && (
+                                                  <span className="ml-2 text-xs bg-blue-600 text-white px-2 py-1 rounded-full">
+                                                    Current Route
+                                                  </span>
+                                                )}
+                                              </h4>
+                                            </div>
+
+                                            {/* Branch Name */}
+                                            {dest.customerEstablishmentName && (
+                                              <div className="flex items-center gap-1 mb-1">
+                                                <Building className="w-4 h-4 text-gray-500" />
+                                                <p className="text-sm font-medium text-gray-700">
+                                                  {dest.customerEstablishmentName}
+                                                </p>
+                                              </div>
+                                            )}
+
+                                            {/* Address */}
+                                            <div className="flex items-start gap-1 mb-2">
+                                              <MapPin className="w-4 h-4 text-gray-500 mt-0.5" />
+                                              <p className="text-sm text-gray-600">
+                                                {dest.destinationAddress}
+                                              </p>
+                                            </div>
+
+                                            {/* Product Info */}
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                              <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
+                                                {dest.productName}
+                                              </span>
+                                              <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">
+                                                Qty: {dest.quantity}
+                                              </span>
+                                              <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">
+                                                {dest.grossWeight} kg
+                                              </span>
+                                            </div>
+                                          </div>
+
+                                          {/* Arrow Icon */}
+                                          <div className="flex-shrink-0">
+                                            <ChevronRight className={`w-6 h-6 ${
+                                              isActive ? 'text-blue-600' : 'text-gray-400'
+                                            }`} />
+                                          </div>
+                                        </div>
+                                      </motion.button>
+                                    );
+                                  })}
+                              </div>
+
+                              {/* Info Box */}
+                              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="flex items-start gap-2">
+                                  <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                  <div className="text-sm text-blue-800">
+                                    <p className="font-semibold mb-1">How it works:</p>
+                                    <ul className="list-disc list-inside space-y-1 text-xs">
+                                      <li>Select the destination you want to deliver to next</li>
+                                      <li>The route on the map will update to guide you there</li>
+                                      <li>You can change the route anytime before delivery</li>
+                                      <li>Once delivered, the next pending stop will become active</li>
+                                    </ul>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="px-6 py-4 bg-gray-50 border-t flex justify-between items-center">
+                              <p className="text-sm text-gray-600">
+                                {selectedBooking.destinationDeliveries.filter(d => d.status === 'pending').length} pending stops
+                              </p>
+                              <button
+                                onClick={() => setShowDestinationSelector(false)}
+                                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </motion.div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
                   </div>
 
                   {/* Modal Footer - Sticky */}
@@ -1809,6 +2241,19 @@ useEffect(() => {
                         ) : (
                           /* Destination Delivery Flow - Original Code */
                           <>
+                            {/* Change Route Button (only show when multiple pending destinations) */}
+                            {selectedBooking.destinationDeliveries && 
+                            selectedBooking.destinationDeliveries.length > 1 && 
+                            selectedBooking.destinationDeliveries.filter(d => d.status === 'pending').length > 1 && (
+                              <button
+                                onClick={() => setShowDestinationSelector(true)}
+                                className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center justify-center gap-2 font-medium mb-3"
+                              >
+                                <MapPin className="w-4 h-4" />
+                                Change Route / Select Next Stop
+                              </button>
+                            )}
+
                             {selectedBooking.destinationDeliveries && selectedBooking.destinationDeliveries.length > 0 ? (
                               <>
                                 {(() => {

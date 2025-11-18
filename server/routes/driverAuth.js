@@ -10,7 +10,8 @@ import {
   updateBookingStatus, 
   getDriverBookingCount,
   updateDriverLocation,
-  markDestinationDelivered
+  markDestinationDelivered,
+  setActiveDestination
 } from "../controllers/driverBookingsController.js";
 import driverAuth from "../middleware/driverAuth1.js";
 import { confirmOriginPickup } from "../controllers/driverBookingsController.js";
@@ -39,5 +40,8 @@ router.put("/bookings/:id/deliver-destination", driverAuth, markDestinationDeliv
 
 // Confirm origin pickup
 router.put("/bookings/:id/pickup-origin", driverAuth, confirmOriginPickup);
+
+// Set active destination for flexible routing
+router.put("/bookings/:id/set-active-destination", driverAuth, setActiveDestination);
 
 export default router;

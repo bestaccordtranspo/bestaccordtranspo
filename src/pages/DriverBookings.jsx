@@ -95,6 +95,44 @@ export default function DriverBookings() {
   });
 };
 
+// Verify if driver is within acceptable radius of destination
+const verifyDriverLocation = async (destinationCoords) => {
+  try {
+    const currentLocation = await getCurrentLocation();
+    
+    // Calculate distance between driver and destination using Haversine formula
+    const toRadians = (degrees) => degrees * (Math.PI / 180);
+    
+    const lat1 = toRadians(currentLocation.latitude);
+    const lat2 = toRadians(destinationCoords.latitude);
+    const deltaLat = toRadians(destinationCoords.latitude - currentLocation.latitude);
+    const deltaLon = toRadians(destinationCoords.longitude - currentLocation.longitude);
+    
+    const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+              Math.cos(lat1) * Math.cos(lat2) *
+              Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const earthRadiusKm = 6371;
+    const distanceKm = earthRadiusKm * c;
+    const distanceMeters = distanceKm * 1000;
+    
+    console.log(`📍 Distance to destination: ${distanceMeters.toFixed(0)}m`);
+    
+    // Accept if within 500 meters (adjustable)
+    const acceptableRadiusMeters = 500;
+    
+    return {
+      isWithinRange: distanceMeters <= acceptableRadiusMeters,
+      distance: distanceMeters,
+      acceptableRadius: acceptableRadiusMeters
+    };
+  } catch (err) {
+    console.error("❌ Error verifying location:", err);
+    throw err;
+  }
+};
+
 const updateLocationOnServer = async (bookingId, location) => {
   try {
     const token = localStorage.getItem("driverToken");
@@ -991,6 +1029,57 @@ const markSingleDestinationDelivered = async (destinationIndex) => {
   if (!selectedBooking || !capturedImage) {
     alert('Please take a photo of the delivery first');
     return;
+  }
+
+  // Verify driver location before allowing delivery confirmation
+  const destination = selectedBooking.destinationDeliveries.find(
+    d => d.destinationIndex === destinationIndex
+  );
+  
+  if (!destination) {
+    alert('Destination not found');
+    return;
+  }
+
+  // Check if destination has coordinates
+  if (!destination.latitude || !destination.longitude) {
+    console.warn('⚠️ Destination has no coordinates, skipping location verification');
+    if (!window.confirm('⚠️ This destination has no stored coordinates. Proceed without location verification?')) {
+      return;
+    }
+  } else {
+    try {
+      setUpdating(true);
+      const verification = await verifyDriverLocation({
+        latitude: destination.latitude,
+        longitude: destination.longitude
+      });
+      
+      setUpdating(false);
+      
+      if (!verification.isWithinRange) {
+        alert(
+          `⚠️ Location Verification Failed\n\n` +
+          `You are ${verification.distance.toFixed(0)}m away from this destination.\n` +
+          `You must be within ${verification.acceptableRadius}m to confirm delivery.\n\n` +
+          `Please move closer to the delivery location and try again.`
+        );
+        return;
+      }
+      
+      console.log(`✅ Location verified! Driver is ${verification.distance.toFixed(0)}m from destination`);
+      
+    } catch (err) {
+      setUpdating(false);
+      alert(
+        `Unable to verify your location: ${err.message}\n\n` +
+        `Please ensure:\n` +
+        `• Location services are enabled\n` +
+        `• You have granted location permissions\n` +
+        `• GPS signal is available`
+      );
+      return;
+    }
   }
 
   setUpdating(true);
@@ -2289,12 +2378,46 @@ useEffect(() => {
                                         <p className="text-sm font-bold text-gray-900">{nextDest.destinationAddress}</p>
                                       </div>
 
-                                      {!capturedImage ? (
-                                        <button
-                                          onClick={() => {
-                                            setSelectedDestinationIndex(nextDest.destinationIndex);
-                                            startCamera();
-                                          }}
+                                      <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-3 rounded-lg border border-green-200">
+                                        <p className="text-xs font-medium text-green-700 mb-1">Next Stop ({nextDest.destinationIndex + 1} of {stats.total})</p>
+                                        <p className="text-sm font-bold text-gray-900">{nextDest.destinationAddress}</p>
+                                        <p className="text-xs text-gray-600 mt-2">
+                                          📍 You must be within 500m of this location to confirm delivery
+                                        </p>
+                                      </div>
+
+                                    {!capturedImage ? (
+                                      <button
+                                        onClick={async () => {
+                                          // NEW: Pre-verify location before allowing photo
+                                          if (nextDest.latitude && nextDest.longitude) {
+                                            try {
+                                              setUpdating(true);
+                                              const verification = await verifyDriverLocation({
+                                                latitude: nextDest.latitude,
+                                                longitude: nextDest.longitude
+                                              });
+                                              setUpdating(false);
+                                              
+                                              if (!verification.isWithinRange) {
+                                                alert(
+                                                  `⚠️ You're too far from this destination!\n\n` +
+                                                  `Distance: ${verification.distance.toFixed(0)}m\n` +
+                                                  `Required: Within ${verification.acceptableRadius}m\n\n` +
+                                                  `Please move closer before taking delivery proof.`
+                                                );
+                                                return;
+                                              }
+                                            } catch (err) {
+                                              setUpdating(false);
+                                              alert(`Location verification failed: ${err.message}`);
+                                              return;
+                                            }
+                                          }
+                                          
+                                          setSelectedDestinationIndex(nextDest.destinationIndex);
+                                          startCamera();
+                                        }}
                                           className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center justify-center gap-2 font-medium"
                                         >
                                           <CheckCircle2 className="w-4 h-4" />

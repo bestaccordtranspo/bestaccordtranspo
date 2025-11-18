@@ -1200,9 +1200,26 @@ export default function Monitoring() {
     return employeeId || "Unknown";
   };
 
+  // Check if booking is scheduled for today
+  const isBookingScheduledForToday = (booking) => {
+    if (!booking || !booking.dateNeeded) return false;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const bookingDate = new Date(booking.dateNeeded);
+    bookingDate.setHours(0, 0, 0, 0);
+    
+    return bookingDate.getTime() === today.getTime();
+  };
+
   // Handle confirm ready to go
   const handleConfirmReadyToGo = () => {
     if (selectedBooking) {
+      if (!isBookingScheduledForToday(selectedBooking)) {
+        alert(`This trip is scheduled for ${new Date(selectedBooking.dateNeeded).toLocaleDateString()}. You can only confirm "Ready to go" on the scheduled date.`);
+        return;
+      }
       updateBookingStatus(selectedBooking._id, "Ready to go");
     }
   };
@@ -2619,15 +2636,31 @@ export default function Monitoring() {
 
                         {/* Show different buttons based on status */}
                         {selectedBooking.status === "Pending" && (
-                          <motion.button
-                            onClick={handleConfirmReadyToGo}
-                            disabled={updating}
-                            className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            whileHover={!updating ? { scale: 1.02 } : {}}
-                            whileTap={!updating ? { scale: 0.98 } : {}}
-                          >
-                            {updating ? "Updating..." : "Confirm Ready to go"}
-                          </motion.button>
+                          <>
+                            {isBookingScheduledForToday(selectedBooking) ? (
+                              <motion.button
+                                onClick={handleConfirmReadyToGo}
+                                disabled={updating}
+                                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                whileHover={!updating ? { scale: 1.02 } : {}}
+                                whileTap={!updating ? { scale: 0.98 } : {}}
+                              >
+                                {updating ? "Updating..." : "Confirm Ready to go"}
+                              </motion.button>
+                            ) : (
+                              <div className="flex-1 px-4 py-3 bg-yellow-100 border-2 border-yellow-300 text-yellow-800 rounded-lg text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <Calendar className="w-4 h-4" />
+                                  <div>
+                                    <div className="font-semibold text-sm">Scheduled Trip</div>
+                                    <div className="text-xs">
+                                      Can confirm on {new Date(selectedBooking.dateNeeded).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </>
                         )}
 
                         {selectedBooking.status === "Ready to go" && (

@@ -344,6 +344,70 @@ function Client() {
 
   const closeModal = () => setShowModal(false);
 
+  useEffect(() => {
+    // Build formatted address from selected fields
+    const buildAddressString = () => {
+      const parts = [];
+
+      // Add house number and street if available
+      if (formData.houseNumber) parts.push(formData.houseNumber);
+      if (formData.street) parts.push(formData.street);
+
+      // Add barangay
+      if (formData.barangay) {
+        const barangay = barangays.find((b) => b.code === formData.barangay);
+        if (barangay) parts.push(barangay.name);
+      }
+
+      // Add city/municipality
+      if (formData.city) {
+        const city = cities.find((c) => c.code === formData.city);
+        if (city) parts.push(city.name);
+      }
+
+      // Add province (skip for Metro Manila)
+      if (formData.region !== "130000000" && formData.province) {
+        const province = provinces.find((p) => p.code === formData.province);
+        if (province) parts.push(province.name);
+      }
+
+      // Add region
+      if (formData.region) {
+        const region = regions.find((r) => r.code === formData.region);
+        if (region) {
+          // Simplify region name for better geocoding
+          if (formData.region === "130000000") {
+            parts.push("Metro Manila");
+          } else {
+            parts.push(region.name);
+          }
+        }
+      }
+
+      // Always add Philippines for better geocoding accuracy
+      parts.push("Philippines");
+
+      return parts.filter(Boolean).join(", ");
+    };
+
+    // Update address search when any address field changes
+    if (formData.region && formData.city) {
+      const formattedAddress = buildAddressString();
+      setAddressSearch(formattedAddress);
+    }
+  }, [
+    formData.houseNumber,
+    formData.street,
+    formData.barangay,
+    formData.city,
+    formData.province,
+    formData.region,
+    barangays,
+    cities,
+    provinces,
+    regions,
+  ]);
+
   // Initialize map when modal opens
   useEffect(() => {
     if (!showModal) return;
@@ -439,23 +503,97 @@ function Client() {
 
   // Search address function
   const handleAddressSearch = async () => {
-    if (!addressSearch.trim()) return;
+    if (!addressSearch.trim()) {
+      alert("Please enter an address to search");
+      return;
+    }
 
     try {
-      const response = await axios.get(
-        "https://nominatim.openstreetmap.org/search",
-        {
-          params: {
-            q: addressSearch + ", Philippines",
-            format: "json",
-            limit: 1,
-          },
-        }
-      );
+      console.log("🔍 Searching for address:", addressSearch);
 
-      if (response.data && response.data.length > 0) {
-        const { lat, lon } = response.data[0];
+      // Try multiple search strategies
+      const searchQueries = [
+        addressSearch, // Full address as is
+        addressSearch.replace(/Barangay /gi, ""), // Remove "Barangay" prefix if exists
+        // Simplified version with just city and region
+        (() => {
+          const parts = addressSearch.split(",").map((s) => s.trim());
+          if (parts.length >= 3) {
+            // Take last 3 parts: City, Province/Metro Manila, Philippines
+            return parts.slice(-3).join(", ");
+          }
+          return addressSearch;
+        })(),
+      ];
+
+      let foundLocation = null;
+
+      for (let i = 0; i < searchQueries.length; i++) {
+        const query = searchQueries[i];
+        console.log(`📍 Attempt ${i + 1}/${searchQueries.length}: "${query}"`);
+
+        try {
+          const response = await axios.get(
+            "https://nominatim.openstreetmap.org/search",
+            {
+              params: {
+                q: query,
+                format: "json",
+                limit: 5, // Get more results to find best match
+                countrycodes: "ph", // Restrict to Philippines
+                addressdetails: 1,
+              },
+              headers: {
+                "User-Agent": "BestAccord-Client-Management",
+              },
+            }
+          );
+
+          console.log(
+            `✅ Attempt ${i + 1} returned ${response.data?.length || 0} results`
+          );
+
+          if (response.data && response.data.length > 0) {
+            // Find best match - prefer results that match city/municipality
+            const cityName = cities.find((c) => c.code === formData.city)?.name;
+
+            let bestMatch = response.data[0]; // Default to first result
+
+            if (cityName) {
+              const cityMatch = response.data.find((result) =>
+                result.display_name
+                  .toLowerCase()
+                  .includes(cityName.toLowerCase())
+              );
+              if (cityMatch) {
+                bestMatch = cityMatch;
+                console.log(`✅ Found match containing city "${cityName}"`);
+              }
+            }
+
+            foundLocation = bestMatch;
+            break;
+          }
+
+          // Rate limiting delay between requests
+          if (i < searchQueries.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+        } catch (fetchError) {
+          console.warn(`⚠️ Attempt ${i + 1} failed:`, fetchError.message);
+          continue;
+        }
+      }
+
+      if (foundLocation) {
+        const { lat, lon } = foundLocation;
         const newCenter = [parseFloat(lat), parseFloat(lon)];
+
+        console.log(`✅ Location found:`, {
+          lat: parseFloat(lat),
+          lon: parseFloat(lon),
+          display_name: foundLocation.display_name,
+        });
 
         setMapCenter(newCenter);
         setMarkerPosition(newCenter);
@@ -467,7 +605,7 @@ function Client() {
 
         // Update map view
         if (mapRef.current) {
-          mapRef.current.setView(newCenter, 15);
+          mapRef.current.setView(newCenter, 16); // Zoom in closer
 
           if (markerRef.current) {
             markerRef.current.setLatLng(newCenter);
@@ -488,14 +626,28 @@ function Client() {
             });
           }
         }
+
+        // Show success message
+        console.log("✅ Location pinned successfully");
       } else {
-        alert("Address not found. Please try a different search.");
+        console.error("❌ Address not found in any attempt");
+        alert(
+          "Address not found. Please try:\n" +
+            "1. Selecting more specific location details\n" +
+            "2. Manually editing the search text\n" +
+            "3. Clicking directly on the map to pin your location"
+        );
       }
     } catch (err) {
-      console.error("Error searching address:", err);
-      alert("Failed to search address. Please try again.");
+      console.error("❌ Error searching address:", err);
+      alert(
+        "Failed to search address. Please try again or pin location manually on the map."
+      );
     }
   };
+
+  const isAddressComplete =
+    formData.region && formData.city && formData.barangay;
 
   // Cleanup map on modal close
   useEffect(() => {
@@ -1001,9 +1153,21 @@ function Client() {
                       </h3>
                     </div>
                     <p className="text-sm text-gray-600 mb-4">
-                      Search your address or click on the map to pin your exact
-                      location. You can also drag the marker to adjust.
+                      The address will be auto-filled based on your selections
+                      above. Click "Find on Map" to geocode, or click directly
+                      on the map to pin your exact location. You can also drag
+                      the marker to adjust.
                     </p>
+
+                    {/* Auto-fill indicator */}
+                    {isAddressComplete && (
+                      <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-xs text-green-800">
+                          ✓ Address auto-filled from your selections. Click
+                          "Find on Map" to locate this address.
+                        </p>
+                      </div>
+                    )}
 
                     <div className="mb-4 flex gap-2">
                       <input
@@ -1014,18 +1178,23 @@ function Client() {
                           e.key === "Enter" &&
                           (e.preventDefault(), handleAddressSearch())
                         }
-                        placeholder="Search address (e.g., Quezon City, Metro Manila)..."
-                        className="flex-1 px-4 py-2.5 border border-violet-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent"
+                        placeholder="Address will auto-fill from selections above, or type manually..."
+                        className="flex-1 px-4 py-2.5 border border-violet-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent text-sm"
                       />
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         type="button"
                         onClick={handleAddressSearch}
-                        className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-300 inline-flex items-center gap-2"
+                        disabled={!addressSearch.trim()}
+                        className={`px-4 py-2.5 rounded-xl font-medium hover:shadow-lg transition-all duration-300 inline-flex items-center gap-2 ${
+                          addressSearch.trim()
+                            ? "bg-gradient-to-r from-purple-600 to-violet-600 text-white"
+                            : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                        }`}
                       >
                         <Search size={18} />
-                        Search
+                        Find on Map
                       </motion.button>
                     </div>
 
@@ -1037,9 +1206,22 @@ function Client() {
                     {markerPosition && (
                       <div className="mt-3 p-3 bg-white rounded-lg border border-violet-200">
                         <p className="text-xs text-gray-600">
-                          <strong>Coordinates:</strong>{" "}
+                          <strong>📍 Pinned Location:</strong>{" "}
                           {markerPosition[0].toFixed(6)},{" "}
                           {markerPosition[1].toFixed(6)}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Drag the marker or click the map to adjust the exact
+                          location
+                        </p>
+                      </div>
+                    )}
+
+                    {!markerPosition && (
+                      <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="text-xs text-yellow-800">
+                          ⚠️ No location pinned yet. Click "Find on Map" or
+                          click directly on the map to set location.
                         </p>
                       </div>
                     )}

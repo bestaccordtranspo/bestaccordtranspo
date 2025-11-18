@@ -64,25 +64,75 @@ function isBookingDateToday(bookingDate) {
 // Update vehicle and employee status
 async function updateVehicleAndEmployeeStatus(booking, newStatus) {
   try {
-    if (booking.vehicleId) {
-      const vehicleResult = await Vehicle.findOneAndUpdate(
-        { vehicleId: booking.vehicleId },
-        { status: newStatus },
-        { new: true }
-      );
-      if (!vehicleResult) {
-        console.warn(`⚠️ Vehicle ${booking.vehicleId} not found`);
-      } else {
+    console.log(`🔄 Checking if resources can be set to ${newStatus}...`);
+    
+    // If setting to "Available", check for other active bookings first
+    if (newStatus === "Available") {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Check if vehicle has other active bookings today or in the future
+      if (booking.vehicleId) {
+        const otherVehicleBookings = await Booking.countDocuments({
+          vehicleId: booking.vehicleId,
+          _id: { $ne: booking._id }, // Exclude current booking
+          dateNeeded: { $gte: today },
+          status: { $in: ["Pending", "Ready to go", "In Transit"] },
+          isArchived: false
+        });
+        
+        if (otherVehicleBookings > 0) {
+          console.log(`⚠️ Vehicle ${booking.vehicleId} has ${otherVehicleBookings} other active bookings - keeping status as "On Trip"`);
+        } else {
+          const vehicle = await Vehicle.findOneAndUpdate(
+            { vehicleId: booking.vehicleId },
+            { status: "Available" },
+            { new: true }
+          );
+          console.log(`✅ Vehicle ${booking.vehicleId} status updated to Available`);
+        }
+      }
+      
+      // Check if employees have other active bookings today or in the future
+      if (Array.isArray(booking.employeeAssigned) && booking.employeeAssigned.length > 0) {
+        for (const employeeId of booking.employeeAssigned) {
+          const otherEmployeeBookings = await Booking.countDocuments({
+            employeeAssigned: { $in: [employeeId] },
+            _id: { $ne: booking._id }, // Exclude current booking
+            dateNeeded: { $gte: today },
+            status: { $in: ["Pending", "Ready to go", "In Transit"] },
+            isArchived: false
+          });
+          
+          if (otherEmployeeBookings > 0) {
+            console.log(`⚠️ Employee ${employeeId} has ${otherEmployeeBookings} other active bookings - keeping status as "On Trip"`);
+          } else {
+            await Employee.findOneAndUpdate(
+              { employeeId: employeeId },
+              { status: "Available" }
+            );
+            console.log(`✅ Employee ${employeeId} status updated to Available`);
+          }
+        }
+      }
+    } else {
+      // For other statuses (like "On Trip"), update directly
+      if (booking.vehicleId) {
+        await Vehicle.findOneAndUpdate(
+          { vehicleId: booking.vehicleId },
+          { status: newStatus },
+          { new: true }
+        );
         console.log(`✅ Vehicle ${booking.vehicleId} status updated to ${newStatus}`);
       }
-    }
 
-    if (Array.isArray(booking.employeeAssigned) && booking.employeeAssigned.length > 0) {
-      const employeeResult = await Employee.updateMany(
-        { employeeId: { $in: booking.employeeAssigned } },
-        { status: newStatus }
-      );
-      console.log(`✅ ${employeeResult.modifiedCount} employees updated to ${newStatus}`);
+      if (Array.isArray(booking.employeeAssigned) && booking.employeeAssigned.length > 0) {
+        const result = await Employee.updateMany(
+          { employeeId: { $in: booking.employeeAssigned } },
+          { status: newStatus }
+        );
+        console.log(`✅ ${result.modifiedCount} employees updated to ${newStatus}`);
+      }
     }
   } catch (error) {
     console.error("❌ Error updating statuses:", error);
@@ -433,7 +483,7 @@ router.put("/:id", async (req, res) => {
 
     const { reservationId, tripNumber, ...updateData } = req.body;
 
-    // Check for schedule conflicts if date, vehicle, or employees changed
+    // Check for schedule conflicts (for logging only, not blocking)
     if (updateData.dateNeeded || updateData.vehicleId || updateData.employeeAssigned) {
       const conflicts = await checkScheduleConflicts(
         updateData.vehicleId || currentBooking.vehicleId,
@@ -443,15 +493,7 @@ router.put("/:id", async (req, res) => {
       );
 
       if (conflicts.vehicle || conflicts.employees.length > 0) {
-        return res.status(409).json({
-          message: "Schedule conflict detected",
-          conflicts: {
-            vehicle: conflicts.vehicle ? "Vehicle is already booked for this date" : null,
-            employees: conflicts.employees.length > 0 
-              ? `Employees ${conflicts.employees.join(", ")} are already booked for this date` 
-              : null
-          }
-        });
+        console.log("⚠️ Schedule conflicts detected (allowed for future bookings):", conflicts);
       }
     }
 
@@ -474,10 +516,40 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ message: "Booking not found" });
     }
 
+    // Check if date was updated to today or past
+    if (updateData.dateNeeded) {
+      const wasDateChanged = updateData.dateNeeded !== currentBooking.dateNeeded;
+      const isNewDateToday = isBookingDateToday(updateData.dateNeeded);
+      
+      if (wasDateChanged && isNewDateToday && currentBooking.status === "Pending") {
+        console.log("📅 Date changed to today/past - updating status to 'In Transit' and resources to 'On Trip'");
+        
+        // Update booking status to In Transit
+        updatedBooking.status = "In Transit";
+        await updatedBooking.save();
+        
+        // Update vehicle and employee statuses
+        try {
+          await updateVehicleAndEmployeeStatus(updatedBooking, "On Trip");
+          console.log("✅ Resources updated to 'On Trip' due to date change");
+        } catch (error) {
+          console.error("⚠️ Error updating resource statuses:", error);
+        }
+      } else if (wasDateChanged) {
+        console.log(`📅 Date changed to: ${new Date(updateData.dateNeeded).toLocaleDateString()}`);
+        
+        // If date changed to future and status is not Pending, consider resetting
+        if (!isNewDateToday && currentBooking.status === "In Transit") {
+          console.log("⚠️ Note: Date moved to future but status remains 'In Transit'");
+        }
+      }
+    }
+
     console.log("✅ Booking updated successfully:", {
       id: updatedBooking._id,
       reservationId: updatedBooking.reservationId,
-      status: updatedBooking.status
+      status: updatedBooking.status,
+      dateNeeded: updatedBooking.dateNeeded
     });
 
     res.json(updatedBooking);
@@ -518,10 +590,20 @@ router.patch("/:id/status", async (req, res) => {
     await booking.save();
 
     // Update vehicle and employee status based on new booking status
-    if (status === "In Transit" && oldStatus === "Pending") {
-      await updateVehicleAndEmployeeStatus(booking, "On Trip");
+    if (status === "In Transit") {
+      if (oldStatus === "Pending") {
+        // Transitioning from Pending to In Transit - set resources to On Trip
+        await updateVehicleAndEmployeeStatus(booking, "On Trip");
+        console.log("✅ Resources updated to 'On Trip' (Pending → In Transit)");
+      }
     } else if (status === "Completed" || status === "Delivered") {
+      // Transitioning to Completed/Delivered - intelligently set to Available if no other bookings
       await updateVehicleAndEmployeeStatus(booking, "Available");
+      console.log("✅ Resources updated to 'Available' (if no other active bookings)");
+    } else if (status === "Pending" && oldStatus === "In Transit") {
+      // If moving back to Pending from In Transit, keep resources as On Trip
+      // (They might have other bookings or be mid-trip)
+      console.log("⚠️ Status changed from In Transit to Pending - resources remain as 'On Trip'");
     }
 
     res.json({

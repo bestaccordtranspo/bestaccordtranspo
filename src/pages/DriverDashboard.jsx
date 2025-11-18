@@ -2,7 +2,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, User, LogOut, ArrowLeft, Calendar, ClipboardList, History } from "lucide-react";
+import {
+  Menu,
+  X,
+  User,
+  LogOut,
+  ArrowLeft,
+  Calendar,
+  ClipboardList,
+  History,
+} from "lucide-react";
 import DriverProfile from "./DriverProfile";
 import DriverBookings from "./DriverBookings";
 import DriverSchedule from "./DriverSchedule";
@@ -10,7 +19,6 @@ import DriverHistory from "./DriverHistory";
 import { useDriverBookingCount } from "../hooks/useDriverBookingCount";
 import logo from "../assets/bestaccord_logo.png";
 import driverloginbg from "../assets/driver_login_bg.png";
-
 
 export default function DriverDashboard() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -28,18 +36,18 @@ export default function DriverDashboard() {
   const goBack = () => setActivePage("home");
 
   return (
-    <div 
+    <div
       className="min-h-screen flex flex-col relative overflow-hidden"
       style={{
         backgroundImage: `url(${driverloginbg})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
       }}
     >
       {/* Subtle overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-purple-900/50 via-purple-800/50 to-indigo-900/50"></div>
-      
+
       {/* Decorative background elements - subtle */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-20 -right-20 w-40 h-40 sm:w-60 sm:h-60 bg-purple-500/10 rounded-full blur-3xl"></div>
@@ -108,10 +116,14 @@ export default function DriverDashboard() {
                     <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 500,
+                        damping: 30,
+                      }}
                       className="absolute -top-2 -right-2 bg-gradient-to-br from-red-500 to-red-600 text-white text-sm font-bold rounded-full h-8 w-8 flex items-center justify-center shadow-lg border-2 border-white/30"
                     >
-                      {bookingCount > 99 ? '99+' : bookingCount}
+                      {bookingCount > 99 ? "99+" : bookingCount}
                     </motion.div>
                   )}
 
@@ -237,7 +249,9 @@ export default function DriverDashboard() {
             >
               {/* Header */}
               <div className="flex items-center justify-between p-4 border-b border-purple-100">
-                <h2 className="text-lg font-bold bg-gradient-to-r from-purple-900 to-indigo-900 bg-clip-text text-transparent">Menu</h2>
+                <h2 className="text-lg font-bold bg-gradient-to-r from-purple-900 to-indigo-900 bg-clip-text text-transparent">
+                  Menu
+                </h2>
                 <button
                   onClick={() => setMenuOpen(false)}
                   className="p-2 rounded-lg hover:bg-purple-100 transition-colors"

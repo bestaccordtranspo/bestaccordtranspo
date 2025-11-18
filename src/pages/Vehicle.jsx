@@ -43,7 +43,7 @@ export default function Vehicle() {
     registrationExpiryDate: "",
     status: "Available",
     maxWeightCapacity: "",
-    kmRate: ""  
+    kmRate: "",
   });
 
   const containerRef = useRef(null);
@@ -55,12 +55,14 @@ export default function Vehicle() {
     try {
       const res = await axiosClient.get("/api/vehicles");
       // Filter out archived Vehicles
-      const activeVehicles = res.data.filter(vehicle => !vehicle.isArchived);
+      const activeVehicles = res.data.filter((vehicle) => !vehicle.isArchived);
       setVehicles(activeVehicles);
       setFilteredVehicles(activeVehicles);
 
       // Extract unique values
-      setuniqueManufacturedBy([...new Set(res.data.map((c) => c.manufacturedBy))]);
+      setuniqueManufacturedBy([
+        ...new Set(res.data.map((c) => c.manufacturedBy)),
+      ]);
       setuniqueVehicleTypes([...new Set(res.data.map((c) => c.vehicleType))]);
       setUniqueStatus([...new Set(res.data.map((c) => c.status))]);
       setUniqueDates([
@@ -84,29 +86,48 @@ export default function Vehicle() {
     let results = vehicles;
 
     if (searchDateRange) {
-      results = results.filter((vhcl) => vhcl.registrationExpiryDate === searchDateRange);
+      results = results.filter(
+        (vhcl) => vhcl.registrationExpiryDate === searchDateRange
+      );
     }
     if (searchVehicleType) {
-      results = results.filter((vhcl) => vhcl.vehicleType === searchVehicleType);
+      results = results.filter(
+        (vhcl) => vhcl.vehicleType === searchVehicleType
+      );
     }
     if (searchStatus) {
       results = results.filter((vhcl) => vhcl.status === searchStatus);
     }
     if (searchManufacturedBy) {
-      results = results.filter((vhcl) => vhcl.manufacturedBy === searchManufacturedBy);
+      results = results.filter(
+        (vhcl) => vhcl.manufacturedBy === searchManufacturedBy
+      );
     }
     if (generalSearch) {
       results = results.filter(
         (vhcl) =>
-          vhcl.registrationExpiryDate?.toLowerCase().includes(generalSearch.toLowerCase()) ||
-          vhcl.vehicleType?.toLowerCase().includes(generalSearch.toLowerCase()) ||
+          vhcl.registrationExpiryDate
+            ?.toLowerCase()
+            .includes(generalSearch.toLowerCase()) ||
+          vhcl.vehicleType
+            ?.toLowerCase()
+            .includes(generalSearch.toLowerCase()) ||
           vhcl.status?.includes(generalSearch) ||
-          vhcl.manufacturedBy?.toLowerCase().includes(generalSearch.toLowerCase())
+          vhcl.manufacturedBy
+            ?.toLowerCase()
+            .includes(generalSearch.toLowerCase())
       );
     }
     setFilteredVehicles(results);
     setCurrentPage(1);
-  }, [searchDateRange, searchVehicleType, searchStatus, searchManufacturedBy, generalSearch, vehicles]);
+  }, [
+    searchDateRange,
+    searchVehicleType,
+    searchStatus,
+    searchManufacturedBy,
+    generalSearch,
+    vehicles,
+  ]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredVehicles.length / itemsPerPage);
@@ -134,7 +155,7 @@ export default function Vehicle() {
           : "",
         status: vehicle.status,
         maxWeightCapacity: vehicle.maxWeightCapacity ?? "",
-        kmRate: vehicle.kmRate ?? ""
+        kmRate: vehicle.kmRate ?? "",
       });
     } else {
       setEditVehicle(null);
@@ -150,7 +171,7 @@ export default function Vehicle() {
         registrationExpiryDate: "",
         status: "Available",
         maxWeightCapacity: "",
-        kmRate: ""
+        kmRate: "",
       });
     }
     setShowModal(true);
@@ -168,13 +189,21 @@ export default function Vehicle() {
   // Frontend validation for vehicle form
   const validateForm = () => {
     let newErrors = {};
-    if (!(formData.registrationNumber || "").trim()) newErrors.registrationNumber = "Registration number is required.";
-    if (!formData.manufacturedBy) newErrors.manufacturedBy = "Manufacturer is required.";
+    if (!(formData.registrationNumber || "").trim())
+      newErrors.registrationNumber = "Registration number is required.";
+    if (!formData.manufacturedBy)
+      newErrors.manufacturedBy = "Manufacturer is required.";
     if (!(formData.model || "").trim()) newErrors.model = "Model is required.";
-    if (!(formData.plateNumber || "").trim()) newErrors.plateNumber = "Plate number is required.";
-    if (!formData.vehicleType) newErrors.vehicleType = "Vehicle type is required.";
+    if (!(formData.plateNumber || "").trim())
+      newErrors.plateNumber = "Plate number is required.";
+    if (!formData.vehicleType)
+      newErrors.vehicleType = "Vehicle type is required.";
     if (!formData.status) newErrors.status = "Status is required.";
-    if (formData.registrationExpiryDate && isNaN(Date.parse(formData.registrationExpiryDate))) newErrors.registrationExpiryDate = "Invalid expiry date.";
+    if (
+      formData.registrationExpiryDate &&
+      isNaN(Date.parse(formData.registrationExpiryDate))
+    )
+      newErrors.registrationExpiryDate = "Invalid expiry date.";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -185,10 +214,10 @@ export default function Vehicle() {
 
     try {
       if (editVehicle) {
-        await axiosClient.put(
-          `/api/vehicles/${editVehicle._id}`,
-          { ...formData, vehicleId: editVehicle.vehicleId }
-        );
+        await axiosClient.put(`/api/vehicles/${editVehicle._id}`, {
+          ...formData,
+          vehicleId: editVehicle.vehicleId,
+        });
       } else {
         const { vehicleId, ...dataToSend } = formData;
         await axiosClient.post("/api/vehicles", dataToSend);
@@ -212,16 +241,17 @@ export default function Vehicle() {
 
   //Archive handler
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to archive this vehicle?")) return;
+    if (!window.confirm("Are you sure you want to archive this vehicle?"))
+      return;
     try {
       await axiosClient.patch(`/api/vehicles/${id}/archive`, {
-        isArchived: true
+        isArchived: true,
       });
-      alert('Vehicle archived successfully');
+      alert("Vehicle archived successfully");
       fetchVehicles();
     } catch (err) {
-      console.error('Error archiving vehicle:', err);
-      alert('Error archiving vehicle. Please try again.');
+      console.error("Error archiving vehicle:", err);
+      alert("Error archiving vehicle. Please try again.");
     }
   };
 
@@ -232,7 +262,9 @@ export default function Vehicle() {
 
   // Add this helper function at the top of your component
   const getDisplayID = (index, vehicle) => {
-    return vehicle.vehicleId ? vehicle.vehicleId : `V${String(index + 1).padStart(3, "0")}`;
+    return vehicle.vehicleId
+      ? vehicle.vehicleId
+      : `V${String(index + 1).padStart(3, "0")}`;
   };
 
   return (
@@ -345,13 +377,27 @@ export default function Vehicle() {
           <table className="w-full">
             <thead className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-100">
               <tr>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">No</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Vehicle ID</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Vehicle</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Wheels</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Plate Number</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Status</th>
-                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Actions</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                  No
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                  Vehicle ID
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                  Vehicle
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                  Wheels
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                  Plate Number
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                  Status
+                </th>
+                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-purple-50">
@@ -363,7 +409,9 @@ export default function Vehicle() {
                   transition={{ delay: index * 0.05 }}
                   className="hover:bg-purple-50/50 transition-colors duration-200"
                 >
-                  <td className="px-6 py-4 text-sm text-gray-900">{startIndex + index + 1}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {startIndex + index + 1}
+                  </td>
                   <td className="px-6 py-4 text-sm font-mono">
                     <motion.button
                       onClick={() => viewVehicle(v)}
@@ -374,17 +422,24 @@ export default function Vehicle() {
                       {getDisplayID(startIndex + index, v)}
                     </motion.button>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{v.manufacturedBy} {v.model}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{v.vehicleType === "6-Wheeler" ? 6 : 4}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{v.plateNumber}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {v.manufacturedBy} {v.model}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {v.vehicleType === "6-Wheeler" ? 6 : 4}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {v.plateNumber}
+                  </td>
                   <td className="px-6 py-4">
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${v.status === "Available"
-                        ? "bg-green-100 text-green-800"
-                        : v.status === "On Trip"
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        v.status === "Available"
+                          ? "bg-green-100 text-green-800"
+                          : v.status === "On Trip"
                           ? "bg-yellow-100 text-yellow-800"
                           : "bg-red-100 text-red-800"
-                        }`}
+                      }`}
                     >
                       {v.status}
                     </span>
@@ -433,16 +488,19 @@ export default function Vehicle() {
             whileTap={{ scale: 0.95 }}
             onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
             disabled={currentPage === 1}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 ${currentPage === 1
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg"
-              }`}
+            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 ${
+              currentPage === 1
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg"
+            }`}
           >
             Previous
           </motion.button>
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">
-              Page <span className="font-bold text-purple-700">{currentPage}</span> of <span className="font-bold text-purple-700">{totalPages}</span>
+              Page{" "}
+              <span className="font-bold text-purple-700">{currentPage}</span>{" "}
+              of <span className="font-bold text-purple-700">{totalPages}</span>
             </span>
           </div>
           <motion.button
@@ -450,10 +508,11 @@ export default function Vehicle() {
             whileTap={{ scale: 0.95 }}
             onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
             disabled={currentPage === totalPages}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 ${currentPage === totalPages
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg"
-              }`}
+            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 ${
+              currentPage === totalPages
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg"
+            }`}
           >
             Next
           </motion.button>
@@ -485,7 +544,9 @@ export default function Vehicle() {
                       {editVehicle ? "Edit Vehicle" : "Add New Vehicle"}
                     </h2>
                     <p className="text-purple-100 text-sm mt-1">
-                      {editVehicle ? "Update vehicle information" : "Enter vehicle details"}
+                      {editVehicle
+                        ? "Update vehicle information"
+                        : "Enter vehicle details"}
                     </p>
                   </div>
                   <motion.button
@@ -503,10 +564,14 @@ export default function Vehicle() {
               <form onSubmit={handleSubmit} className="p-8 space-y-6">
                 {/* Vehicle Registration */}
                 <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Vehicle Registration</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Vehicle Registration
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Registration Number *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Registration Number *
+                      </label>
                       <input
                         type="text"
                         name="registrationNumber"
@@ -514,48 +579,82 @@ export default function Vehicle() {
                         value={formData.registrationNumber}
                         onChange={handleChange}
                         required
-                        className={`w-full px-4 py-2.5 border ${errors.registrationNumber ? 'border-red-500' : 'border-purple-200'} rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent`}
+                        className={`w-full px-4 py-2.5 border ${
+                          errors.registrationNumber
+                            ? "border-red-500"
+                            : "border-purple-200"
+                        } rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent`}
                       />
-                      {errors.registrationNumber && <p className="text-red-500 text-xs mt-1">{errors.registrationNumber}</p>}
+                      {errors.registrationNumber && (
+                        <p className="text-red-500 text-xs mt-1">
+                          {errors.registrationNumber}
+                        </p>
+                      )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Registration Expiry Date</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Registration Expiry Date
+                      </label>
                       <input
                         type="date"
                         name="registrationExpiryDate"
                         value={formData.registrationExpiryDate}
                         onChange={handleChange}
-                        className={`w-full px-4 py-2.5 border ${errors.registrationExpiryDate ? 'border-red-500' : 'border-purple-200'} rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent`}
+                        className={`w-full px-4 py-2.5 border ${
+                          errors.registrationExpiryDate
+                            ? "border-red-500"
+                            : "border-purple-200"
+                        } rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent`}
                       />
-                      {errors.registrationExpiryDate && <p className="text-red-500 text-xs mt-1">{errors.registrationExpiryDate}</p>}
+                      {errors.registrationExpiryDate && (
+                        <p className="text-red-500 text-xs mt-1">
+                          {errors.registrationExpiryDate}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 {/* Vehicle Details */}
                 <div className="bg-gradient-to-r from-indigo-50 to-violet-50 p-6 rounded-2xl border border-indigo-100">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Vehicle Details</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Vehicle Details
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Manufacturer *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Manufacturer *
+                      </label>
                       <select
                         name="manufacturedBy"
                         value={formData.manufacturedBy}
                         onChange={handleChange}
                         required
-                        className={`w-full px-4 py-2.5 border ${errors.manufacturedBy ? 'border-red-500' : 'border-indigo-200'} rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent`}
+                        className={`w-full px-4 py-2.5 border ${
+                          errors.manufacturedBy
+                            ? "border-red-500"
+                            : "border-indigo-200"
+                        } rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent`}
                       >
                         <option value="">Select Manufacturer</option>
                         {brands.map((b) => (
-                          <option key={b} value={b}>{b}</option>
+                          <option key={b} value={b}>
+                            {b}
+                          </option>
                         ))}
                       </select>
-                      {errors.manufacturedBy && <p className="text-red-500 text-xs mt-1">{errors.manufacturedBy}</p>}
+                      {errors.manufacturedBy && (
+                        <p className="text-red-500 text-xs mt-1">
+                          {errors.manufacturedBy}
+                        </p>
+                      )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Model *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Model *
+                      </label>
                       <input
                         type="text"
                         name="model"
@@ -563,13 +662,21 @@ export default function Vehicle() {
                         value={formData.model}
                         onChange={handleChange}
                         required
-                        className={`w-full px-4 py-2.5 border ${errors.model ? 'border-red-500' : 'border-indigo-200'} rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent`}
+                        className={`w-full px-4 py-2.5 border ${
+                          errors.model ? "border-red-500" : "border-indigo-200"
+                        } rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent`}
                       />
-                      {errors.model && <p className="text-red-500 text-xs mt-1">{errors.model}</p>}
+                      {errors.model && (
+                        <p className="text-red-500 text-xs mt-1">
+                          {errors.model}
+                        </p>
+                      )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Plate Number *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Plate Number *
+                      </label>
                       <input
                         type="text"
                         name="plateNumber"
@@ -577,29 +684,51 @@ export default function Vehicle() {
                         value={formData.plateNumber}
                         onChange={handleChange}
                         required
-                        className={`w-full px-4 py-2.5 border ${errors.plateNumber ? 'border-red-500' : 'border-indigo-200'} rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent`}
+                        className={`w-full px-4 py-2.5 border ${
+                          errors.plateNumber
+                            ? "border-red-500"
+                            : "border-indigo-200"
+                        } rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent`}
                       />
-                      {errors.plateNumber && <p className="text-red-500 text-xs mt-1">{errors.plateNumber}</p>}
+                      {errors.plateNumber && (
+                        <p className="text-red-500 text-xs mt-1">
+                          {errors.plateNumber}
+                        </p>
+                      )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle Type *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Vehicle Type *
+                      </label>
                       <select
                         name="vehicleType"
                         value={formData.vehicleType}
                         onChange={handleChange}
                         required
-                        className={`w-full px-4 py-2.5 border ${errors.vehicleType ? 'border-red-500' : 'border-indigo-200'} rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent`}
+                        className={`w-full px-4 py-2.5 border ${
+                          errors.vehicleType
+                            ? "border-red-500"
+                            : "border-indigo-200"
+                        } rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent`}
                       >
                         {vehicleTypes.map((v) => (
-                          <option key={v} value={v}>{v}</option>
+                          <option key={v} value={v}>
+                            {v}
+                          </option>
                         ))}
                       </select>
-                      {errors.vehicleType && <p className="text-red-500 text-xs mt-1">{errors.vehicleType}</p>}
+                      {errors.vehicleType && (
+                        <p className="text-red-500 text-xs mt-1">
+                          {errors.vehicleType}
+                        </p>
+                      )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Color
+                      </label>
                       <input
                         type="text"
                         name="color"
@@ -611,29 +740,43 @@ export default function Vehicle() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Status *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Status *
+                      </label>
                       <select
                         name="status"
                         value={formData.status}
                         onChange={handleChange}
                         required
-                        className={`w-full px-4 py-2.5 border ${errors.status ? 'border-red-500' : 'border-indigo-200'} rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent`}
+                        className={`w-full px-4 py-2.5 border ${
+                          errors.status ? "border-red-500" : "border-indigo-200"
+                        } rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent`}
                       >
                         {statuses.map((s) => (
-                          <option key={s} value={s}>{s}</option>
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
                         ))}
                       </select>
-                      {errors.status && <p className="text-red-500 text-xs mt-1">{errors.status}</p>}
+                      {errors.status && (
+                        <p className="text-red-500 text-xs mt-1">
+                          {errors.status}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 {/* Technical Information */}
                 <div className="bg-gradient-to-r from-violet-50 to-fuchsia-50 p-6 rounded-2xl border border-violet-100">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Technical Information</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Technical Information
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Chassis Number</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Chassis Number
+                      </label>
                       <input
                         type="text"
                         name="chassisNumber"
@@ -645,7 +788,9 @@ export default function Vehicle() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Engine Number</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Engine Number
+                      </label>
                       <input
                         type="text"
                         name="engineNumber"
@@ -657,7 +802,9 @@ export default function Vehicle() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Max Weight Capacity (kg)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Max Weight Capacity (kg)
+                      </label>
                       <input
                         type="number"
                         name="maxWeightCapacity"
@@ -669,7 +816,9 @@ export default function Vehicle() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">fare per Kilometer (KM)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Fare per Kilometer (KM)
+                      </label>
                       <input
                         type="number"
                         name="kmRate"
@@ -685,7 +834,9 @@ export default function Vehicle() {
 
                 {errors.general && (
                   <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                    <p className="text-red-600 text-sm text-center">{errors.general}</p>
+                    <p className="text-red-600 text-sm text-center">
+                      {errors.general}
+                    </p>
                   </div>
                 )}
               </form>

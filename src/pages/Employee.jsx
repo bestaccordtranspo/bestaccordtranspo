@@ -47,7 +47,7 @@ function Employee() {
   const fetchEmployees = async () => {
     try {
       const res = await axiosClient.get("/api/employees");
-      const activeEmployees = res.data.filter(emp => !emp.isArchived);
+      const activeEmployees = res.data.filter((emp) => !emp.isArchived);
       setEmployees(activeEmployees);
       setFilteredEmployees(activeEmployees);
     } catch (err) {
@@ -87,13 +87,22 @@ function Employee() {
           emp.fullName?.toLowerCase().includes(generalSearch.toLowerCase()) ||
           emp.role?.toLowerCase().includes(generalSearch.toLowerCase()) ||
           emp.mobileNumber?.includes(generalSearch) ||
-          (emp.username || "").toLowerCase().includes(generalSearch.toLowerCase())
+          (emp.username || "")
+            .toLowerCase()
+            .includes(generalSearch.toLowerCase())
       );
     }
 
     setFilteredEmployees(results);
     setCurrentPage(1);
-  }, [searchId, searchName, searchRole, searchMobile, generalSearch, employees]);
+  }, [
+    searchId,
+    searchName,
+    searchRole,
+    searchMobile,
+    generalSearch,
+    employees,
+  ]);
 
   const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -156,21 +165,28 @@ function Employee() {
     let newErrors = {};
 
     if (step === 1) {
-      if (!(formData.fullName || "").trim()) newErrors.fullName = "Full name is required.";
+      if (!(formData.fullName || "").trim())
+        newErrors.fullName = "Full name is required.";
       if (!formData.role) newErrors.role = "Role is required.";
-      if (!formData.employmentType) newErrors.employmentType = "Employment type is required.";
+      if (!formData.employmentType)
+        newErrors.employmentType = "Employment type is required.";
       if (!(formData.mobileNumber || "").trim()) {
         newErrors.mobileNumber = "Mobile number is required.";
       } else if (!/^\d{11}$/.test(formData.mobileNumber || "")) {
         newErrors.mobileNumber = "Mobile number must be exactly 11 digits.";
       }
-      if (!(formData.currentAddress || "").trim()) newErrors.currentAddress = "Current address is required.";
-      if (!(formData.permanentAddress || "").trim()) newErrors.permanentAddress = "Permanent address is required.";
-      if (!(formData.emergencyContactName || "").trim()) newErrors.emergencyContactName = "Emergency contact name is required.";
+      if (!(formData.currentAddress || "").trim())
+        newErrors.currentAddress = "Current address is required.";
+      if (!(formData.permanentAddress || "").trim())
+        newErrors.permanentAddress = "Permanent address is required.";
+      if (!(formData.emergencyContactName || "").trim())
+        newErrors.emergencyContactName = "Emergency contact name is required.";
       if (!(formData.emergencyContactNumber || "").trim()) {
-        newErrors.emergencyContactNumber = "Emergency contact number is required.";
+        newErrors.emergencyContactNumber =
+          "Emergency contact number is required.";
       } else if (!/^\d{11}$/.test(formData.emergencyContactNumber || "")) {
-        newErrors.emergencyContactNumber = "Emergency contact number must be exactly 11 digits.";
+        newErrors.emergencyContactNumber =
+          "Emergency contact number must be exactly 11 digits.";
       }
       if (!formData.dateHired) newErrors.dateHired = "Date hired is required.";
       if (!formData.shift) newErrors.shift = "Shift selection is required.";
@@ -180,7 +196,8 @@ function Employee() {
       if (!(formData.username || "").trim()) {
         newErrors.username = "Username is required.";
       } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-        newErrors.username = "Username can only contain letters, numbers and underscores.";
+        newErrors.username =
+          "Username can only contain letters, numbers and underscores.";
       }
       if (!formData.password.trim()) {
         newErrors.password = "Password is required.";
@@ -200,10 +217,10 @@ function Employee() {
     }
     try {
       if (editEmployee) {
-        await axiosClient.put(
-          `/api/employees/${editEmployee._id}`,
-          { ...formData, employeeId: editEmployee.employeeId }
-        );
+        await axiosClient.put(`/api/employees/${editEmployee._id}`, {
+          ...formData,
+          employeeId: editEmployee.employeeId,
+        });
       } else {
         const { employeed, sameAsCurrent, ...dataToSend } = formData;
         await axiosClient.post("/api/employees", dataToSend);
@@ -225,21 +242,24 @@ function Employee() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to archive this employee?")) return;
+    if (!window.confirm("Are you sure you want to archive this employee?"))
+      return;
     try {
       await axiosClient.patch(`/api/employees/${id}/archive`, {
-        isArchived: true
+        isArchived: true,
       });
       alert("Employee archived successfully");
       fetchEmployees();
     } catch (err) {
-      console.error('Error archiving employee:', err);
-      alert('Error archiving employee. Please try again.');
+      console.error("Error archiving employee:", err);
+      alert("Error archiving employee. Please try again.");
     }
   };
 
   const getDisplayID = (index, emp) => {
-    return emp.employeeId ? emp.employeeId : `EMP${String(index + 1).padStart(3, "0")}`;
+    return emp.employeeId
+      ? emp.employeeId
+      : `EMP${String(index + 1).padStart(3, "0")}`;
   };
 
   const viewEmployee = (employee) => {
@@ -259,7 +279,9 @@ function Employee() {
             <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-900 via-indigo-800 to-purple-900 bg-clip-text text-transparent mb-2">
               Drivers/Helpers
             </h1>
-            <p className="text-sm text-gray-600">Manage your workforce and staff</p>
+            <p className="text-sm text-gray-600">
+              Manage your workforce and staff
+            </p>
           </div>
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -331,13 +353,27 @@ function Employee() {
           <table className="w-full">
             <thead className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-100">
               <tr>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">No</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Employee ID</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Full Name</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Role</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Mobile Number</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Status</th>
-                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Actions</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                  No
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                  Employee ID
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                  Full Name
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                  Role
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                  Mobile Number
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                  Status
+                </th>
+                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-purple-50">
@@ -349,7 +385,9 @@ function Employee() {
                   transition={{ delay: index * 0.05 }}
                   className="hover:bg-purple-50/50 transition-colors duration-200"
                 >
-                  <td className="px-6 py-4 text-sm text-gray-900">{startIndex + index + 1}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {startIndex + index + 1}
+                  </td>
                   <td className="px-6 py-4 text-sm font-mono">
                     <motion.button
                       onClick={() => viewEmployee(emp)}
@@ -360,17 +398,24 @@ function Employee() {
                       {getDisplayID(index, emp)}
                     </motion.button>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{emp.fullName}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{emp.role}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{emp.mobileNumber}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {emp.fullName}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {emp.role}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {emp.mobileNumber}
+                  </td>
                   <td className="px-6 py-4">
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${emp.status === "Available"
-                        ? "bg-green-100 text-green-800"
-                        : emp.status === "On Trip"
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        emp.status === "Available"
+                          ? "bg-green-100 text-green-800"
+                          : emp.status === "On Trip"
                           ? "bg-yellow-100 text-yellow-800"
                           : "bg-red-100 text-red-800"
-                        }`}
+                      }`}
                     >
                       {emp.status}
                     </span>
@@ -413,29 +458,33 @@ function Employee() {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+            onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
             disabled={currentPage === 1}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 ${currentPage === 1
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg"
-              }`}
+            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 ${
+              currentPage === 1
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg"
+            }`}
           >
             Previous
           </motion.button>
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">
-              Page <span className="font-bold text-purple-700">{currentPage}</span> of <span className="font-bold text-purple-700">{totalPages}</span>
+              Page{" "}
+              <span className="font-bold text-purple-700">{currentPage}</span>{" "}
+              of <span className="font-bold text-purple-700">{totalPages}</span>
             </span>
           </div>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
             disabled={currentPage === totalPages}
-            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 ${currentPage === totalPages
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg"
-              }`}
+            className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 ${
+              currentPage === totalPages
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg"
+            }`}
           >
             Next
           </motion.button>
@@ -465,17 +514,29 @@ function Employee() {
                       {editEmployee ? "Edit Employee" : "Add Employee"}
                     </h2>
                     <p className="text-purple-100 text-sm mt-1">
-                      {step === 1 ? "Step 1: Personal Information" : "Step 2: Account Details"}
+                      {step === 1
+                        ? "Step 1: Personal Information"
+                        : "Step 2: Account Details"}
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="flex gap-2">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300 ${step >= 1 ? 'bg-white text-purple-600 shadow-lg' : 'bg-purple-400/30 text-white'
-                        }`}>
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300 ${
+                          step >= 1
+                            ? "bg-white text-purple-600 shadow-lg"
+                            : "bg-purple-400/30 text-white"
+                        }`}
+                      >
                         1
                       </div>
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300 ${step >= 2 ? 'bg-white text-purple-600 shadow-lg' : 'bg-purple-400/30 text-white'
-                        }`}>
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300 ${
+                          step >= 2
+                            ? "bg-white text-purple-600 shadow-lg"
+                            : "bg-purple-400/30 text-white"
+                        }`}
+                      >
                         2
                       </div>
                     </div>
@@ -501,10 +562,14 @@ function Employee() {
                 {step === 1 ? (
                   <div className="space-y-6">
                     <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h3>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                        Personal Information
+                      </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Full Name *
+                          </label>
                           <input
                             type="text"
                             name="fullName"
@@ -513,10 +578,16 @@ function Employee() {
                             required
                             className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
                           />
-                          {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>}
+                          {errors.fullName && (
+                            <p className="text-red-500 text-xs mt-1">
+                              {errors.fullName}
+                            </p>
+                          )}
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Role *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Role *
+                          </label>
                           <select
                             name="role"
                             value={formData.role}
@@ -525,12 +596,16 @@ function Employee() {
                             className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
                           >
                             {roles.map((r) => (
-                              <option key={r} value={r}>{r}</option>
+                              <option key={r} value={r}>
+                                {r}
+                              </option>
                             ))}
                           </select>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Employment Type *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Employment Type *
+                          </label>
                           <select
                             name="employmentType"
                             value={formData.employmentType}
@@ -539,12 +614,16 @@ function Employee() {
                             className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
                           >
                             {employmentTypes.map((t) => (
-                              <option key={t} value={t}>{t}</option>
+                              <option key={t} value={t}>
+                                {t}
+                              </option>
                             ))}
                           </select>
                         </div>
                         <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Number *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Mobile Number *
+                          </label>
                           <input
                             type="text"
                             name="mobileNumber"
@@ -554,16 +633,24 @@ function Employee() {
                             required
                             className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
                           />
-                          {errors.mobileNumber && <p className="text-red-500 text-xs mt-1">{errors.mobileNumber}</p>}
+                          {errors.mobileNumber && (
+                            <p className="text-red-500 text-xs mt-1">
+                              {errors.mobileNumber}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
 
                     <div className="bg-gradient-to-r from-indigo-50 to-violet-50 p-6 rounded-2xl border border-indigo-100">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Address Information</h3>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                        Address Information
+                      </h3>
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Current Address *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Current Address *
+                          </label>
                           <input
                             type="text"
                             name="currentAddress"
@@ -573,7 +660,9 @@ function Employee() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Permanent Address *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Permanent Address *
+                          </label>
                           <input
                             type="text"
                             name="permanentAddress"
@@ -591,16 +680,25 @@ function Employee() {
                             id="sameAsCurrent"
                             className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-400"
                           />
-                          <label htmlFor="sameAsCurrent" className="text-sm text-gray-700">Same as Current Address</label>
+                          <label
+                            htmlFor="sameAsCurrent"
+                            className="text-sm text-gray-700"
+                          >
+                            Same as Current Address
+                          </label>
                         </div>
                       </div>
                     </div>
 
                     <div className="bg-gradient-to-r from-violet-50 to-fuchsia-50 p-6 rounded-2xl border border-violet-100">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Emergency Contact & Employment</h3>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                        Emergency Contact & Employment
+                      </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Emergency Contact Name *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Emergency Contact Name *
+                          </label>
                           <input
                             type="text"
                             name="emergencyContactName"
@@ -610,7 +708,9 @@ function Employee() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Emergency Contact Number *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Emergency Contact Number *
+                          </label>
                           <input
                             type="text"
                             name="emergencyContactNumber"
@@ -621,7 +721,9 @@ function Employee() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Date Hired *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Date Hired *
+                          </label>
                           <input
                             type="date"
                             name="dateHired"
@@ -636,17 +738,22 @@ function Employee() {
                 ) : (
                   <div className="space-y-6">
                     <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Work Shift</h3>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                        Work Shift
+                      </h3>
                       <div className="flex flex-wrap gap-3 mb-4">
                         {shifts.map((s) => (
                           <button
                             type="button"
                             key={s}
-                            onClick={() => setFormData({ ...formData, shift: s })}
-                            className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 ${formData.shift === s
-                              ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg"
-                              : "bg-white border-2 border-purple-200 text-gray-700 hover:border-purple-400"
-                              }`}
+                            onClick={() =>
+                              setFormData({ ...formData, shift: s })
+                            }
+                            className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 ${
+                              formData.shift === s
+                                ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg"
+                                : "bg-white border-2 border-purple-200 text-gray-700 hover:border-purple-400"
+                            }`}
                           >
                             {s}
                           </button>
@@ -655,10 +762,14 @@ function Employee() {
                     </div>
 
                     <div className="bg-gradient-to-r from-indigo-50 to-violet-50 p-6 rounded-2xl border border-indigo-100">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Credentials</h3>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                        Account Credentials
+                      </h3>
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Username *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Username *
+                          </label>
                           <input
                             type="text"
                             name="username"
@@ -667,10 +778,16 @@ function Employee() {
                             required
                             className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
                           />
-                          {errors.username && <p className="text-red-500 text-xs mt-1">{errors.username}</p>}
+                          {errors.username && (
+                            <p className="text-red-500 text-xs mt-1">
+                              {errors.username}
+                            </p>
+                          )}
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Password *
+                          </label>
                           <input
                             type="password"
                             name="password"
@@ -679,7 +796,11 @@ function Employee() {
                             required
                             className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
                           />
-                          {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
+                          {errors.password && (
+                            <p className="text-red-500 text-xs mt-1">
+                              {errors.password}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>

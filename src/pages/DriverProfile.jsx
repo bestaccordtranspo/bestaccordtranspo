@@ -2,7 +2,15 @@
 import React, { useEffect, useState } from "react";
 import { axiosClient } from "../api/axiosClient";
 
-import { User, Phone, MapPin, Calendar, Briefcase, Clock, Mail } from "lucide-react";
+import {
+  User,
+  Phone,
+  MapPin,
+  Calendar,
+  Briefcase,
+  Clock,
+  Mail,
+} from "lucide-react";
 
 export default function DriverProfile() {
   const [profile, setProfile] = useState(null);
@@ -101,9 +109,13 @@ export default function DriverProfile() {
             <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
               <User className="w-10 h-10 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-white">{profile.fullName}</h1>
+            <h1 className="text-2xl font-bold text-white">
+              {profile.fullName}
+            </h1>
             <p className="text-purple-300 font-semibold">{profile.role}</p>
-            <p className="text-purple-200 text-sm font-mono mt-1">{profile.employeeId}</p>
+            <p className="text-purple-200 text-sm font-mono mt-1">
+              {profile.employeeId}
+            </p>
           </div>
 
           {/* Profile Details */}
@@ -117,11 +129,15 @@ export default function DriverProfile() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-purple-200">Mobile:</span>
-                  <span className="font-medium text-white">{profile.mobileNumber || "N/A"}</span>
+                  <span className="font-medium text-white">
+                    {profile.mobileNumber || "N/A"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-purple-200">Email:</span>
-                  <span className="font-medium text-white text-xs break-all">{profile.email || "N/A"}</span>
+                  <span className="font-medium text-white text-xs break-all">
+                    {profile.email || "N/A"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -135,19 +151,22 @@ export default function DriverProfile() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-purple-200">Employment Type:</span>
-                  <span className="font-medium text-white">{profile.employmentType || "N/A"}</span>
+                  <span className="font-medium text-white">
+                    {profile.employmentType || "N/A"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-purple-200">Shift:</span>
-                  <span className="font-medium text-white">{profile.shift || "N/A"}</span>
+                  <span className="font-medium text-white">
+                    {profile.shift || "N/A"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-purple-200">Date Hired:</span>
                   <span className="font-medium text-white">
                     {profile.dateHired
                       ? new Date(profile.dateHired).toLocaleDateString()
-                      : "N/A"
-                    }
+                      : "N/A"}
                   </span>
                 </div>
               </div>
@@ -161,18 +180,27 @@ export default function DriverProfile() {
               </h3>
               <div className="space-y-3 text-sm">
                 <div>
-                  <span className="text-purple-200 block mb-1">Current Address:</span>
-                  <span className="font-medium text-white">{profile.currentAddress || "N/A"}</span>
+                  <span className="text-purple-200 block mb-1">
+                    Current Address:
+                  </span>
+                  <span className="font-medium text-white">
+                    {profile.currentAddress || "N/A"}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-purple-200 block mb-1">Permanent Address:</span>
-                  <span className="font-medium text-white">{profile.permanentAddress || "N/A"}</span>
+                  <span className="text-purple-200 block mb-1">
+                    Permanent Address:
+                  </span>
+                  <span className="font-medium text-white">
+                    {profile.permanentAddress || "N/A"}
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Emergency Contact */}
-            {(profile.emergencyContactName || profile.emergencyContactNumber) && (
+            {(profile.emergencyContactName ||
+              profile.emergencyContactNumber) && (
               <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/20 rounded-xl p-4">
                 <h3 className="text-lg font-semibold text-white mb-3 flex items-center">
                   <Phone className="w-5 h-5 mr-2 text-red-400" />
@@ -181,11 +209,15 @@ export default function DriverProfile() {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-purple-200">Name:</span>
-                    <span className="font-medium text-white">{profile.emergencyContactName || "N/A"}</span>
+                    <span className="font-medium text-white">
+                      {profile.emergencyContactName || "N/A"}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-purple-200">Phone:</span>
-                    <span className="font-medium text-white">{profile.emergencyContactNumber || "N/A"}</span>
+                    <span className="font-medium text-white">
+                      {profile.emergencyContactNumber || "N/A"}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -195,10 +227,10 @@ export default function DriverProfile() {
 
         {/* Last Updated */}
         <div className="text-center text-purple-300 text-xs opacity-75">
-          Last updated: {profile.updatedAt
+          Last updated:{" "}
+          {profile.updatedAt
             ? new Date(profile.updatedAt).toLocaleString()
-            : "Unknown"
-          }
+            : "Unknown"}
         </div>
       </div>
     </div>

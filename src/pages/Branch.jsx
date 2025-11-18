@@ -25,7 +25,7 @@ export default function Branch() {
     longitude: null,
     contactPerson: "",
     contactNumber: "",
-    email: ""
+    email: "",
   });
 
   // Address dropdown states
@@ -53,7 +53,7 @@ export default function Branch() {
     const fetchClients = async () => {
       try {
         const res = await axiosClient.get("/api/clients");
-        setClients(res.data.filter(c => !c.isArchived));
+        setClients(res.data.filter((c) => !c.isArchived));
       } catch (err) {
         console.error(err);
       }
@@ -65,7 +65,7 @@ export default function Branch() {
   const fetchBranches = async () => {
     try {
       const res = await axiosClient.get("/api/branches");
-      setBranches(res.data.filter(b => !b.isArchived));
+      setBranches(res.data.filter((b) => !b.isArchived));
     } catch (err) {
       console.error(err);
     }
@@ -97,24 +97,33 @@ export default function Branch() {
     const fetchProvinces = async () => {
       try {
         if (formData.region === "130000000") {
-          const districtsRes = await axios.get("https://psgc.gitlab.io/api/regions/130000000/districts/");
+          const districtsRes = await axios.get(
+            "https://psgc.gitlab.io/api/regions/130000000/districts/"
+          );
           const districts = districtsRes.data;
           let allProvinces = [];
           for (const district of districts) {
             try {
-              const provRes = await axios.get(`https://psgc.gitlab.io/api/districts/${district.code}/provinces/`);
+              const provRes = await axios.get(
+                `https://psgc.gitlab.io/api/districts/${district.code}/provinces/`
+              );
               allProvinces = allProvinces.concat(provRes.data);
             } catch (err) {
               if (err.response && err.response.status === 404) {
                 continue;
               } else {
-                console.error(`Error fetching provinces for district ${district.code}`, err);
+                console.error(
+                  `Error fetching provinces for district ${district.code}`,
+                  err
+                );
               }
             }
           }
           setProvinces(allProvinces);
         } else {
-          const res = await axios.get(`https://psgc.gitlab.io/api/regions/${formData.region}/provinces/`);
+          const res = await axios.get(
+            `https://psgc.gitlab.io/api/regions/${formData.region}/provinces/`
+          );
           setProvinces(res.data);
         }
       } catch (err) {
@@ -129,44 +138,61 @@ export default function Branch() {
     if (formData.region === "130000000") {
       const fetchNcrCities = async () => {
         try {
-          const districtsRes = await axios.get("https://psgc.gitlab.io/api/regions/130000000/districts/");
+          const districtsRes = await axios.get(
+            "https://psgc.gitlab.io/api/regions/130000000/districts/"
+          );
           const districts = districtsRes.data;
           let allCities = [];
           for (const district of districts) {
             let districtHasProvinces = true;
             let provinces = [];
             try {
-              const provRes = await axios.get(`https://psgc.gitlab.io/api/districts/${district.code}/provinces/`);
+              const provRes = await axios.get(
+                `https://psgc.gitlab.io/api/districts/${district.code}/provinces/`
+              );
               provinces = provRes.data;
             } catch (err) {
               if (err.response && err.response.status === 404) {
                 districtHasProvinces = false;
               } else {
-                console.error(`Error fetching provinces for district ${district.code}`, err);
+                console.error(
+                  `Error fetching provinces for district ${district.code}`,
+                  err
+                );
               }
             }
             if (districtHasProvinces && provinces.length > 0) {
               for (const province of provinces) {
                 try {
-                  const cityRes = await axios.get(`https://psgc.gitlab.io/api/provinces/${province.code}/cities-municipalities/`);
+                  const cityRes = await axios.get(
+                    `https://psgc.gitlab.io/api/provinces/${province.code}/cities-municipalities/`
+                  );
                   allCities = allCities.concat(cityRes.data);
                 } catch (err) {
                   if (err.response && err.response.status === 404) {
                     continue;
                   } else {
-                    console.error(`Error fetching cities for province ${province.code}`, err);
+                    console.error(
+                      `Error fetching cities for province ${province.code}`,
+                      err
+                    );
                   }
                 }
               }
             } else {
               try {
-                const cityRes = await axios.get(`https://psgc.gitlab.io/api/districts/${district.code}/cities-municipalities/`);
+                const cityRes = await axios.get(
+                  `https://psgc.gitlab.io/api/districts/${district.code}/cities-municipalities/`
+                );
                 allCities = allCities.concat(cityRes.data);
               } catch (err) {
                 if (err.response && err.response.status === 404) {
                   continue;
                 } else {
-                  console.error(`Error fetching cities for district ${district.code}`, err);
+                  console.error(
+                    `Error fetching cities for district ${district.code}`,
+                    err
+                  );
                 }
               }
             }
@@ -185,7 +211,9 @@ export default function Branch() {
     }
     const fetchCities = async () => {
       try {
-        const res = await axios.get(`https://psgc.gitlab.io/api/provinces/${formData.province}/cities-municipalities/`);
+        const res = await axios.get(
+          `https://psgc.gitlab.io/api/provinces/${formData.province}/cities-municipalities/`
+        );
         setCities(res.data);
       } catch (err) {
         console.error("Failed to fetch cities/municipalities", err);
@@ -202,7 +230,9 @@ export default function Branch() {
     }
     const fetchBarangays = async () => {
       try {
-        const res = await axios.get(`https://psgc.gitlab.io/api/cities-municipalities/${formData.city}/barangays/`);
+        const res = await axios.get(
+          `https://psgc.gitlab.io/api/cities-municipalities/${formData.city}/barangays/`
+        );
         setBarangays(res.data);
       } catch (err) {
         console.error("Failed to fetch barangays", err);
@@ -216,22 +246,22 @@ export default function Branch() {
     if (!showModal) return;
 
     const timer = setTimeout(() => {
-      const mapElement = document.getElementById('branch-location-map');
+      const mapElement = document.getElementById("branch-location-map");
       if (!mapElement || mapRef.current) return;
 
       // Load Leaflet CSS
-      if (!document.getElementById('leaflet-css')) {
-        const link = document.createElement('link');
-        link.id = 'leaflet-css';
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      if (!document.getElementById("leaflet-css")) {
+        const link = document.createElement("link");
+        link.id = "leaflet-css";
+        link.rel = "stylesheet";
+        link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
         document.head.appendChild(link);
       }
 
       // Load Leaflet JS
       if (!window.L) {
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        const script = document.createElement("script");
+        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
         script.onload = initializeMap;
         document.body.appendChild(script);
       } else {
@@ -243,58 +273,62 @@ export default function Branch() {
   }, [showModal, mapCenter]);
 
   const initializeMap = () => {
-    const mapElement = document.getElementById('branch-location-map');
+    const mapElement = document.getElementById("branch-location-map");
     if (!mapElement || mapRef.current) return;
 
-    const map = window.L.map('branch-location-map').setView(mapCenter, 13);
+    const map = window.L.map("branch-location-map").setView(mapCenter, 13);
     mapRef.current = map;
 
-    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
+    window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap contributors",
     }).addTo(map);
 
     // Add marker if position exists
     if (markerPosition) {
-      const marker = window.L.marker(markerPosition, { draggable: true }).addTo(map);
+      const marker = window.L.marker(markerPosition, { draggable: true }).addTo(
+        map
+      );
       markerRef.current = marker;
 
-      marker.on('dragend', function (e) {
+      marker.on("dragend", function (e) {
         const pos = e.target.getLatLng();
         setMarkerPosition([pos.lat, pos.lng]);
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           latitude: pos.lat,
-          longitude: pos.lng
+          longitude: pos.lng,
         }));
       });
     }
 
     // Add click event to place/move marker
-    map.on('click', function (e) {
+    map.on("click", function (e) {
       const { lat, lng } = e.latlng;
 
       if (markerRef.current) {
         markerRef.current.setLatLng([lat, lng]);
       } else {
-        const marker = window.L.marker([lat, lng], { draggable: true }).addTo(map);
+        const marker = window.L.marker([lat, lng], { draggable: true }).addTo(
+          map
+        );
         markerRef.current = marker;
 
-        marker.on('dragend', function (e) {
+        marker.on("dragend", function (e) {
           const pos = e.target.getLatLng();
           setMarkerPosition([pos.lat, pos.lng]);
-          setFormData(prev => ({
+          setFormData((prev) => ({
             ...prev,
             latitude: pos.lat,
-            longitude: pos.lng
+            longitude: pos.lng,
           }));
         });
       }
 
       setMarkerPosition([lat, lng]);
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         latitude: lat,
-        longitude: lng
+        longitude: lng,
       }));
     });
   };
@@ -304,13 +338,16 @@ export default function Branch() {
     if (!addressSearch.trim()) return;
 
     try {
-      const response = await axios.get('https://nominatim.openstreetmap.org/search', {
-        params: {
-          q: addressSearch + ', Philippines',
-          format: 'json',
-          limit: 1
+      const response = await axios.get(
+        "https://nominatim.openstreetmap.org/search",
+        {
+          params: {
+            q: addressSearch + ", Philippines",
+            format: "json",
+            limit: 1,
+          },
         }
-      });
+      );
 
       if (response.data && response.data.length > 0) {
         const { lat, lon } = response.data[0];
@@ -318,10 +355,10 @@ export default function Branch() {
 
         setMapCenter(newCenter);
         setMarkerPosition(newCenter);
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           latitude: parseFloat(lat),
-          longitude: parseFloat(lon)
+          longitude: parseFloat(lon),
         }));
 
         // Update map view
@@ -331,26 +368,28 @@ export default function Branch() {
           if (markerRef.current) {
             markerRef.current.setLatLng(newCenter);
           } else {
-            const marker = window.L.marker(newCenter, { draggable: true }).addTo(mapRef.current);
+            const marker = window.L.marker(newCenter, {
+              draggable: true,
+            }).addTo(mapRef.current);
             markerRef.current = marker;
 
-            marker.on('dragend', function (e) {
+            marker.on("dragend", function (e) {
               const pos = e.target.getLatLng();
               setMarkerPosition([pos.lat, pos.lng]);
-              setFormData(prev => ({
+              setFormData((prev) => ({
                 ...prev,
                 latitude: pos.lat,
-                longitude: pos.lng
+                longitude: pos.lng,
               }));
             });
           }
         }
       } else {
-        alert('Address not found. Please try a different search.');
+        alert("Address not found. Please try a different search.");
       }
     } catch (err) {
-      console.error('Error searching address:', err);
-      alert('Failed to search address. Please try again.');
+      console.error("Error searching address:", err);
+      alert("Failed to search address. Please try again.");
     }
   };
 
@@ -381,7 +420,7 @@ export default function Branch() {
         longitude: lng,
         contactPerson: branch.contactPerson || "",
         contactNumber: branch.contactNumber || "",
-        email: branch.email || ""
+        email: branch.email || "",
       });
       if (lat && lng) {
         setMapCenter([lat, lng]);
@@ -405,7 +444,7 @@ export default function Branch() {
         longitude: null,
         contactPerson: "",
         contactNumber: "",
-        email: ""
+        email: "",
       });
       setMapCenter([14.5995, 120.9842]);
       setMarkerPosition(null);
@@ -417,7 +456,13 @@ export default function Branch() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "region") {
-      setFormData({ ...formData, region: value, province: "", city: "", barangay: "" });
+      setFormData({
+        ...formData,
+        region: value,
+        province: "",
+        city: "",
+        barangay: "",
+      });
     } else if (name === "province") {
       setFormData({ ...formData, province: value, city: "", barangay: "" });
     } else if (name === "city") {
@@ -430,7 +475,7 @@ export default function Branch() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.clientId) return alert("Select a client first.");
-    
+
     try {
       const getName = (list, code) => {
         const found = list.find((item) => item.code === code);
@@ -441,11 +486,14 @@ export default function Branch() {
         houseNumber: formData.houseNumber,
         street: formData.street,
         region: getName(regions, formData.region),
-        province: formData.region === "130000000" ? "Metro Manila" : getName(provinces, formData.province),
+        province:
+          formData.region === "130000000"
+            ? "Metro Manila"
+            : getName(provinces, formData.province),
         city: getName(cities, formData.city),
         barangay: getName(barangays, formData.barangay),
         latitude: formData.latitude,
-        longitude: formData.longitude
+        longitude: formData.longitude,
       };
 
       const payload = {
@@ -454,7 +502,7 @@ export default function Branch() {
         address,
         contactPerson: formData.contactPerson,
         contactNumber: formData.contactNumber,
-        email: formData.email
+        email: formData.email,
       };
 
       if (editBranch) {
@@ -475,7 +523,9 @@ export default function Branch() {
   const handleDelete = async (id) => {
     if (!window.confirm("Archive this branch?")) return;
     try {
-      await axiosClient.patch(`/api/branches/${id}/archive`, { isArchived: true });
+      await axiosClient.patch(`/api/branches/${id}/archive`, {
+        isArchived: true,
+      });
       alert("Branch archived successfully");
       fetchBranches();
     } catch (err) {
@@ -486,9 +536,9 @@ export default function Branch() {
 
   return (
     <div className="space-y-8">
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }} 
-        animate={{ opacity: 1, y: 0 }} 
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
         className="relative"
       >
         <div className="absolute inset-0 bg-gradient-to-r from-purple-600/5 via-indigo-600/5 to-purple-600/5 rounded-2xl -z-10" />
@@ -497,12 +547,14 @@ export default function Branch() {
             <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-900 via-indigo-800 to-purple-900 bg-clip-text text-transparent mb-2">
               Branches
             </h1>
-            <p className="text-sm text-gray-600">Manage branch locations for your clients</p>
+            <p className="text-sm text-gray-600">
+              Manage branch locations for your clients
+            </p>
           </div>
-          <motion.button 
+          <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => openModal()} 
+            onClick={() => openModal()}
             className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl shadow-lg hover:shadow-xl inline-flex items-center gap-2 font-medium"
           >
             <Plus size={20} />
@@ -520,17 +572,29 @@ export default function Branch() {
           <table className="w-full">
             <thead className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-100">
               <tr>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">No</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Branch Name</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Client</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Address</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Contact</th>
-                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Actions</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                  No
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                  Branch Name
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                  Client
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                  Address
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                  Contact
+                </th>
+                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-purple-50">
               {branches.map((b, i) => (
-                <motion.tr 
+                <motion.tr
                   key={b._id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -538,15 +602,27 @@ export default function Branch() {
                   className="hover:bg-purple-50/50 transition-colors duration-200"
                 >
                   <td className="px-6 py-4 text-sm text-gray-900">{i + 1}</td>
-                  <td className="px-6 py-4 text-sm font-semibold text-gray-900">{b.branchName}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{b.client?.clientName || b.client}</td>
+                  <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                    {b.branchName}
+                  </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
-                    {[b.address?.houseNumber, b.address?.street, b.address?.barangay, b.address?.city, b.address?.province, b.address?.region]
+                    {b.client?.clientName || b.client}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {[
+                      b.address?.houseNumber,
+                      b.address?.street,
+                      b.address?.barangay,
+                      b.address?.city,
+                      b.address?.province,
+                      b.address?.region,
+                    ]
                       .filter(Boolean)
                       .join(", ")}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
-                    {b.contactPerson} {b.contactNumber && `• ${b.contactNumber}`}
+                    {b.contactPerson}{" "}
+                    {b.contactNumber && `• ${b.contactNumber}`}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-center gap-2">
@@ -624,10 +700,14 @@ export default function Branch() {
               <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
                 <div className="p-8 space-y-6">
                   <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Branch Information</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                      Branch Information
+                    </h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Client *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Client *
+                        </label>
                         <select
                           name="clientId"
                           value={formData.clientId}
@@ -636,14 +716,18 @@ export default function Branch() {
                           className="w-full px-4 py-2.5 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
                         >
                           <option value="">Select Client</option>
-                          {clients.map(c => (
-                            <option key={c._id} value={c._id}>{c.clientName}</option>
+                          {clients.map((c) => (
+                            <option key={c._id} value={c._id}>
+                              {c.clientName}
+                            </option>
                           ))}
                         </select>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Branch Name *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Branch Name *
+                        </label>
                         <input
                           type="text"
                           name="branchName"
@@ -656,7 +740,9 @@ export default function Branch() {
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Contact Person</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Contact Person
+                          </label>
                           <input
                             type="text"
                             name="contactPerson"
@@ -667,7 +753,9 @@ export default function Branch() {
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Contact Number</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Contact Number
+                          </label>
                           <input
                             type="text"
                             name="contactNumber"
@@ -678,7 +766,9 @@ export default function Branch() {
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Email
+                          </label>
                           <input
                             type="email"
                             name="email"
@@ -692,11 +782,15 @@ export default function Branch() {
                   </div>
 
                   <div className="bg-gradient-to-r from-indigo-50 to-violet-50 p-6 rounded-2xl border border-indigo-100">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Address Information</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                      Address Information
+                    </h3>
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">House/Building Number</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            House/Building Number
+                          </label>
                           <input
                             type="text"
                             name="houseNumber"
@@ -706,7 +800,9 @@ export default function Branch() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Street</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Street
+                          </label>
                           <input
                             type="text"
                             name="street"
@@ -718,7 +814,9 @@ export default function Branch() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Region *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Region *
+                        </label>
                         <select
                           name="region"
                           value={formData.region}
@@ -728,14 +826,18 @@ export default function Branch() {
                         >
                           <option value="">Select Region</option>
                           {regions.map((r) => (
-                            <option key={r.code} value={r.code}>{r.name}</option>
+                            <option key={r.code} value={r.code}>
+                              {r.name}
+                            </option>
                           ))}
                         </select>
                       </div>
 
                       {formData.region !== "130000000" ? (
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Province *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Province *
+                          </label>
                           <select
                             name="province"
                             value={formData.province}
@@ -746,13 +848,17 @@ export default function Branch() {
                           >
                             <option value="">Select Province</option>
                             {provinces.map((p) => (
-                              <option key={p.code} value={p.code}>{p.name}</option>
+                              <option key={p.code} value={p.code}>
+                                {p.name}
+                              </option>
                             ))}
                           </select>
                         </div>
                       ) : (
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Province</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Province
+                          </label>
                           <div className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl bg-gray-50 text-gray-700">
                             Metro Manila (National Capital Region)
                           </div>
@@ -760,24 +866,36 @@ export default function Branch() {
                       )}
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">City/Municipality *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          City/Municipality *
+                        </label>
                         <select
                           name="city"
                           value={formData.city}
                           onChange={handleChange}
-                          required={formData.region === "130000000" || !!formData.province}
+                          required={
+                            formData.region === "130000000" ||
+                            !!formData.province
+                          }
                           className="w-full px-4 py-2.5 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-                          disabled={formData.region !== "130000000" && !formData.province}
+                          disabled={
+                            formData.region !== "130000000" &&
+                            !formData.province
+                          }
                         >
                           <option value="">Select City/Municipality</option>
                           {cities.map((c) => (
-                            <option key={c.code} value={c.code}>{c.name}</option>
+                            <option key={c.code} value={c.code}>
+                              {c.name}
+                            </option>
                           ))}
                         </select>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Barangay *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Barangay *
+                        </label>
                         <select
                           name="barangay"
                           value={formData.barangay}
@@ -788,7 +906,9 @@ export default function Branch() {
                         >
                           <option value="">Select Barangay</option>
                           {barangays.map((b) => (
-                            <option key={b.code} value={b.code}>{b.name}</option>
+                            <option key={b.code} value={b.code}>
+                              {b.name}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -798,10 +918,13 @@ export default function Branch() {
                   <div className="bg-gradient-to-r from-violet-50 to-purple-50 p-6 rounded-2xl border border-violet-100">
                     <div className="flex items-center gap-2 mb-2">
                       <MapPin className="text-purple-600" size={20} />
-                      <h3 className="text-lg font-semibold text-gray-900">Pin Your Location</h3>
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        Pin Your Location
+                      </h3>
                     </div>
                     <p className="text-sm text-gray-600 mb-4">
-                      Search your address or click on the map to pin your exact location. You can also drag the marker to adjust.
+                      Search your address or click on the map to pin your exact
+                      location. You can also drag the marker to adjust.
                     </p>
 
                     <div className="mb-4 flex gap-2">
@@ -809,7 +932,10 @@ export default function Branch() {
                         type="text"
                         value={addressSearch}
                         onChange={(e) => setAddressSearch(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddressSearch())}
+                        onKeyPress={(e) =>
+                          e.key === "Enter" &&
+                          (e.preventDefault(), handleAddressSearch())
+                        }
                         placeholder="Search address (e.g., Quezon City, Metro Manila)..."
                         className="flex-1 px-4 py-2.5 border border-violet-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent"
                       />
@@ -825,12 +951,17 @@ export default function Branch() {
                       </motion.button>
                     </div>
 
-                    <div id="branch-location-map" className="w-full h-96 rounded-xl shadow-lg border-2 border-violet-200"></div>
+                    <div
+                      id="branch-location-map"
+                      className="w-full h-96 rounded-xl shadow-lg border-2 border-violet-200"
+                    ></div>
 
                     {markerPosition && (
                       <div className="mt-3 p-3 bg-white rounded-lg border border-violet-200">
                         <p className="text-xs text-gray-600">
-                          <strong>Coordinates:</strong> {markerPosition[0].toFixed(6)}, {markerPosition[1].toFixed(6)}
+                          <strong>Coordinates:</strong>{" "}
+                          {markerPosition[0].toFixed(6)},{" "}
+                          {markerPosition[1].toFixed(6)}
                         </p>
                       </div>
                     )}

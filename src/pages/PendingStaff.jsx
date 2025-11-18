@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { axiosClient } from "../api/axiosClient";
 
-
 export default function PendingStaff() {
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,14 +45,23 @@ export default function PendingStaff() {
           <table className="w-full">
             <thead className="bg-gradient-to-r from-purple-50 to-indigo-50">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-medium text-purple-900">Name</th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-purple-900">Email</th>
-                <th className="px-6 py-3 text-sm font-medium text-purple-900">Action</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-purple-900">
+                  Name
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-purple-900">
+                  Email
+                </th>
+                <th className="px-6 py-3 text-sm font-medium text-purple-900">
+                  Action
+                </th>
               </tr>
             </thead>
             <tbody>
               {staff.map((s) => (
-                <tr key={s._id} className="border-t border-purple-100 hover:bg-purple-50/50 transition-colors">
+                <tr
+                  key={s._id}
+                  className="border-t border-purple-100 hover:bg-purple-50/50 transition-colors"
+                >
                   <td className="px-6 py-3">{s.name}</td>
                   <td className="px-6 py-3">{s.email}</td>
                   <td className="px-6 py-3 text-center">

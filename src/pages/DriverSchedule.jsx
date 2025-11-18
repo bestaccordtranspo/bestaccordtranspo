@@ -1,7 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { axiosClient } from "../api/axiosClient";
 
-import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, Package, X, Truck, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  Clock,
+  MapPin,
+  Package,
+  X,
+  Truck,
+  RefreshCw,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 
 export default function DriverSchedule() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -65,7 +77,7 @@ export default function DriverSchedule() {
           company: booking.companyName,
           dateNeeded: booking.dateNeeded,
           parsedDate: bookingDate.toDateString(),
-          status: booking.status
+          status: booking.status,
         });
       });
     }
@@ -91,7 +103,7 @@ export default function DriverSchedule() {
   };
 
   const getBookingsForDate = (date) => {
-    const filtered = bookings.filter(booking => {
+    const filtered = bookings.filter((booking) => {
       if (!booking.dateNeeded) return false;
 
       const bookingDate = new Date(booking.dateNeeded);
@@ -108,7 +120,7 @@ export default function DriverSchedule() {
           company: booking.companyName,
           status: booking.status,
           bookingDate: bookingDate.toDateString(),
-          targetDate: targetDate.toDateString()
+          targetDate: targetDate.toDateString(),
         });
       }
 
@@ -119,11 +131,15 @@ export default function DriverSchedule() {
   };
 
   const previousMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+    setCurrentDate(
+      new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
+    );
   };
 
   const nextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+    setCurrentDate(
+      new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)
+    );
   };
 
   const goToToday = () => {
@@ -145,15 +161,18 @@ export default function DriverSchedule() {
   };
 
   const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentDate);
-  const monthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+  const monthName = currentDate.toLocaleString("default", {
+    month: "long",
+    year: "numeric",
+  });
 
   const statusColors = {
-    "Pending": "bg-yellow-500",
+    Pending: "bg-yellow-500",
     "Ready to go": "bg-blue-500",
     "In Transit": "bg-purple-500",
     "On Trip": "bg-purple-500",
-    "Delivered": "bg-green-500",
-    "Completed": "bg-gray-500"
+    Delivered: "bg-green-500",
+    Completed: "bg-gray-500",
   };
 
   // Get upcoming bookings for list view
@@ -162,7 +181,7 @@ export default function DriverSchedule() {
     today.setHours(0, 0, 0, 0);
 
     return bookings
-      .filter(booking => new Date(booking.dateNeeded) >= today)
+      .filter((booking) => new Date(booking.dateNeeded) >= today)
       .sort((a, b) => new Date(a.dateNeeded) - new Date(b.dateNeeded))
       .slice(0, 10); // Show next 10 bookings
   };
@@ -179,7 +198,9 @@ export default function DriverSchedule() {
               <div className="h-4 bg-purple-400/50 rounded w-1/2"></div>
             </div>
           </div>
-          <p className="text-center mt-4 text-purple-200">Loading schedule...</p>
+          <p className="text-center mt-4 text-purple-200">
+            Loading schedule...
+          </p>
         </div>
       </div>
     );
@@ -227,19 +248,21 @@ export default function DriverSchedule() {
           <div className="flex bg-white/10 rounded-lg p-1 mb-4">
             <button
               onClick={() => setViewMode("calendar")}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition ${viewMode === "calendar"
-                ? "bg-purple-600 text-white shadow-sm"
-                : "text-purple-200 hover:text-white"
-                }`}
+              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition ${
+                viewMode === "calendar"
+                  ? "bg-purple-600 text-white shadow-sm"
+                  : "text-purple-200 hover:text-white"
+              }`}
             >
               Calendar
             </button>
             <button
               onClick={() => setViewMode("list")}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition ${viewMode === "list"
-                ? "bg-purple-600 text-white shadow-sm"
-                : "text-purple-200 hover:text-white"
-                }`}
+              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition ${
+                viewMode === "list"
+                  ? "bg-purple-600 text-white shadow-sm"
+                  : "text-purple-200 hover:text-white"
+              }`}
             >
               List
             </button>
@@ -255,7 +278,9 @@ export default function DriverSchedule() {
                 >
                   <ChevronLeft className="w-5 h-5 text-white" />
                 </button>
-                <h2 className="text-lg font-semibold text-white">{monthName}</h2>
+                <h2 className="text-lg font-semibold text-white">
+                  {monthName}
+                </h2>
                 <button
                   onClick={nextMonth}
                   className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition"
@@ -276,7 +301,8 @@ export default function DriverSchedule() {
           {/* Summary */}
           <div className="mt-4 text-center">
             <p className="text-purple-200 text-sm">
-              {bookings.length} total booking{bookings.length !== 1 ? 's' : ''} assigned
+              {bookings.length} total booking{bookings.length !== 1 ? "s" : ""}{" "}
+              assigned
             </p>
           </div>
         </div>
@@ -286,8 +312,11 @@ export default function DriverSchedule() {
           <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl p-4">
             {/* Mobile Calendar Grid - Compact */}
             <div className="grid grid-cols-7 gap-1 mb-2">
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-                <div key={`day-header-${index}`} className="text-center font-semibold text-purple-200 py-2 text-sm">
+              {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+                <div
+                  key={`day-header-${index}`}
+                  className="text-center font-semibold text-purple-200 py-2 text-sm"
+                >
                   {day}
                 </div>
               ))}
@@ -297,13 +326,20 @@ export default function DriverSchedule() {
             <div className="grid grid-cols-7 gap-1">
               {/* Empty cells for days before month starts */}
               {Array.from({ length: startingDayOfWeek }).map((_, index) => (
-                <div key={`empty-${index}`} className="bg-white/5 rounded-lg p-1 h-12 opacity-50"></div>
+                <div
+                  key={`empty-${index}`}
+                  className="bg-white/5 rounded-lg p-1 h-12 opacity-50"
+                ></div>
               ))}
 
               {/* Days of the month */}
               {Array.from({ length: daysInMonth }).map((_, index) => {
                 const day = index + 1;
-                const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+                const date = new Date(
+                  currentDate.getFullYear(),
+                  currentDate.getMonth(),
+                  day
+                );
                 const dayBookings = getBookingsForDate(date);
                 const isToday =
                   date.getDate() === new Date().getDate() &&
@@ -313,31 +349,43 @@ export default function DriverSchedule() {
                 return (
                   <div
                     key={`calendar-day-${day}`}
-                    className={`bg-white/5 backdrop-blur-sm border rounded-lg p-1 h-12 hover:bg-white/10 transition relative ${isToday ? 'border-purple-400 border-2 bg-purple-400/10' : 'border-white/10'
-                      }`}
+                    className={`bg-white/5 backdrop-blur-sm border rounded-lg p-1 h-12 hover:bg-white/10 transition relative ${
+                      isToday
+                        ? "border-purple-400 border-2 bg-purple-400/10"
+                        : "border-white/10"
+                    }`}
                     onClick={() => {
                       if (dayBookings.length > 0) {
                         if (dayBookings.length === 1) {
                           openBookingModal(dayBookings[0]);
                         } else {
                           // Show all bookings for the day
-                          const allBookingsText = dayBookings.map(b => `${b.companyName} - ${b.timeNeeded}`).join('\n');
-                          alert(`Bookings for ${date.toDateString()}:\n\n${allBookingsText}`);
+                          const allBookingsText = dayBookings
+                            .map((b) => `${b.companyName} - ${b.timeNeeded}`)
+                            .join("\n");
+                          alert(
+                            `Bookings for ${date.toDateString()}:\n\n${allBookingsText}`
+                          );
                         }
                       }
                     }}
                   >
-                    <div className={`text-xs font-semibold ${isToday ? 'text-purple-300' : 'text-white'
-                      }`}>
+                    <div
+                      className={`text-xs font-semibold ${
+                        isToday ? "text-purple-300" : "text-white"
+                      }`}
+                    >
                       {day}
                     </div>
 
                     {/* Booking indicators - Enhanced visibility */}
                     {dayBookings.length > 0 && (
                       <div className="absolute bottom-0 left-0 right-0 flex justify-center items-center">
-                        <div className={`w-3 h-3 rounded-full border border-white/50 ${statusColors[dayBookings[0].status] || 'bg-gray-500'
-                          } shadow-sm`}>
-                        </div>
+                        <div
+                          className={`w-3 h-3 rounded-full border border-white/50 ${
+                            statusColors[dayBookings[0].status] || "bg-gray-500"
+                          } shadow-sm`}
+                        ></div>
                         {dayBookings.length > 1 && (
                           <div className="w-2 h-2 rounded-full bg-white border border-purple-300 ml-1 shadow-sm"></div>
                         )}
@@ -353,7 +401,10 @@ export default function DriverSchedule() {
               <h3 className="text-xs font-semibold text-white mb-2">Status:</h3>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(statusColors).map(([status, color], index) => (
-                  <div key={`status-${index}-${status}`} className="flex items-center gap-1">
+                  <div
+                    key={`status-${index}-${status}`}
+                    className="flex items-center gap-1"
+                  >
                     <div className={`w-3 h-3 ${color} rounded`}></div>
                     <span className="text-xs text-purple-200">
                       {status === "In Transit" ? "On Trip" : status}
@@ -367,8 +418,12 @@ export default function DriverSchedule() {
             {bookings.length === 0 && (
               <div className="text-center py-6">
                 <Calendar className="w-10 h-10 text-purple-300 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-white mb-2">No Bookings</h3>
-                <p className="text-purple-200 text-sm">You don't have any bookings scheduled yet.</p>
+                <h3 className="text-lg font-semibold text-white mb-2">
+                  No Bookings
+                </h3>
+                <p className="text-purple-200 text-sm">
+                  You don't have any bookings scheduled yet.
+                </p>
               </div>
             )}
           </div>
@@ -378,12 +433,16 @@ export default function DriverSchedule() {
         {viewMode === "list" && (
           <div className="space-y-4">
             <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl p-4">
-              <h3 className="text-lg font-semibold text-white mb-4">Upcoming Bookings</h3>
+              <h3 className="text-lg font-semibold text-white mb-4">
+                Upcoming Bookings
+              </h3>
 
               {getUpcomingBookings().length === 0 ? (
                 <div className="text-center py-6">
                   <Calendar className="w-10 h-10 text-purple-300 mx-auto mb-3" />
-                  <p className="text-purple-200 text-sm">No upcoming bookings</p>
+                  <p className="text-purple-200 text-sm">
+                    No upcoming bookings
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -397,27 +456,42 @@ export default function DriverSchedule() {
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex items-center gap-2 text-sm text-purple-200">
                           <Calendar className="w-4 h-4" />
-                          {new Date(booking.dateNeeded).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            weekday: 'short'
-                          })}
+                          {new Date(booking.dateNeeded).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "numeric",
+                              weekday: "short",
+                            }
+                          )}
                           <Clock className="w-4 h-4 ml-2" />
                           {booking.timeNeeded}
                         </div>
-                        <div className={`px-2 py-1 rounded-full text-xs font-semibold ${booking.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                          booking.status === 'Ready to go' ? 'bg-blue-100 text-blue-800' :
-                            booking.status === 'In Transit' || booking.status === 'On Trip' ? 'bg-purple-100 text-purple-800' :
-                              booking.status === 'Delivered' ? 'bg-green-100 text-green-800' :
-                                'bg-gray-100 text-gray-800'
-                          }`}>
-                          {booking.status === "In Transit" ? "On Trip" : booking.status}
+                        <div
+                          className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            booking.status === "Pending"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : booking.status === "Ready to go"
+                              ? "bg-blue-100 text-blue-800"
+                              : booking.status === "In Transit" ||
+                                booking.status === "On Trip"
+                              ? "bg-purple-100 text-purple-800"
+                              : booking.status === "Delivered"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
+                          {booking.status === "In Transit"
+                            ? "On Trip"
+                            : booking.status}
                         </div>
                       </div>
 
                       {/* Company and Product */}
                       <div className="mb-2">
-                        <p className="font-semibold text-white text-sm">{booking.companyName}</p>
+                        <p className="font-semibold text-white text-sm">
+                          {booking.companyName}
+                        </p>
                         <p className="text-purple-200 text-xs flex items-center gap-1">
                           <Package className="w-3 h-3" />
                           {booking.productName}
@@ -428,11 +502,15 @@ export default function DriverSchedule() {
                       <div className="text-xs text-purple-300">
                         <div className="flex items-start gap-2">
                           <MapPin className="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
-                          <span className="truncate text-xs">{booking.originAddress}</span>
+                          <span className="truncate text-xs">
+                            {booking.originAddress}
+                          </span>
                         </div>
                         <div className="flex items-start gap-2">
                           <MapPin className="w-3 h-3 text-red-400 flex-shrink-0 mt-0.5" />
-                          <span className="truncate text-xs">{booking.destinationAddress}</span>
+                          <span className="truncate text-xs">
+                            {booking.destinationAddress}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -452,16 +530,30 @@ export default function DriverSchedule() {
                   {/* Modal Header - Sticky */}
                   <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
                     <div className="flex-1">
-                      <h3 className="font-bold text-gray-900 text-lg">{selectedBooking.reservationId}</h3>
-                      <p className="text-sm text-gray-600">{selectedBooking.tripNumber}</p>
+                      <h3 className="font-bold text-gray-900 text-lg">
+                        {selectedBooking.reservationId}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {selectedBooking.tripNumber}
+                      </p>
                     </div>
-                    <div className={`px-2 py-1 rounded-full text-xs font-semibold ${selectedBooking.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                      selectedBooking.status === 'Ready to go' ? 'bg-blue-100 text-blue-800' :
-                        selectedBooking.status === 'In Transit' || selectedBooking.status === 'On Trip' ? 'bg-purple-100 text-purple-800' :
-                          selectedBooking.status === 'Delivered' ? 'bg-green-100 text-green-800' :
-                            'bg-gray-100 text-gray-800'
-                      }`}>
-                      {selectedBooking.status === "In Transit" ? "On Trip" : selectedBooking.status}
+                    <div
+                      className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                        selectedBooking.status === "Pending"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : selectedBooking.status === "Ready to go"
+                          ? "bg-blue-100 text-blue-800"
+                          : selectedBooking.status === "In Transit" ||
+                            selectedBooking.status === "On Trip"
+                          ? "bg-purple-100 text-purple-800"
+                          : selectedBooking.status === "Delivered"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {selectedBooking.status === "In Transit"
+                        ? "On Trip"
+                        : selectedBooking.status}
                     </div>
                     <button
                       onClick={closeModal}
@@ -472,7 +564,10 @@ export default function DriverSchedule() {
                   </div>
 
                   {/* Modal Body - Scrollable */}
-                  <div className="overflow-y-auto px-4 py-4" style={{ maxHeight: 'calc(85vh - 80px)' }}>
+                  <div
+                    className="overflow-y-auto px-4 py-4"
+                    style={{ maxHeight: "calc(85vh - 80px)" }}
+                  >
                     <div className="space-y-4">
                       {/* Schedule Info */}
                       <div className="bg-purple-50 p-4 rounded-lg">
@@ -484,17 +579,21 @@ export default function DriverSchedule() {
                           <div>
                             <span className="text-gray-600">Date:</span>
                             <p className="font-medium text-gray-900">
-                              {new Date(selectedBooking.dateNeeded).toLocaleDateString('en-US', {
-                                weekday: 'long',
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric'
+                              {new Date(
+                                selectedBooking.dateNeeded
+                              ).toLocaleDateString("en-US", {
+                                weekday: "long",
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
                               })}
                             </p>
                           </div>
                           <div>
                             <span className="text-gray-600">Time:</span>
-                            <p className="font-medium text-gray-900">{selectedBooking.timeNeeded}</p>
+                            <p className="font-medium text-gray-900">
+                              {selectedBooking.timeNeeded}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -509,16 +608,24 @@ export default function DriverSchedule() {
                           <div className="flex items-start gap-3">
                             <div className="w-3 h-3 bg-green-500 rounded-full mt-1 flex-shrink-0"></div>
                             <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900">Origin</p>
-                              <p className="text-sm text-gray-600">{selectedBooking.originAddress}</p>
+                              <p className="text-sm font-medium text-gray-900">
+                                Origin
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                {selectedBooking.originAddress}
+                              </p>
                             </div>
                           </div>
                           <div className="border-l-2 border-gray-200 ml-1.5 h-4"></div>
                           <div className="flex items-start gap-3">
                             <div className="w-3 h-3 bg-red-500 rounded-full mt-1 flex-shrink-0"></div>
                             <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900">Destination</p>
-                              <p className="text-sm text-gray-600">{selectedBooking.destinationAddress}</p>
+                              <p className="text-sm font-medium text-gray-900">
+                                Destination
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                {selectedBooking.destinationAddress}
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -533,19 +640,27 @@ export default function DriverSchedule() {
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <div>
                             <span className="text-gray-600">Company:</span>
-                            <p className="font-medium text-gray-900">{selectedBooking.companyName}</p>
+                            <p className="font-medium text-gray-900">
+                              {selectedBooking.companyName}
+                            </p>
                           </div>
                           <div>
                             <span className="text-gray-600">Product:</span>
-                            <p className="font-medium text-gray-900">{selectedBooking.productName}</p>
+                            <p className="font-medium text-gray-900">
+                              {selectedBooking.productName}
+                            </p>
                           </div>
                           <div>
                             <span className="text-gray-600">Quantity:</span>
-                            <p className="font-medium text-gray-900">{selectedBooking.quantity?.toLocaleString()} units</p>
+                            <p className="font-medium text-gray-900">
+                              {selectedBooking.quantity?.toLocaleString()} units
+                            </p>
                           </div>
                           <div>
                             <span className="text-gray-600">Weight:</span>
-                            <p className="font-medium text-gray-900">{selectedBooking.grossWeight} tons</p>
+                            <p className="font-medium text-gray-900">
+                              {selectedBooking.grossWeight} tons
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -559,23 +674,35 @@ export default function DriverSchedule() {
                         <div className="space-y-3 text-sm">
                           <div>
                             <span className="text-gray-600">Vehicle:</span>
-                            <p className="font-medium text-gray-900">{selectedBooking.vehicleType}</p>
+                            <p className="font-medium text-gray-900">
+                              {selectedBooking.vehicleType}
+                            </p>
                           </div>
-                          {selectedBooking.employeeDetails && selectedBooking.employeeDetails.length > 0 && (
-                            <div>
-                              <span className="text-gray-600">Team:</span>
-                              <div className="mt-2 space-y-1">
-                                {selectedBooking.employeeDetails.map((emp, idx) => (
-                                  <div key={`employee-${emp.employeeId || emp.fullName}-${idx}`} className="flex items-center gap-2">
-                                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                      {emp.role}
-                                    </span>
-                                    <span className="font-medium text-gray-900">{emp.fullName}</span>
-                                  </div>
-                                ))}
+                          {selectedBooking.employeeDetails &&
+                            selectedBooking.employeeDetails.length > 0 && (
+                              <div>
+                                <span className="text-gray-600">Team:</span>
+                                <div className="mt-2 space-y-1">
+                                  {selectedBooking.employeeDetails.map(
+                                    (emp, idx) => (
+                                      <div
+                                        key={`employee-${
+                                          emp.employeeId || emp.fullName
+                                        }-${idx}`}
+                                        className="flex items-center gap-2"
+                                      >
+                                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                          {emp.role}
+                                        </span>
+                                        <span className="font-medium text-gray-900">
+                                          {emp.fullName}
+                                        </span>
+                                      </div>
+                                    )
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
                         </div>
                       </div>
                     </div>

@@ -16,7 +16,7 @@ import {
   ChevronUp,
   Award,
   Search,
-  Weight
+  Weight,
 } from "lucide-react";
 import driverloginbg from "../assets/driver_login_bg.png";
 
@@ -33,20 +33,20 @@ export default function DriverHistory() {
     route: true,
     cargo: false,
     customer: false,
-    team: false
+    team: false,
   });
 
   const toggleSection = (section) => {
-    setExpandedSections(prev => ({
+    setExpandedSections((prev) => ({
       ...prev,
-      [section]: !prev[section]
+      [section]: !prev[section],
     }));
   };
 
   const getDestinations = (booking) => {
     if (!booking.destinationAddress) return [];
-    return Array.isArray(booking.destinationAddress) 
-      ? booking.destinationAddress 
+    return Array.isArray(booking.destinationAddress)
+      ? booking.destinationAddress
       : [booking.destinationAddress];
   };
 
@@ -69,7 +69,7 @@ export default function DriverHistory() {
       if (res.data.success) {
         // Filter only completed bookings
         const completedBookings = res.data.bookings.filter(
-          booking => booking.status === "Completed"
+          (booking) => booking.status === "Completed"
         );
         setBookings(completedBookings);
         setFilteredBookings(completedBookings);
@@ -102,13 +102,17 @@ export default function DriverHistory() {
     if (query.trim() === "") {
       setFilteredBookings(bookings);
     } else {
-      const filtered = bookings.filter(booking => 
-        booking.reservationId.toLowerCase().includes(query.toLowerCase()) ||
-        booking.tripNumber.toLowerCase().includes(query.toLowerCase()) ||
-        booking.companyName.toLowerCase().includes(query.toLowerCase()) ||
-        booking.productName.toLowerCase().includes(query.toLowerCase()) ||
-        booking.originAddress.toLowerCase().includes(query.toLowerCase()) ||
-        booking.destinationAddress.toString().toLowerCase().includes(query.toLowerCase())
+      const filtered = bookings.filter(
+        (booking) =>
+          booking.reservationId.toLowerCase().includes(query.toLowerCase()) ||
+          booking.tripNumber.toLowerCase().includes(query.toLowerCase()) ||
+          booking.companyName.toLowerCase().includes(query.toLowerCase()) ||
+          booking.productName.toLowerCase().includes(query.toLowerCase()) ||
+          booking.originAddress.toLowerCase().includes(query.toLowerCase()) ||
+          booking.destinationAddress
+            .toString()
+            .toLowerCase()
+            .includes(query.toLowerCase())
       );
       setFilteredBookings(filtered);
     }
@@ -121,7 +125,7 @@ export default function DriverHistory() {
       route: true,
       cargo: false,
       customer: false,
-      team: false
+      team: false,
     });
   };
 
@@ -136,11 +140,12 @@ export default function DriverHistory() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4"
+      <div
+        className="min-h-screen flex items-center justify-center p-4"
         style={{
           backgroundImage: `url(${driverloginbg})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          backgroundSize: "cover",
+          backgroundPosition: "center",
         }}
       >
         <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-6 rounded-2xl shadow-2xl">
@@ -159,16 +164,19 @@ export default function DriverHistory() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4"
+      <div
+        className="min-h-screen flex items-center justify-center p-4"
         style={{
           backgroundImage: `url(${driverloginbg})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          backgroundSize: "cover",
+          backgroundPosition: "center",
         }}
       >
         <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-6 rounded-2xl shadow-2xl max-w-md w-full text-center">
           <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">Error Loading History</h2>
+          <h2 className="text-xl font-bold text-white mb-2">
+            Error Loading History
+          </h2>
           <p className="text-red-300 mb-4">{error}</p>
           <button
             onClick={fetchCompletedBookings}
@@ -182,11 +190,12 @@ export default function DriverHistory() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 p-4"
+    <div
+      className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 p-4"
       style={{
         backgroundImage: `url(${driverloginbg})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
+        backgroundSize: "cover",
+        backgroundPosition: "center",
       }}
     >
       {/* Overlay + decorative glows */}
@@ -204,7 +213,8 @@ export default function DriverHistory() {
               Trip History
             </h1>
             <p className="text-xs text-purple-200">
-              {filteredBookings.length} completed trip{filteredBookings.length !== 1 ? 's' : ''}
+              {filteredBookings.length} completed trip
+              {filteredBookings.length !== 1 ? "s" : ""}
             </p>
           </div>
           <button
@@ -212,7 +222,11 @@ export default function DriverHistory() {
             disabled={refreshing}
             className="p-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg hover:bg-white/20 transition"
           >
-            <RefreshCw className={`w-5 h-5 text-white ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`w-5 h-5 text-white ${
+                refreshing ? "animate-spin" : ""
+              }`}
+            />
           </button>
         </div>
 
@@ -238,8 +252,8 @@ export default function DriverHistory() {
               {searchQuery ? "No Results Found" : "No Completed Trips"}
             </h2>
             <p className="text-purple-200 mb-2">
-              {searchQuery 
-                ? "Try adjusting your search terms" 
+              {searchQuery
+                ? "Try adjusting your search terms"
                 : "Your completed trips will appear here"}
             </p>
             {searchQuery && (
@@ -262,8 +276,12 @@ export default function DriverHistory() {
                 {/* Booking Header */}
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <h3 className="font-bold text-lg text-white">{booking.reservationId}</h3>
-                    <p className="text-sm text-purple-200 font-mono">{booking.tripNumber}</p>
+                    <h3 className="font-bold text-lg text-white">
+                      {booking.reservationId}
+                    </h3>
+                    <p className="text-sm text-purple-200 font-mono">
+                      {booking.tripNumber}
+                    </p>
                   </div>
                   <div className="px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 bg-gray-100 text-gray-800">
                     <CheckCircle2 className="w-3 h-3" />
@@ -273,7 +291,9 @@ export default function DriverHistory() {
 
                 {/* Company & Product */}
                 <div className="mb-3">
-                  <p className="font-semibold text-white">{booking.companyName}</p>
+                  <p className="font-semibold text-white">
+                    {booking.companyName}
+                  </p>
                   <p className="text-sm text-purple-200 flex items-center gap-1">
                     <Package className="w-4 h-4" />
                     {booking.productName} ({booking.quantity} units)
@@ -286,18 +306,24 @@ export default function DriverHistory() {
                     <MapPin className="w-3 h-3 text-green-400 flex-shrink-0" />
                     <span className="text-xs text-purple-300">From:</span>
                     <span className="font-medium text-xs text-white">
-                      {booking.originAddress.length > 30 ? booking.originAddress.substring(0, 30) + '...' : booking.originAddress}
+                      {booking.originAddress.length > 30
+                        ? booking.originAddress.substring(0, 30) + "..."
+                        : booking.originAddress}
                     </span>
                   </div>
-                  
+
                   {getDestinations(booking).map((dest, idx) => (
                     <div key={idx} className="flex items-center gap-2 mt-1">
                       <MapPin className="w-3 h-3 text-red-400 flex-shrink-0" />
                       <span className="text-xs text-purple-300">
-                        {getDestinations(booking).length > 1 ? `To (${idx + 1}):` : 'To:'}
+                        {getDestinations(booking).length > 1
+                          ? `To (${idx + 1}):`
+                          : "To:"}
                       </span>
                       <span className="font-medium text-xs text-white">
-                        {dest.length > 30 ? dest.substring(0, 30) + '...' : dest}
+                        {dest.length > 30
+                          ? dest.substring(0, 30) + "..."
+                          : dest}
                       </span>
                     </div>
                   ))}
@@ -325,20 +351,23 @@ export default function DriverHistory() {
         <div
           className="fixed inset-0 z-50"
           style={{
-            backgroundColor: 'rgba(0, 0, 0, 0.3)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)'
+            backgroundColor: "rgba(0, 0, 0, 0.3)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
           }}
         >
           <div className="absolute inset-0 overflow-y-auto">
             <div className="min-h-screen flex items-end sm:items-center justify-center p-4">
               <div className="bg-white/80 backdrop-blur-2xl border border-white/30 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden shadow-2xl">
-
                 {/* Modal Header - Sticky */}
                 <div className="sticky top-0 bg-white/80 border-b border-gray-200/50 px-4 py-3 flex items-center justify-between z-10">
                   <div className="flex-1">
-                    <h3 className="font-bold text-gray-900">{selectedBooking.reservationId}</h3>
-                    <p className="text-sm text-gray-600">{selectedBooking.tripNumber}</p>
+                    <h3 className="font-bold text-gray-900">
+                      {selectedBooking.reservationId}
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      {selectedBooking.tripNumber}
+                    </p>
                   </div>
                   <div className="px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1 bg-gray-100 text-gray-800">
                     <CheckCircle2 className="w-3 h-3" />
@@ -353,8 +382,10 @@ export default function DriverHistory() {
                 </div>
 
                 {/* Modal Body - Scrollable */}
-                <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 140px)' }}>
-
+                <div
+                  className="overflow-y-auto"
+                  style={{ maxHeight: "calc(90vh - 140px)" }}
+                >
                   {/* Proof of Delivery */}
                   {selectedBooking.proofOfDelivery && (
                     <div className="p-4 border-b border-gray-100">
@@ -363,9 +394,9 @@ export default function DriverHistory() {
                           <Award className="w-5 h-5 text-green-600" />
                           Proof of Delivery
                         </h4>
-                        <img 
-                          src={selectedBooking.proofOfDelivery} 
-                          alt="Proof of Delivery" 
+                        <img
+                          src={selectedBooking.proofOfDelivery}
+                          alt="Proof of Delivery"
                           className="w-full rounded-lg border-2 border-green-500"
                         />
                       </div>
@@ -375,44 +406,60 @@ export default function DriverHistory() {
                   {/* Route Section */}
                   <div className="border-b border-gray-100">
                     <button
-                      onClick={() => toggleSection('route')}
+                      onClick={() => toggleSection("route")}
                       className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-blue-600" />
                         <span className="font-medium">Route Details</span>
                       </div>
-                      {expandedSections.route ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      {expandedSections.route ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
                     </button>
                     {expandedSections.route && (
                       <div className="px-4 pb-4 space-y-3">
                         <div className="flex items-start gap-3">
                           <div className="w-3 h-3 bg-green-500 rounded-full mt-1.5 flex-shrink-0"></div>
                           <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-900">Origin</p>
-                            <p className="text-sm text-gray-600">{selectedBooking.originAddress}</p>
+                            <p className="text-sm font-medium text-gray-900">
+                              Origin
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {selectedBooking.originAddress}
+                            </p>
                           </div>
                         </div>
-                        
-                        {getDestinations(selectedBooking).map((destination, idx) => (
-                          <React.Fragment key={idx}>
-                            <div className="border-l-2 border-gray-200 ml-1.5 h-4"></div>
-                            <div className="flex items-start gap-3">
-                              <div className="w-3 h-3 bg-red-500 rounded-full mt-1.5 flex-shrink-0"></div>
-                              <div className="flex-1">
-                                <p className="text-sm font-medium text-gray-900">
-                                  {getDestinations(selectedBooking).length > 1 ? `Destination ${idx + 1}` : 'Destination'}
-                                </p>
-                                <p className="text-sm text-gray-600">{destination}</p>
+
+                        {getDestinations(selectedBooking).map(
+                          (destination, idx) => (
+                            <React.Fragment key={idx}>
+                              <div className="border-l-2 border-gray-200 ml-1.5 h-4"></div>
+                              <div className="flex items-start gap-3">
+                                <div className="w-3 h-3 bg-red-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-gray-900">
+                                    {getDestinations(selectedBooking).length > 1
+                                      ? `Destination ${idx + 1}`
+                                      : "Destination"}
+                                  </p>
+                                  <p className="text-sm text-gray-600">
+                                    {destination}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          </React.Fragment>
-                        ))}
-                        
+                            </React.Fragment>
+                          )
+                        )}
+
                         <div className="flex items-center gap-4 text-sm text-gray-600 mt-4 bg-gray-50 p-2 rounded">
                           <div className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            {new Date(selectedBooking.dateNeeded).toLocaleDateString()}
+                            {new Date(
+                              selectedBooking.dateNeeded
+                            ).toLocaleDateString()}
                           </div>
                           <div className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
@@ -426,25 +473,33 @@ export default function DriverHistory() {
                   {/* Cargo Section */}
                   <div className="border-b border-gray-100">
                     <button
-                      onClick={() => toggleSection('cargo')}
+                      onClick={() => toggleSection("cargo")}
                       className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center gap-2">
                         <Package className="w-4 h-4 text-purple-600" />
                         <span className="font-medium">Cargo Details</span>
                       </div>
-                      {expandedSections.cargo ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      {expandedSections.cargo ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
                     </button>
                     {expandedSections.cargo && (
                       <div className="px-4 pb-4">
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <div className="bg-gray-50 p-2 rounded">
                             <p className="text-gray-600 text-xs">Product</p>
-                            <p className="font-medium">{selectedBooking.productName}</p>
+                            <p className="font-medium">
+                              {selectedBooking.productName}
+                            </p>
                           </div>
                           <div className="bg-gray-50 p-2 rounded">
                             <p className="text-gray-600 text-xs">Quantity</p>
-                            <p className="font-medium">{selectedBooking.quantity?.toLocaleString()} pcs</p>
+                            <p className="font-medium">
+                              {selectedBooking.quantity?.toLocaleString()} pcs
+                            </p>
                           </div>
                           <div className="bg-gray-50 p-2 rounded">
                             <p className="text-gray-600 text-xs">Weight</p>
@@ -455,7 +510,9 @@ export default function DriverHistory() {
                           </div>
                           <div className="bg-gray-50 p-2 rounded">
                             <p className="text-gray-600 text-xs">Packages</p>
-                            <p className="font-medium">{selectedBooking.numberOfPackages} boxes</p>
+                            <p className="font-medium">
+                              {selectedBooking.numberOfPackages} boxes
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -465,28 +522,42 @@ export default function DriverHistory() {
                   {/* Customer Section */}
                   <div className="border-b border-gray-100">
                     <button
-                      onClick={() => toggleSection('customer')}
+                      onClick={() => toggleSection("customer")}
                       className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center gap-2">
                         <Building className="w-4 h-4 text-green-600" />
                         <span className="font-medium">Customer Info</span>
                       </div>
-                      {expandedSections.customer ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      {expandedSections.customer ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
                     </button>
                     {expandedSections.customer && (
                       <div className="px-4 pb-4 space-y-3">
                         <div className="bg-gray-50 p-3 rounded">
                           <p className="text-gray-600 text-xs mb-1">Company</p>
-                          <p className="font-medium">{selectedBooking.companyName}</p>
+                          <p className="font-medium">
+                            {selectedBooking.companyName}
+                          </p>
                         </div>
                         <div className="bg-gray-50 p-3 rounded">
                           <p className="text-gray-600 text-xs mb-1">Customer</p>
-                          <p className="font-medium">{selectedBooking.customerEstablishmentName || selectedBooking.shipperConsignorName || 'N/A'}</p>
+                          <p className="font-medium">
+                            {selectedBooking.customerEstablishmentName ||
+                              selectedBooking.shipperConsignorName ||
+                              "N/A"}
+                          </p>
                         </div>
                         <div className="bg-gray-50 p-3 rounded">
-                          <p className="text-gray-600 text-xs mb-1">Delivery Fee</p>
-                          <p className="font-medium text-green-600">₱{selectedBooking.deliveryFee?.toLocaleString()}</p>
+                          <p className="text-gray-600 text-xs mb-1">
+                            Delivery Fee
+                          </p>
+                          <p className="font-medium text-green-600">
+                            ₱{selectedBooking.deliveryFee?.toLocaleString()}
+                          </p>
                         </div>
                       </div>
                     )}
@@ -495,36 +566,47 @@ export default function DriverHistory() {
                   {/* Team Section */}
                   <div className="border-b border-gray-100">
                     <button
-                      onClick={() => toggleSection('team')}
+                      onClick={() => toggleSection("team")}
                       className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-orange-600" />
                         <span className="font-medium">Team Assignment</span>
                       </div>
-                      {expandedSections.team ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      {expandedSections.team ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
                     </button>
                     {expandedSections.team && (
                       <div className="px-4 pb-4">
                         <div className="space-y-2">
-                          {selectedBooking.employeeDetails && selectedBooking.employeeDetails.length > 0 ? (
+                          {selectedBooking.employeeDetails &&
+                          selectedBooking.employeeDetails.length > 0 ? (
                             selectedBooking.employeeDetails.map((emp, idx) => (
-                              <div key={idx} className="flex items-center gap-2 bg-gray-50 p-2 rounded">
+                              <div
+                                key={idx}
+                                className="flex items-center gap-2 bg-gray-50 p-2 rounded"
+                              >
                                 <User className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm font-medium flex-1">{emp.fullName}</span>
+                                <span className="text-sm font-medium flex-1">
+                                  {emp.fullName}
+                                </span>
                                 <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                                   {emp.role}
                                 </span>
                               </div>
                             ))
                           ) : (
-                            <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded text-center">No team assigned</p>
+                            <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded text-center">
+                              No team assigned
+                            </p>
                           )}
                         </div>
                       </div>
                     )}
                   </div>
-
                 </div>
 
                 {/* Modal Footer - Sticky */}
@@ -536,7 +618,6 @@ export default function DriverHistory() {
                     Close
                   </button>
                 </div>
-
               </div>
             </div>
           </div>

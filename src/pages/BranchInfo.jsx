@@ -14,6 +14,8 @@ function BranchInfo() {
     start: "",
     end: "",
   });
+  const [error, setError] = useState(null);
+  const [isLoadingBranch, setIsLoadingBranch] = useState(true);
   const navigate = useNavigate();
 
   const baseURL = import.meta.env.VITE_API_BASE_URL;

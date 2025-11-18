@@ -1224,7 +1224,8 @@ function Booking() {
         // Check quantity
         if (
           !branch.quantity ||
-          (typeof branch.quantity === "string" && branch.quantity.trim() === "") ||
+          (typeof branch.quantity === "string" &&
+            branch.quantity.trim() === "") ||
           (typeof branch.quantity === "number" && branch.quantity <= 0)
         ) {
           alert(`Please fill in valid Quantity for Stop ${i + 1}`);

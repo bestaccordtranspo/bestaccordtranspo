@@ -344,6 +344,7 @@ function Client() {
 
   const closeModal = () => setShowModal(false);
 
+  // Fill address search bar when house number changes
   useEffect(() => {
     if (showModal && formData.houseNumber) {
       setAddressSearch(formData.houseNumber);
@@ -1003,13 +1004,33 @@ function Client() {
                     <div className="flex items-center gap-2 mb-2">
                       <MapPin className="text-purple-600" size={20} />
                       <h3 className="text-lg font-semibold text-gray-900">
-                        Pin Your Location
+                        Pin Your Location or Nearest Landmark
                       </h3>
                     </div>
                     <p className="text-sm text-gray-600 mb-4">
-                      Search your address or click on the map to pin your exact
-                      location. You can also drag the marker to adjust.
+                      <strong>📍 How it works:</strong> We'll search using
+                      house/building number + barangay + city (street name is
+                      saved but not used for map search). The map will show your
+                      barangay/city area. You can then{" "}
+                      <strong>drag the marker</strong> or{" "}
+                      <strong>click the map</strong> to pinpoint your exact
+                      location.
                     </p>
+
+                    {/* Search tips */}
+                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-xs text-blue-900 font-semibold mb-1">
+                        💡 Tips for accurate pinning:
+                      </p>
+                      <ul className="text-xs text-blue-800 space-y-1 ml-4 list-disc">
+                        <li>
+                          <strong>
+                            Try searching nearby landmarks (e.g., "SM Mall",
+                            "Parish Church") for reference
+                          </strong>
+                        </li>
+                      </ul>
+                    </div>
 
                     <div className="mb-4 flex gap-2">
                       <input

@@ -845,7 +845,7 @@ function Client() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Client Name *
+                          Client Name
                         </label>
                         <input
                           type="text"
@@ -893,7 +893,7 @@ function Client() {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Region *
+                          Region
                         </label>
                         <select
                           name="region"
@@ -914,7 +914,7 @@ function Client() {
                       {formData.region !== "130000000" ? (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Province *
+                            Province
                           </label>
                           <select
                             name="province"
@@ -945,7 +945,7 @@ function Client() {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          City/Municipality *
+                          City/Municipality
                         </label>
                         <select
                           name="city"
@@ -972,7 +972,7 @@ function Client() {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Barangay *
+                          Barangay
                         </label>
                         <select
                           name="barangay"

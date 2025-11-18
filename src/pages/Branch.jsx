@@ -706,7 +706,7 @@ export default function Branch() {
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Client *
+                          Client
                         </label>
                         <select
                           name="clientId"
@@ -726,7 +726,7 @@ export default function Branch() {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Branch Name *
+                          Branch Name
                         </label>
                         <input
                           type="text"
@@ -815,7 +815,7 @@ export default function Branch() {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Region *
+                          Region
                         </label>
                         <select
                           name="region"
@@ -836,7 +836,7 @@ export default function Branch() {
                       {formData.region !== "130000000" ? (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Province *
+                            Province
                           </label>
                           <select
                             name="province"
@@ -867,7 +867,7 @@ export default function Branch() {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          City/Municipality *
+                          City/Municipality
                         </label>
                         <select
                           name="city"
@@ -894,7 +894,7 @@ export default function Branch() {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Barangay *
+                          Barangay
                         </label>
                         <select
                           name="barangay"

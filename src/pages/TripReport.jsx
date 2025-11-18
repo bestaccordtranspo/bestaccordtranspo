@@ -895,7 +895,7 @@ export default function TripReport() {
                     {/* File Upload Section */}
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-3">
-                        Document File *
+                        Document File
                       </label>
 
                       {/* Upload Area */}
@@ -1044,7 +1044,7 @@ export default function TripReport() {
                     {/* Receipt Number - Full Width */}
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Receipt Number *
+                        Receipt Number
                       </label>
                       <input
                         type="text"

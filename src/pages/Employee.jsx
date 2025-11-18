@@ -568,7 +568,7 @@ function Employee() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="md:col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Full Name *
+                            Full Name
                           </label>
                           <input
                             type="text"
@@ -586,7 +586,7 @@ function Employee() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Role *
+                            Role
                           </label>
                           <select
                             name="role"
@@ -604,7 +604,7 @@ function Employee() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Employment Type *
+                            Employment Type
                           </label>
                           <select
                             name="employmentType"
@@ -622,7 +622,7 @@ function Employee() {
                         </div>
                         <div className="md:col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Mobile Number *
+                            Mobile Number
                           </label>
                           <input
                             type="text"
@@ -649,7 +649,7 @@ function Employee() {
                       <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Current Address *
+                            Current Address
                           </label>
                           <input
                             type="text"
@@ -661,7 +661,7 @@ function Employee() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Permanent Address *
+                            Permanent Address
                           </label>
                           <input
                             type="text"
@@ -697,7 +697,7 @@ function Employee() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Emergency Contact Name *
+                            Emergency Contact Name
                           </label>
                           <input
                             type="text"
@@ -709,7 +709,7 @@ function Employee() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Emergency Contact Number *
+                            Emergency Contact Number
                           </label>
                           <input
                             type="text"
@@ -722,7 +722,7 @@ function Employee() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Date Hired *
+                            Date Hired
                           </label>
                           <input
                             type="date"
@@ -768,7 +768,7 @@ function Employee() {
                       <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Username *
+                            Username
                           </label>
                           <input
                             type="text"
@@ -786,7 +786,7 @@ function Employee() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Password *
+                            Password
                           </label>
                           <input
                             type="password"

@@ -570,7 +570,7 @@ export default function Vehicle() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Registration Number *
+                        Registration Number
                       </label>
                       <input
                         type="text"
@@ -624,7 +624,7 @@ export default function Vehicle() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Manufacturer *
+                        Manufacturer
                       </label>
                       <select
                         name="manufacturedBy"
@@ -653,7 +653,7 @@ export default function Vehicle() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Model *
+                        Model
                       </label>
                       <input
                         type="text"
@@ -675,7 +675,7 @@ export default function Vehicle() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Plate Number *
+                        Plate Number
                       </label>
                       <input
                         type="text"
@@ -699,7 +699,7 @@ export default function Vehicle() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Vehicle Type *
+                        Vehicle Type
                       </label>
                       <select
                         name="vehicleType"
@@ -741,7 +741,7 @@ export default function Vehicle() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Status *
+                        Status
                       </label>
                       <select
                         name="status"

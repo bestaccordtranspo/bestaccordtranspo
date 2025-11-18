@@ -122,6 +122,34 @@ function BranchInfo() {
       setIsLoadingBookings(false);
     }
   };
+
+  if (isLoadingBranch) {
+    return (
+      <div className="p-6 max-w-3xl mx-auto">
+        <div className="text-center py-12">
+          <p className="text-gray-500 text-lg">Loading branch information...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 max-w-3xl mx-auto">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <p className="text-red-600 font-semibold">Error</p>
+          <p className="text-red-500 mt-2">{error}</p>
+          <button
+            onClick={() => navigate("/dashboard/branch")}
+            className="mt-4 px-4 py-2 bg-gray-600 text-white rounded-lg shadow hover:bg-gray-700 transition"
+          >
+            Back to Branches
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const clearFilter = () => {
     setSelectedDateRange({
       start: "",

@@ -342,7 +342,7 @@ router.post("/", async (req, res) => {
     
     const { reservationId, tripNumber, ...bookingData } = req.body;
 
-    // Check for schedule conflicts
+    // Check for schedule conflicts (for logging only, not blocking)
     const conflicts = await checkScheduleConflicts(
       bookingData.vehicleId,
       bookingData.employeeAssigned || [],
@@ -350,15 +350,7 @@ router.post("/", async (req, res) => {
     );
 
     if (conflicts.vehicle || conflicts.employees.length > 0) {
-      return res.status(409).json({
-        message: "Schedule conflict detected",
-        conflicts: {
-          vehicle: conflicts.vehicle ? "Vehicle is already booked for this date" : null,
-          employees: conflicts.employees.length > 0 
-            ? `Employees ${conflicts.employees.join(", ")} are already booked for this date` 
-            : null
-        }
-      });
+      console.log("⚠️ Schedule conflicts detected (allowed for future bookings):", conflicts);
     }
 
     // Generate new IDs
@@ -398,6 +390,7 @@ router.post("/", async (req, res) => {
     } else {
       console.log("📅 Booking is scheduled for future - statuses remain unchanged");
       console.log(`📆 Scheduled for: ${new Date(savedBooking.dateNeeded).toLocaleDateString()}`);
+      console.log("ℹ️ Vehicle and employees will be automatically marked 'On Trip' when the date arrives");
     }
 
     res.status(201).json(savedBooking);

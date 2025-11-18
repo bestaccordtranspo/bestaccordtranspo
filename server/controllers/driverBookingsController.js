@@ -3,6 +3,86 @@ import Employee from "../models/Employee.js";
 import Vehicle from "../models/Vehicle.js";
 
 /**
+ * Helper function to intelligently update vehicle and employee status
+ * Only sets to "Available" if there are no other active bookings
+ */
+async function updateVehicleAndEmployeeStatus(booking, newStatus) {
+  try {
+    console.log(`🔄 Checking if resources can be set to ${newStatus}...`);
+    
+    // If setting to "Available", check for other active bookings first
+    if (newStatus === "Available") {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Check if vehicle has other active bookings today or in the future
+      if (booking.vehicleId) {
+        const otherVehicleBookings = await Booking.countDocuments({
+          vehicleId: booking.vehicleId,
+          _id: { $ne: booking._id }, // Exclude current booking
+          dateNeeded: { $gte: today },
+          status: { $in: ["Pending", "Ready to go", "In Transit"] },
+          isArchived: false
+        });
+        
+        if (otherVehicleBookings > 0) {
+          console.log(`⚠️ Vehicle ${booking.vehicleId} has ${otherVehicleBookings} other active bookings - keeping status as "On Trip"`);
+        } else {
+          const vehicle = await Vehicle.findOneAndUpdate(
+            { vehicleId: booking.vehicleId },
+            { status: "Available" }
+          );
+          console.log(`✅ Vehicle ${booking.vehicleId} status updated to Available`);
+        }
+      }
+      
+      // Check if employees have other active bookings today or in the future
+      if (Array.isArray(booking.employeeAssigned) && booking.employeeAssigned.length > 0) {
+        for (const employeeId of booking.employeeAssigned) {
+          const otherEmployeeBookings = await Booking.countDocuments({
+            employeeAssigned: { $in: [employeeId] },
+            _id: { $ne: booking._id }, // Exclude current booking
+            dateNeeded: { $gte: today },
+            status: { $in: ["Pending", "Ready to go", "In Transit"] },
+            isArchived: false
+          });
+          
+          if (otherEmployeeBookings > 0) {
+            console.log(`⚠️ Employee ${employeeId} has ${otherEmployeeBookings} other active bookings - keeping status as "On Trip"`);
+          } else {
+            await Employee.findOneAndUpdate(
+              { employeeId: employeeId },
+              { status: "Available" }
+            );
+            console.log(`✅ Employee ${employeeId} status updated to Available`);
+          }
+        }
+      }
+    } else {
+      // For other statuses (like "On Trip"), update directly
+      if (booking.vehicleId) {
+        await Vehicle.findOneAndUpdate(
+          { vehicleId: booking.vehicleId },
+          { status: newStatus }
+        );
+        console.log(`✅ Vehicle ${booking.vehicleId} status updated to ${newStatus}`);
+      }
+
+      if (Array.isArray(booking.employeeAssigned) && booking.employeeAssigned.length > 0) {
+        await Employee.updateMany(
+          { employeeId: { $in: booking.employeeAssigned } },
+          { status: newStatus }
+        );
+        console.log(`✅ Employees updated to ${newStatus}`);
+      }
+    }
+  } catch (error) {
+    console.error("❌ Error updating statuses:", error);
+    throw error;
+  }
+}
+
+/**
  * GET /api/driver/bookings/count
  * Returns the count of ACTIVE bookings assigned to the logged-in driver/helper
  * (excludes completed bookings)
@@ -417,6 +497,7 @@ export const updateBookingStatus = async (req, res) => {
 
     await booking.save();
 
+    // Intelligently update vehicle and employee status
     if (status === "Completed") {
       try {
         await updateVehicleAndEmployeeStatus(booking, "Available");
@@ -476,29 +557,6 @@ export const updateBookingStatus = async (req, res) => {
     });
   }
 };
-
-async function updateVehicleAndEmployeeStatus(booking, newStatus) {
-  try {
-    if (booking.vehicleType) {
-      const vehicle = await Vehicle.findOneAndUpdate(
-        { vehicleType: booking.vehicleType },
-        { status: newStatus }
-      );
-      console.log(`✅ Vehicle ${booking.vehicleType} status updated to ${newStatus}`);
-    }
-
-    if (Array.isArray(booking.employeeAssigned) && booking.employeeAssigned.length > 0) {
-      const result = await Employee.updateMany(
-        { employeeId: { $in: booking.employeeAssigned } },
-        { status: newStatus }
-      );
-      console.log(`✅ ${result.modifiedCount} employees updated to ${newStatus}`);
-    }
-  } catch (error) {
-    console.error("❌ Error updating statuses:", error);
-    throw error;
-  }
-}
 
 /**
  * PUT /api/driver/bookings/:id/location

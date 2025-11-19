@@ -61,59 +61,6 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
     return dueDate;
   };
 
-  // NEW: Helper function to convert oklch/modern CSS colors to RGB
-  const preprocessElementForPDF = (element) => {
-    // Clone the element to avoid modifying the original
-    const clone = element.cloneNode(true);
-    
-    // Create a temporary container
-    const tempContainer = document.createElement('div');
-    tempContainer.style.position = 'absolute';
-    tempContainer.style.left = '-9999px';
-    tempContainer.style.top = '0';
-    tempContainer.style.visibility = 'hidden';
-    document.body.appendChild(tempContainer);
-    tempContainer.appendChild(clone);
-    
-    // Get all elements including the clone itself
-    const allElements = [clone, ...clone.querySelectorAll('*')];
-    
-    allElements.forEach(el => {
-      const computedStyle = window.getComputedStyle(el);
-      
-      // Convert problematic CSS properties to inline styles with computed RGB values
-      const cssProperties = [
-        'color',
-        'backgroundColor',
-        'borderColor',
-        'borderTopColor',
-        'borderRightColor',
-        'borderBottomColor',
-        'borderLeftColor',
-        'outlineColor',
-        'textDecorationColor',
-        'fill',
-        'stroke'
-      ];
-      
-      cssProperties.forEach(prop => {
-        const value = computedStyle[prop];
-        if (value && (value.includes('oklch') || value.includes('oklab') || value.includes('lch') || value.includes('lab'))) {
-          // Force the browser to compute and apply the RGB value
-          el.style[prop] = value;
-          // Double-check: get the computed value again and ensure it's RGB
-          const rgbValue = window.getComputedStyle(el)[prop];
-          el.style[prop] = rgbValue;
-        }
-      });
-    });
-    
-    // Clean up
-    document.body.removeChild(tempContainer);
-    
-    return clone;
-  };
-
   const downloadAsPDF = async () => {
     if (!invoiceRef.current) return;
     
@@ -124,6 +71,9 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
       // Store original styles
       const originalWidth = element.style.width;
       const originalMaxWidth = element.style.maxWidth;
+      const originalMargin = element.style.margin;
+      const originalPadding = element.style.padding;
+      const originalBoxSizing = element.style.boxSizing;
       
       // Set dimensions for PDF
       element.style.width = '210mm';
@@ -132,96 +82,82 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
       element.style.padding = '10mm';
       element.style.boxSizing = 'border-box';
       
-      // Wait for styles to apply
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // NEW: Preprocess the element to convert modern colors
-      const processedElement = preprocessElementForPDF(element);
-      
-      // Temporarily add to DOM for rendering
-      processedElement.style.position = 'absolute';
-      processedElement.style.left = '-9999px';
-      processedElement.style.top = '0';
-      processedElement.style.width = '210mm';
-      processedElement.style.maxWidth = '210mm';
-      processedElement.style.margin = '0';
-      processedElement.style.padding = '10mm';
-      processedElement.style.boxSizing = 'border-box';
-      processedElement.style.backgroundColor = '#ffffff';
-      document.body.appendChild(processedElement);
-      
-      // Generate canvas from processed element
-      const canvas = await html2canvas(processedElement, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        width: processedElement.scrollWidth,
-        height: processedElement.scrollHeight,
-        windowWidth: 794,
-        windowHeight: 1123,
-        scrollX: 0,
-        scrollY: 0,
-        logging: false, // Disable console logs
-        foreignObjectRendering: false, // Use HTML rendering instead
-        removeContainer: true
+      // Force all colors to be standard by applying inline styles
+      const allElements = element.querySelectorAll('*');
+      allElements.forEach(el => {
+        const computedStyle = window.getComputedStyle(el);
+        
+        // Force standard colors for critical properties
+        if (computedStyle.color.includes('oklch')) {
+          el.style.color = '#000000';
+        }
+        if (computedStyle.backgroundColor.includes('oklch')) {
+          el.style.backgroundColor = '#ffffff';
+        }
+        if (computedStyle.borderColor.includes('oklch')) {
+          el.style.borderColor = '#d1d5db';
+        }
       });
       
-      // Clean up processed element
-      document.body.removeChild(processedElement);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+        logging: false
+      });
       
       // Restore original styles
       element.style.width = originalWidth;
       element.style.maxWidth = originalMaxWidth;
-      element.style.margin = '';
-      element.style.padding = '';
-      element.style.boxSizing = '';
+      element.style.margin = originalMargin;
+      element.style.padding = originalPadding;
+      element.style.boxSizing = originalBoxSizing;
       
-      // Generate PDF
+      // Remove forced inline styles
+      allElements.forEach(el => {
+        el.style.color = '';
+        el.style.backgroundColor = '';
+        el.style.borderColor = '';
+      });
+      
       const imgData = canvas.toDataURL('image/png', 1.0);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
-      const ratio = pdfWidth / (canvasWidth / 2);
-      const scaledHeight = (canvasHeight / 2) * ratio;
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      if (scaledHeight <= pdfHeight) {
-        // Single page
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, scaledHeight);
-      } else {
-        // Multiple pages
-        let remainingHeight = scaledHeight;
-        let page = 1;
-        
-        while (remainingHeight > 0) {
-          if (page > 1) {
-            pdf.addPage();
-          }
-          
-          const pageHeight = Math.min(pdfHeight, remainingHeight);
-          const sourceY = (page - 1) * pdfHeight * (canvasHeight / scaledHeight);
-          const sourceHeight = pageHeight * (canvasHeight / scaledHeight);
-          
-          const pageCanvas = document.createElement('canvas');
-          pageCanvas.width = canvasWidth;
-          pageCanvas.height = sourceHeight;
-          const pageCtx = pageCanvas.getContext('2d');
-          
-          pageCtx.drawImage(
-            canvas,
-            0, sourceY, canvasWidth, sourceHeight,
-            0, 0, canvasWidth, sourceHeight
-          );
-          
-          const pageImgData = pageCanvas.toDataURL('image/png', 1.0);
-          pdf.addImage(pageImgData, 'PNG', 0, 0, pdfWidth, pageHeight);
-          
-          remainingHeight -= pageHeight;
-          page++;
+      let heightLeft = imgHeight;
+      let position = 0;
+      let page = 0;
+      
+      // Handle multi-page PDF
+      while (heightLeft > 0) {
+        if (page > 0) {
+          pdf.addPage();
         }
+        
+        const renderHeight = Math.min(pdfHeight, heightLeft);
+        pdf.addImage(
+          imgData,
+          'PNG',
+          0,
+          position,
+          imgWidth,
+          imgHeight,
+          undefined,
+          'FAST'
+        );
+        
+        heightLeft -= renderHeight;
+        position -= pdfHeight;
+        page++;
       }
       
       const fileName = `Invoice_${invoiceNumber}_${booking.tripNumber}.pdf`;
@@ -238,12 +174,13 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
       
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert(`Error generating PDF: ${error.message}\n\nPlease try again or contact support if the issue persists.`);
+      alert('Error generating PDF. Please try again.');
     } finally {
       setGenerating(false);
     }
   };
 
+  // All styles using only standard hex colors
   const styles = {
     modal: {
       position: 'fixed',
@@ -256,8 +193,7 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
       alignItems: 'center',
       justifyContent: 'center',
       padding: '16px',
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      backdropFilter: 'blur(5px)'
+      backgroundColor: 'rgba(0, 0, 0, 0.5)'
     },
     modalContent: {
       backgroundColor: '#ffffff',
@@ -344,6 +280,7 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
               <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: '#111827', marginBottom: '6px' }}>
                 BESTACCORD TRANSPORTATION
               </h1>
+              <p style={{ fontSize: '12px', color: '#6b7280' }}>Logistics & Transportation Services</p>
             </div>
 
             {/* Invoice Header */}
@@ -438,7 +375,9 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
                       <>
                         {getDestinations().map((dest, index) => (
                           <tr key={index}>
-                            <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{index + 1}</td>
+                            {getDestinations().length > 1 && (
+                              <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{index + 1}</td>
+                            )}
                             <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{dest.productName}</td>
                             <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{dest.quantity?.toLocaleString()}</td>
                             <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{dest.grossWeight}</td>
@@ -458,7 +397,7 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
                         ))}
                         {getDestinations().length > 1 && (
                           <tr style={{ borderTop: '2px solid #9ca3af', backgroundColor: '#f3f4f6' }}>
-                            <td style={{ padding: '10px', fontWeight: 'bold', fontSize: '11px' }} colSpan="2">TOTAL</td>
+                            <td style={{ padding: '10px', fontWeight: 'bold', fontSize: '11px' }} colSpan={getDestinations().length > 1 ? "2" : "1"}>TOTAL</td>
                             <td style={{ padding: '10px', fontWeight: 'bold', fontSize: '11px' }}>{getTotalQuantity().toLocaleString()}</td>
                             <td style={{ padding: '10px', fontWeight: 'bold', fontSize: '11px' }}>{getTotalWeight().toFixed(2)} kg</td>
                             <td style={{ padding: '10px', fontSize: '11px' }}></td>

@@ -926,7 +926,7 @@ export default function Branch() {
                     <div className="flex items-center gap-2 mb-2">
                       <MapPin className="text-purple-600" size={20} />
                       <h3 className="text-lg font-semibold text-gray-900">
-                        Pin Your Location
+                        Pin Your Location or Nearest Landmark
                       </h3>
                     </div>
                     <p className="text-sm text-gray-600 mb-4">

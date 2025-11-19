@@ -68,96 +68,83 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
     try {
       const element = invoiceRef.current;
       
-      // Store original styles
       const originalWidth = element.style.width;
       const originalMaxWidth = element.style.maxWidth;
-      const originalMargin = element.style.margin;
-      const originalPadding = element.style.padding;
-      const originalBoxSizing = element.style.boxSizing;
       
-      // Set dimensions for PDF
       element.style.width = '210mm';
       element.style.maxWidth = '210mm';
       element.style.margin = '0';
       element.style.padding = '10mm';
       element.style.boxSizing = 'border-box';
       
-      // Force all colors to be standard by applying inline styles
-      const allElements = element.querySelectorAll('*');
-      allElements.forEach(el => {
-        const computedStyle = window.getComputedStyle(el);
-        
-        // Force standard colors for critical properties
-        if (computedStyle.color.includes('oklch')) {
-          el.style.color = '#000000';
-        }
-        if (computedStyle.backgroundColor.includes('oklch')) {
-          el.style.backgroundColor = '#ffffff';
-        }
-        if (computedStyle.borderColor.includes('oklch')) {
-          el.style.borderColor = '#d1d5db';
-        }
-      });
-      
       await new Promise(resolve => setTimeout(resolve, 100));
       
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
-        allowTaint: false,
+        allowTaint: true,
         backgroundColor: '#ffffff',
         width: element.scrollWidth,
         height: element.scrollHeight,
-        logging: false
+        windowWidth: 794,
+        windowHeight: 1123,
+        scrollX: 0,
+        scrollY: 0,
       });
       
-      // Restore original styles
       element.style.width = originalWidth;
       element.style.maxWidth = originalMaxWidth;
-      element.style.margin = originalMargin;
-      element.style.padding = originalPadding;
-      element.style.boxSizing = originalBoxSizing;
+      element.style.margin = '';
+      element.style.padding = '';
+      element.style.boxSizing = '';
       
-      // Remove forced inline styles
-      allElements.forEach(el => {
-        el.style.color = '';
-        el.style.backgroundColor = '';
-        el.style.borderColor = '';
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4',
+        hotfixes: ["px_scaling"]
       });
-      
-      const imgData = canvas.toDataURL('image/png', 1.0);
-      const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+      const ratio = pdfWidth / (canvasWidth / 2);
+      const scaledHeight = (canvasHeight / 2) * ratio;
       
-      let heightLeft = imgHeight;
-      let position = 0;
-      let page = 0;
-      
-      // Handle multi-page PDF
-      while (heightLeft > 0) {
-        if (page > 0) {
-          pdf.addPage();
+      if (scaledHeight <= pdfHeight) {
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, scaledHeight, undefined, 'FAST');
+      } else {
+        let remainingHeight = scaledHeight;
+        let page = 1;
+        
+        while (remainingHeight > 0) {
+          if (page > 1) {
+            pdf.addPage();
+          }
+          
+          const pageHeight = Math.min(pdfHeight, remainingHeight);
+          const sourceY = (page - 1) * pdfHeight * (canvasHeight / scaledHeight);
+          const sourceHeight = pageHeight * (canvasHeight / scaledHeight);
+          
+          const pageCanvas = document.createElement('canvas');
+          pageCanvas.width = canvasWidth;
+          pageCanvas.height = sourceHeight;
+          const pageCtx = pageCanvas.getContext('2d');
+          
+          pageCtx.drawImage(
+            canvas,
+            0, sourceY, canvasWidth, sourceHeight,
+            0, 0, canvasWidth, sourceHeight
+          );
+          
+          const pageImgData = pageCanvas.toDataURL('image/png');
+          pdf.addImage(pageImgData, 'PNG', 0, 0, pdfWidth, pageHeight);
+          
+          remainingHeight -= pageHeight;
+          page++;
         }
-        
-        const renderHeight = Math.min(pdfHeight, heightLeft);
-        pdf.addImage(
-          imgData,
-          'PNG',
-          0,
-          position,
-          imgWidth,
-          imgHeight,
-          undefined,
-          'FAST'
-        );
-        
-        heightLeft -= renderHeight;
-        position -= pdfHeight;
-        page++;
       }
       
       const fileName = `Invoice_${invoiceNumber}_${booking.tripNumber}.pdf`;
@@ -180,7 +167,6 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
     }
   };
 
-  // All styles using only standard hex colors
   const styles = {
     modal: {
       position: 'fixed',
@@ -193,7 +179,8 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
       alignItems: 'center',
       justifyContent: 'center',
       padding: '16px',
-      backgroundColor: 'rgba(0, 0, 0, 0.5)'
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backdropFilter: 'blur(5px)'
     },
     modalContent: {
       backgroundColor: '#ffffff',
@@ -280,7 +267,6 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
               <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: '#111827', marginBottom: '6px' }}>
                 BESTACCORD TRANSPORTATION
               </h1>
-              <p style={{ fontSize: '12px', color: '#6b7280' }}>Logistics & Transportation Services</p>
             </div>
 
             {/* Invoice Header */}
@@ -375,9 +361,7 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
                       <>
                         {getDestinations().map((dest, index) => (
                           <tr key={index}>
-                            {getDestinations().length > 1 && (
-                              <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{index + 1}</td>
-                            )}
+                            <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{index + 1}</td>
                             <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{dest.productName}</td>
                             <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{dest.quantity?.toLocaleString()}</td>
                             <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{dest.grossWeight}</td>
@@ -397,7 +381,7 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
                         ))}
                         {getDestinations().length > 1 && (
                           <tr style={{ borderTop: '2px solid #9ca3af', backgroundColor: '#f3f4f6' }}>
-                            <td style={{ padding: '10px', fontWeight: 'bold', fontSize: '11px' }} colSpan={getDestinations().length > 1 ? "2" : "1"}>TOTAL</td>
+                            <td style={{ padding: '10px', fontWeight: 'bold', fontSize: '11px' }} colSpan="2">TOTAL</td>
                             <td style={{ padding: '10px', fontWeight: 'bold', fontSize: '11px' }}>{getTotalQuantity().toLocaleString()}</td>
                             <td style={{ padding: '10px', fontWeight: 'bold', fontSize: '11px' }}>{getTotalWeight().toFixed(2)} kg</td>
                             <td style={{ padding: '10px', fontSize: '11px' }}></td>

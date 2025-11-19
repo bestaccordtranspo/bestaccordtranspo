@@ -61,6 +61,59 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
     return dueDate;
   };
 
+  // NEW: Helper function to convert oklch/modern CSS colors to RGB
+  const preprocessElementForPDF = (element) => {
+    // Clone the element to avoid modifying the original
+    const clone = element.cloneNode(true);
+    
+    // Create a temporary container
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-9999px';
+    tempContainer.style.top = '0';
+    tempContainer.style.visibility = 'hidden';
+    document.body.appendChild(tempContainer);
+    tempContainer.appendChild(clone);
+    
+    // Get all elements including the clone itself
+    const allElements = [clone, ...clone.querySelectorAll('*')];
+    
+    allElements.forEach(el => {
+      const computedStyle = window.getComputedStyle(el);
+      
+      // Convert problematic CSS properties to inline styles with computed RGB values
+      const cssProperties = [
+        'color',
+        'backgroundColor',
+        'borderColor',
+        'borderTopColor',
+        'borderRightColor',
+        'borderBottomColor',
+        'borderLeftColor',
+        'outlineColor',
+        'textDecorationColor',
+        'fill',
+        'stroke'
+      ];
+      
+      cssProperties.forEach(prop => {
+        const value = computedStyle[prop];
+        if (value && (value.includes('oklch') || value.includes('oklab') || value.includes('lch') || value.includes('lab'))) {
+          // Force the browser to compute and apply the RGB value
+          el.style[prop] = value;
+          // Double-check: get the computed value again and ensure it's RGB
+          const rgbValue = window.getComputedStyle(el)[prop];
+          el.style[prop] = rgbValue;
+        }
+      });
+    });
+    
+    // Clean up
+    document.body.removeChild(tempContainer);
+    
+    return clone;
+  };
+
   const downloadAsPDF = async () => {
     if (!invoiceRef.current) return;
     
@@ -68,37 +121,64 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
     try {
       const element = invoiceRef.current;
       
+      // Store original styles
       const originalWidth = element.style.width;
       const originalMaxWidth = element.style.maxWidth;
       
+      // Set dimensions for PDF
       element.style.width = '210mm';
       element.style.maxWidth = '210mm';
       element.style.margin = '0';
       element.style.padding = '10mm';
       element.style.boxSizing = 'border-box';
       
+      // Wait for styles to apply
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      const canvas = await html2canvas(element, {
+      // NEW: Preprocess the element to convert modern colors
+      const processedElement = preprocessElementForPDF(element);
+      
+      // Temporarily add to DOM for rendering
+      processedElement.style.position = 'absolute';
+      processedElement.style.left = '-9999px';
+      processedElement.style.top = '0';
+      processedElement.style.width = '210mm';
+      processedElement.style.maxWidth = '210mm';
+      processedElement.style.margin = '0';
+      processedElement.style.padding = '10mm';
+      processedElement.style.boxSizing = 'border-box';
+      processedElement.style.backgroundColor = '#ffffff';
+      document.body.appendChild(processedElement);
+      
+      // Generate canvas from processed element
+      const canvas = await html2canvas(processedElement, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
-        width: element.scrollWidth,
-        height: element.scrollHeight,
+        width: processedElement.scrollWidth,
+        height: processedElement.scrollHeight,
         windowWidth: 794,
         windowHeight: 1123,
         scrollX: 0,
         scrollY: 0,
+        logging: false, // Disable console logs
+        foreignObjectRendering: false, // Use HTML rendering instead
+        removeContainer: true
       });
       
+      // Clean up processed element
+      document.body.removeChild(processedElement);
+      
+      // Restore original styles
       element.style.width = originalWidth;
       element.style.maxWidth = originalMaxWidth;
       element.style.margin = '';
       element.style.padding = '';
       element.style.boxSizing = '';
       
-      const imgData = canvas.toDataURL('image/png');
+      // Generate PDF
+      const imgData = canvas.toDataURL('image/png', 1.0);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -109,8 +189,10 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
       const scaledHeight = (canvasHeight / 2) * ratio;
       
       if (scaledHeight <= pdfHeight) {
+        // Single page
         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, scaledHeight);
       } else {
+        // Multiple pages
         let remainingHeight = scaledHeight;
         let page = 1;
         
@@ -134,7 +216,7 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
             0, 0, canvasWidth, sourceHeight
           );
           
-          const pageImgData = pageCanvas.toDataURL('image/png');
+          const pageImgData = pageCanvas.toDataURL('image/png', 1.0);
           pdf.addImage(pageImgData, 'PNG', 0, 0, pdfWidth, pageHeight);
           
           remainingHeight -= pageHeight;
@@ -156,7 +238,7 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
       
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert('Error generating PDF. Please try again.');
+      alert(`Error generating PDF: ${error.message}\n\nPlease try again or contact support if the issue persists.`);
     } finally {
       setGenerating(false);
     }

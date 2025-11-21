@@ -80,71 +80,42 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
         
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Convert to canvas with color fixing
-        const canvas = await html2canvas(element, {
+        // Create a temporary container with all colors converted to hex
+        const tempContainer = document.createElement('div');
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.left = '-9999px';
+        tempContainer.style.top = '0';
+        tempContainer.style.width = '210mm';
+        tempContainer.innerHTML = element.innerHTML;
+        document.body.appendChild(tempContainer);
+        
+        // Force all elements to use hex colors
+        const allElements = tempContainer.querySelectorAll('*');
+        allElements.forEach(el => {
+          // Remove any Tailwind classes that might use oklch
+          el.className = '';
+          
+          // Apply safe inline styles only
+          const computedStyle = window.getComputedStyle(el);
+          
+          // Set explicit hex colors for everything
+          el.style.color = '#000000';
+          el.style.backgroundColor = 'transparent';
+          el.style.borderColor = '#d1d5db';
+        });
+        
+        // Now render the cleaned container
+        const canvas = await html2canvas(tempContainer, {
           scale: 2,
           useCORS: true,
           allowTaint: true,
           backgroundColor: '#ffffff',
-          width: element.scrollWidth,
-          height: element.scrollHeight,
-          windowWidth: 794,
-          windowHeight: 1123,
-          scrollX: 0,
-          scrollY: 0,
-          onclone: (clonedDoc) => {
-            // Fix all unsupported color functions in the cloned document
-            const clonedElement = clonedDoc.querySelector('[data-invoice-content]');
-            if (clonedElement) {
-              const allElements = clonedElement.querySelectorAll('*');
-              allElements.forEach(el => {
-                // Get inline styles
-                const inlineStyle = el.style;
-                
-                // Fix color
-                if (inlineStyle.color) {
-                  const color = inlineStyle.color;
-                  if (color.includes('oklch') || color.includes('lab') || color.includes('lch')) {
-                    el.style.color = '#000000';
-                  }
-                }
-                
-                // Fix background color
-                if (inlineStyle.backgroundColor) {
-                  const bgColor = inlineStyle.backgroundColor;
-                  if (bgColor.includes('oklch') || bgColor.includes('lab') || bgColor.includes('lch')) {
-                    el.style.backgroundColor = '#ffffff';
-                  }
-                }
-                
-                // Fix border color
-                if (inlineStyle.borderColor) {
-                  const borderColor = inlineStyle.borderColor;
-                  if (borderColor.includes('oklch') || borderColor.includes('lab') || borderColor.includes('lch')) {
-                    el.style.borderColor = '#d1d5db';
-                  }
-                }
-                
-                // Also check computed styles and apply fixes
-                try {
-                  const computedStyle = window.getComputedStyle(el);
-                  
-                  if (computedStyle.color && (computedStyle.color.includes('oklch') || computedStyle.color.includes('lab') || computedStyle.color.includes('lch'))) {
-                    el.style.color = '#000000';
-                  }
-                  if (computedStyle.backgroundColor && (computedStyle.backgroundColor.includes('oklch') || computedStyle.backgroundColor.includes('lab') || computedStyle.backgroundColor.includes('lch'))) {
-                    el.style.backgroundColor = '#ffffff';
-                  }
-                  if (computedStyle.borderColor && (computedStyle.borderColor.includes('oklch') || computedStyle.borderColor.includes('lab') || computedStyle.borderColor.includes('lch'))) {
-                    el.style.borderColor = '#d1d5db';
-                  }
-                } catch (e) {
-                  // Ignore errors from getComputedStyle
-                }
-              });
-            }
-          }
+          logging: false,
+          removeContainer: true
         });
+        
+        // Remove temporary container
+        document.body.removeChild(tempContainer);
         
         // Restore original styles
         element.style.width = originalWidth;

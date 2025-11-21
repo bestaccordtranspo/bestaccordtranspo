@@ -69,165 +69,347 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
       });
 
       const pageWidth = pdf.internal.pageSize.getWidth();
-      const margin = 15;
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
       const contentWidth = pageWidth - (2 * margin);
-      let yPos = 20;
+      let yPos = 25;
 
-      // Header
-      pdf.setFontSize(20);
+      // Company Header with Background
+      pdf.setFillColor(99, 102, 241); // Indigo color
+      pdf.rect(0, 0, pageWidth, 35, 'F');
+      
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(24);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('BESTACCORD TRANSPORTATION', pageWidth / 2, yPos, { align: 'center' });
-      yPos += 15;
-
-      // Invoice Title
-      pdf.setFontSize(16);
-      pdf.text('INVOICE', margin, yPos);
-      yPos += 10;
-
-      // Invoice Details
+      pdf.text('BESTACCORD TRANSPORTATION', pageWidth / 2, 15, { align: 'center' });
+      
       pdf.setFontSize(10);
       pdf.setFont('helvetica', 'normal');
-      pdf.text(`Invoice No: ${invoiceNumber}`, margin, yPos);
-      pdf.text(`Invoice Date: ${formatDate(new Date())}`, pageWidth - margin, yPos, { align: 'right' });
-      yPos += 6;
-      pdf.text(`Trip No: ${booking.tripNumber}`, margin, yPos);
-      pdf.text(`Service Date: ${formatDate(booking.dateNeeded)}`, pageWidth - margin, yPos, { align: 'right' });
-      yPos += 6;
-      pdf.text(`Reservation ID: ${booking.reservationId}`, margin, yPos);
-      pdf.setTextColor(220, 38, 38);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text(`Due Date: ${formatDate(getDueDate())}`, pageWidth - margin, yPos, { align: 'right' });
-      pdf.setTextColor(0, 0, 0);
-      pdf.setFont('helvetica', 'normal');
-      yPos += 12;
+      pdf.text('Professional Logistics & Transportation Services', pageWidth / 2, 22, { align: 'center' });
+      pdf.text('bestaccordtranspo@gmail.com', pageWidth / 2, 28, { align: 'center' });
+      
+      yPos = 45;
 
-      // Bill To Section
+      // Reset text color
+      pdf.setTextColor(0, 0, 0);
+
+      // Invoice Title with background
+      pdf.setFillColor(243, 244, 246);
+      pdf.rect(margin, yPos, contentWidth, 12, 'F');
+      pdf.setFontSize(18);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('BILL TO', margin, yPos);
-      pdf.text('SERVICE DETAILS', pageWidth / 2 + 5, yPos);
-      yPos += 6;
+      pdf.text('INVOICE', margin + 5, yPos + 8);
+      
+      pdf.setFontSize(14);
+      pdf.setTextColor(99, 102, 241);
+      pdf.text(`#${invoiceNumber}`, pageWidth - margin - 5, yPos + 8, { align: 'right' });
+      pdf.setTextColor(0, 0, 0);
+      
+      yPos += 20;
+
+      // Invoice Details in two columns
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Invoice Date:', margin, yPos);
       pdf.setFont('helvetica', 'normal');
-      pdf.text(booking.companyName, margin, yPos);
-      pdf.text(`Service: Logistics & Transportation`, pageWidth / 2 + 5, yPos);
-      yPos += 5;
+      pdf.text(formatDate(new Date()), margin + 35, yPos);
+      
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Due Date:', pageWidth - margin - 70, yPos);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(220, 38, 38);
+      pdf.text(formatDate(getDueDate()), pageWidth - margin - 35, yPos, { align: 'right' });
+      pdf.setTextColor(0, 0, 0);
+      
+      yPos += 6;
+      
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Trip Number:', margin, yPos);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(booking.tripNumber, margin + 35, yPos);
+      
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Service Date:', pageWidth - margin - 70, yPos);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(formatDate(booking.dateNeeded), pageWidth - margin - 35, yPos, { align: 'right' });
+      
+      yPos += 6;
+      
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Reservation ID:', margin, yPos);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(booking.reservationId, margin + 35, yPos);
+      
+      yPos += 15;
+
+      // Bill To Section with boxes
+      pdf.setFillColor(249, 250, 251);
+      pdf.rect(margin, yPos, contentWidth / 2 - 2, 35, 'F');
+      pdf.rect(pageWidth / 2 + 1, yPos, contentWidth / 2 - 2, 35, 'F');
+      
+      // Draw borders
+      pdf.setDrawColor(229, 231, 235);
+      pdf.rect(margin, yPos, contentWidth / 2 - 2, 35);
+      pdf.rect(pageWidth / 2 + 1, yPos, contentWidth / 2 - 2, 35);
+      
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(79, 70, 229);
+      pdf.text('BILL TO', margin + 3, yPos + 6);
+      pdf.text('SERVICE DETAILS', pageWidth / 2 + 4, yPos + 6);
+      pdf.setTextColor(0, 0, 0);
+      
+      yPos += 11;
+      
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(booking.companyName, margin + 3, yPos, { maxWidth: contentWidth / 2 - 8 });
+      
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Logistics & Transportation', pageWidth / 2 + 4, yPos);
+      
+      yPos += 6;
+      
       pdf.setFontSize(9);
-      pdf.text(`Address: ${booking.originAddress}`, margin, yPos, { maxWidth: contentWidth / 2 - 10 });
-      pdf.text(`Trip Type: ${getDestinations().length > 1 ? `Multiple Stops (${getDestinations().length})` : 'Single Destination'}`, pageWidth / 2 + 5, yPos);
+      pdf.setTextColor(75, 85, 99);
+      const addressLines = pdf.splitTextToSize(booking.originAddress, contentWidth / 2 - 8);
+      pdf.text(addressLines, margin + 3, yPos);
+      
+      pdf.text(`Vehicle: ${booking.vehicleType}`, pageWidth / 2 + 4, yPos);
       yPos += 5;
-      pdf.text(`Vehicle: ${booking.vehicleType}`, pageWidth / 2 + 5, yPos);
+      pdf.text(`Plate: ${booking.plateNumber}`, pageWidth / 2 + 4, yPos);
       yPos += 5;
-      pdf.text(`Plate Number: ${booking.plateNumber}`, pageWidth / 2 + 5, yPos);
-      yPos += 12;
+      
+      const tripType = getDestinations().length > 1 
+        ? `Multiple Stops (${getDestinations().length})` 
+        : 'Single Destination';
+      pdf.text(`Trip Type: ${tripType}`, pageWidth / 2 + 4, yPos);
+      
+      pdf.setTextColor(0, 0, 0);
+      yPos += 20;
 
       // Destinations Table
       if (getDestinations().length > 0) {
+        pdf.setFillColor(79, 70, 229);
+        pdf.rect(margin, yPos, contentWidth, 8, 'F');
+        
         pdf.setFontSize(11);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('DELIVERY DESTINATIONS', margin, yPos);
-        yPos += 6;
+        pdf.setTextColor(255, 255, 255);
+        pdf.text('DELIVERY DESTINATIONS', margin + 3, yPos + 5.5);
+        pdf.setTextColor(0, 0, 0);
+        
+        yPos += 12;
 
+        // Table headers
+        pdf.setFillColor(243, 244, 246);
+        pdf.rect(margin, yPos, contentWidth, 7, 'F');
+        
         pdf.setFontSize(9);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('Stop', margin, yPos);
-        pdf.text('Destination', margin + 15, yPos);
-        pdf.text('Branch/Customer', pageWidth / 2 + 20, yPos);
-        yPos += 5;
+        pdf.text('Stop', margin + 3, yPos + 5);
+        pdf.text('Destination Address', margin + 20, yPos + 5);
+        pdf.text('Branch/Customer', pageWidth - margin - 50, yPos + 5);
+        
+        yPos += 10;
 
         pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(9);
+        
         getDestinations().forEach((dest, idx) => {
-          pdf.text(`${idx + 1}`, margin, yPos);
-          pdf.text(dest.destinationAddress, margin + 15, yPos, { maxWidth: 70 });
-          pdf.text(dest.customerEstablishmentName, pageWidth / 2 + 20, yPos, { maxWidth: 70 });
-          yPos += 6;
+          if (idx % 2 === 0) {
+            pdf.setFillColor(249, 250, 251);
+            pdf.rect(margin, yPos - 3, contentWidth, 7, 'F');
+          }
+          
+          pdf.text(`${idx + 1}`, margin + 5, yPos + 2);
+          
+          const destAddress = pdf.splitTextToSize(dest.destinationAddress, 85);
+          pdf.text(destAddress[0], margin + 20, yPos + 2);
+          
+          const customerName = pdf.splitTextToSize(dest.customerEstablishmentName || 'N/A', 45);
+          pdf.text(customerName[0], pageWidth - margin - 50, yPos + 2);
+          
+          yPos += 7;
         });
-        yPos += 6;
+        
+        yPos += 8;
       }
 
       // Items Table
+      pdf.setFillColor(79, 70, 229);
+      pdf.rect(margin, yPos, contentWidth, 8, 'F');
+      
       pdf.setFontSize(11);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('ITEMS TRANSPORTED', margin, yPos);
-      yPos += 6;
+      pdf.setTextColor(255, 255, 255);
+      pdf.text('ITEMS TRANSPORTED', margin + 3, yPos + 5.5);
+      pdf.setTextColor(0, 0, 0);
+      
+      yPos += 12;
 
+      // Table headers
+      pdf.setFillColor(243, 244, 246);
+      pdf.rect(margin, yPos, contentWidth, 7, 'F');
+      
       pdf.setFontSize(9);
-      pdf.text('Product Name', margin, yPos);
-      pdf.text('Quantity', margin + 70, yPos);
-      pdf.text('Weight (kg)', margin + 110, yPos);
-      pdf.text('Status', margin + 150, yPos);
-      yPos += 5;
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Product Name', margin + 3, yPos + 5);
+      pdf.text('Quantity', margin + 90, yPos + 5);
+      pdf.text('Weight (kg)', margin + 120, yPos + 5);
+      pdf.text('Status', pageWidth - margin - 25, yPos + 5);
+      
+      yPos += 10;
 
       pdf.setFont('helvetica', 'normal');
+      
       if (getDestinations().length > 0) {
-        getDestinations().forEach((dest) => {
-          pdf.text(dest.productName, margin, yPos);
-          pdf.text(dest.quantity?.toLocaleString() || 'N/A', margin + 70, yPos);
-          pdf.text(dest.grossWeight?.toString() || 'N/A', margin + 110, yPos);
-          pdf.text(dest.status === 'delivered' ? 'Delivered' : 'Pending', margin + 150, yPos);
-          yPos += 5;
+        getDestinations().forEach((dest, idx) => {
+          if (idx % 2 === 0) {
+            pdf.setFillColor(249, 250, 251);
+            pdf.rect(margin, yPos - 3, contentWidth, 7, 'F');
+          }
+          
+          pdf.text(dest.productName, margin + 3, yPos + 2);
+          pdf.text(dest.quantity?.toLocaleString() || 'N/A', margin + 95, yPos + 2, { align: 'right' });
+          pdf.text(dest.grossWeight?.toString() || 'N/A', margin + 125, yPos + 2, { align: 'right' });
+          pdf.text(dest.status === 'delivered' ? 'Delivered' : 'Pending', pageWidth - margin - 25, yPos + 2);
+          yPos += 7;
         });
 
         if (getDestinations().length > 1) {
           yPos += 2;
+          pdf.setFillColor(243, 244, 246);
+          pdf.rect(margin, yPos - 3, contentWidth, 8, 'F');
+          
           pdf.setFont('helvetica', 'bold');
-          pdf.text('TOTAL', margin, yPos);
-          pdf.text(getTotalQuantity().toLocaleString(), margin + 70, yPos);
-          pdf.text(`${getTotalWeight().toFixed(2)} kg`, margin + 110, yPos);
-          yPos += 8;
+          pdf.text('TOTAL', margin + 3, yPos + 2.5);
+          pdf.text(getTotalQuantity().toLocaleString(), margin + 95, yPos + 2.5, { align: 'right' });
+          pdf.text(`${getTotalWeight().toFixed(2)}`, margin + 125, yPos + 2.5, { align: 'right' });
+          yPos += 10;
+        } else {
+          yPos += 5;
         }
       } else {
-        pdf.text(booking.productName || 'N/A', margin, yPos);
-        pdf.text(booking.quantity?.toLocaleString() || 'N/A', margin + 70, yPos);
-        pdf.text(booking.grossWeight || 'N/A', margin + 110, yPos);
-        pdf.text(booking.status === 'Completed' ? 'Delivered' : 'Pending', margin + 150, yPos);
-        yPos += 10;
+        pdf.text(booking.productName || 'N/A', margin + 3, yPos + 2);
+        pdf.text(booking.quantity?.toLocaleString() || 'N/A', margin + 95, yPos + 2, { align: 'right' });
+        pdf.text(booking.grossWeight || 'N/A', margin + 125, yPos + 2, { align: 'right' });
+        pdf.text(booking.status === 'Completed' ? 'Delivered' : 'Pending', pageWidth - margin - 25, yPos + 2);
+        yPos += 12;
       }
 
-      // Vehicle & Team
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('VEHICLE USED', margin, yPos);
-      pdf.text('SERVICE TEAM', pageWidth / 2 + 5, yPos);
-      yPos += 6;
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(`Type: ${booking.vehicleType}`, margin, yPos);
+      // Vehicle & Team Section
+      pdf.setFillColor(249, 250, 251);
+      pdf.rect(margin, yPos, contentWidth / 2 - 2, 25, 'F');
+      pdf.rect(pageWidth / 2 + 1, yPos, contentWidth / 2 - 2, 25, 'F');
       
+      pdf.setDrawColor(229, 231, 235);
+      pdf.rect(margin, yPos, contentWidth / 2 - 2, 25);
+      pdf.rect(pageWidth / 2 + 1, yPos, contentWidth / 2 - 2, 25);
+      
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(79, 70, 229);
+      pdf.text('VEHICLE USED', margin + 3, yPos + 6);
+      pdf.text('SERVICE TEAM', pageWidth / 2 + 4, yPos + 6);
+      pdf.setTextColor(0, 0, 0);
+      
+      yPos += 11;
+      
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Type: ${booking.vehicleType}`, margin + 3, yPos);
+      pdf.text(`Plate: ${booking.plateNumber}`, margin + 3, yPos + 5);
+      
+      let teamYPos = yPos;
       if (booking.employeeDetails && booking.employeeDetails.length > 0) {
-        booking.employeeDetails.forEach((emp, idx) => {
-          pdf.text(`${emp.role}: ${emp.employeeName || emp.fullName}`, pageWidth / 2 + 5, yPos);
-          yPos += 5;
+        booking.employeeDetails.forEach((emp) => {
+          const empName = emp.employeeName || emp.fullName || 'N/A';
+          pdf.text(`${emp.role}: ${empName}`, pageWidth / 2 + 4, teamYPos);
+          teamYPos += 5;
         });
       } else {
-        pdf.text('No team assigned', pageWidth / 2 + 5, yPos);
+        pdf.setTextColor(156, 163, 175);
+        pdf.text('No team assigned', pageWidth / 2 + 4, teamYPos);
+        pdf.setTextColor(0, 0, 0);
       }
       
-      yPos = Math.max(yPos, yPos + 5);
-      yPos += 10;
+      yPos += 20;
 
-      // Invoice Summary
+      // Invoice Summary - Professional styling
+      pdf.setFillColor(79, 70, 229);
+      pdf.rect(margin, yPos, contentWidth, 8, 'F');
+      
+      pdf.setFontSize(11);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('INVOICE SUMMARY', margin, yPos);
-      yPos += 6;
-      pdf.text('Description', margin, yPos);
-      pdf.text('Amount', pageWidth - margin, yPos, { align: 'right' });
-      yPos += 5;
+      pdf.setTextColor(255, 255, 255);
+      pdf.text('INVOICE SUMMARY', margin + 3, yPos + 5.5);
+      pdf.setTextColor(0, 0, 0);
+      
+      yPos += 12;
+
+      // Summary table
+      pdf.setFillColor(249, 250, 251);
+      pdf.rect(margin, yPos, contentWidth, 10, 'F');
+      
+      pdf.setDrawColor(229, 231, 235);
+      pdf.rect(margin, yPos, contentWidth, 10);
+      
+      pdf.setFontSize(10);
       pdf.setFont('helvetica', 'normal');
-      pdf.text('Transportation Service Fee', margin, yPos);
-      pdf.text(formatCurrency(booking.deliveryFee), pageWidth - margin, yPos, { align: 'right' });
-      yPos += 8;
+      pdf.text('Transportation Service Fee', margin + 3, yPos + 6.5);
+      
+      // Format currency properly for PDF
+      const amountText = formatCurrency(booking.deliveryFee);
+      pdf.text(amountText, pageWidth - margin - 3, yPos + 6.5, { align: 'right' });
+      
+      yPos += 14;
 
+      // Total Amount Due - Highlighted
+      pdf.setFillColor(243, 244, 246);
+      pdf.rect(margin, yPos, contentWidth, 12, 'F');
+      
+      pdf.setDrawColor(79, 70, 229);
+      pdf.setLineWidth(0.5);
+      pdf.rect(margin, yPos, contentWidth, 12);
+      pdf.setLineWidth(0.2);
+      
+      pdf.setFontSize(13);
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(12);
-      pdf.text('TOTAL AMOUNT DUE', margin, yPos);
-      pdf.text(formatCurrency(booking.deliveryFee || 0), pageWidth - margin, yPos, { align: 'right' });
-      yPos += 15;
+      pdf.setTextColor(79, 70, 229);
+      pdf.text('TOTAL AMOUNT DUE', margin + 3, yPos + 8);
+      
+      pdf.setFontSize(16);
+      const totalAmountText = formatCurrency(booking.deliveryFee || 0);
+      pdf.text(totalAmountText, pageWidth - margin - 3, yPos + 8, { align: 'right' });
+      pdf.setTextColor(0, 0, 0);
+      
+      yPos += 20;
 
       // Footer
+      pdf.setFillColor(249, 250, 251);
+      pdf.rect(0, pageHeight - 25, pageWidth, 25, 'F');
+      
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(79, 70, 229);
+      pdf.text('Thank you for choosing Bestaccord Logistics!', pageWidth / 2, pageHeight - 17, { align: 'center' });
+      
       pdf.setFontSize(8);
       pdf.setFont('helvetica', 'normal');
-      pdf.text('Thank you for choosing Bestaccord Logistics!', pageWidth / 2, yPos, { align: 'center' });
-      yPos += 4;
-      pdf.text('For inquiries about this invoice, please contact us at bestaccordtranspo@gmail.com', pageWidth / 2, yPos, { align: 'center' });
-      yPos += 4;
-      pdf.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, yPos, { align: 'center' });
+      pdf.setTextColor(107, 114, 128);
+      pdf.text('For inquiries about this invoice, please contact us at bestaccordtranspo@gmail.com', pageWidth / 2, pageHeight - 12, { align: 'center' });
+      
+      pdf.setFontSize(7);
+      pdf.setTextColor(156, 163, 175);
+      pdf.text(`Generated on: ${new Date().toLocaleString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })}`, pageWidth / 2, pageHeight - 7, { align: 'center' });
+      pdf.setTextColor(0, 0, 0);
 
       const fileName = `Invoice_${invoiceNumber}_${booking.tripNumber}.pdf`;
       pdf.save(fileName);

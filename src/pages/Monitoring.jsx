@@ -2342,7 +2342,7 @@ export default function Monitoring() {
                               (d, idx) => (
                                 <div
                                   key={idx}
-                                  className="p-3 rounded border bg-gray-50"
+                                  className="p-3 rounded bg-gray-50"
                                 >
                                   <div className="flex justify-between items-center mb-2">
                                     <div className="text-sm font-medium text-gray-800">{`Stop ${

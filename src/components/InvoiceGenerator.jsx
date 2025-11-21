@@ -80,7 +80,7 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
         
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Convert to canvas with oklch color handling
+        // Convert to canvas with color fixing
         const canvas = await html2canvas(element, {
           scale: 2,
           useCORS: true,
@@ -93,22 +93,53 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
           scrollX: 0,
           scrollY: 0,
           onclone: (clonedDoc) => {
-            // Replace all oklch colors in the cloned document
+            // Fix all unsupported color functions in the cloned document
             const clonedElement = clonedDoc.querySelector('[data-invoice-content]');
             if (clonedElement) {
               const allElements = clonedElement.querySelectorAll('*');
               allElements.forEach(el => {
-                const computedStyle = window.getComputedStyle(el);
+                // Get inline styles
+                const inlineStyle = el.style;
                 
-                // Force convert colors to rgb
-                if (computedStyle.color && computedStyle.color.includes('oklch')) {
-                  el.style.color = '#000000';
+                // Fix color
+                if (inlineStyle.color) {
+                  const color = inlineStyle.color;
+                  if (color.includes('oklch') || color.includes('lab') || color.includes('lch')) {
+                    el.style.color = '#000000';
+                  }
                 }
-                if (computedStyle.backgroundColor && computedStyle.backgroundColor.includes('oklch')) {
-                  el.style.backgroundColor = '#ffffff';
+                
+                // Fix background color
+                if (inlineStyle.backgroundColor) {
+                  const bgColor = inlineStyle.backgroundColor;
+                  if (bgColor.includes('oklch') || bgColor.includes('lab') || bgColor.includes('lch')) {
+                    el.style.backgroundColor = '#ffffff';
+                  }
                 }
-                if (computedStyle.borderColor && computedStyle.borderColor.includes('oklch')) {
-                  el.style.borderColor = '#d1d5db';
+                
+                // Fix border color
+                if (inlineStyle.borderColor) {
+                  const borderColor = inlineStyle.borderColor;
+                  if (borderColor.includes('oklch') || borderColor.includes('lab') || borderColor.includes('lch')) {
+                    el.style.borderColor = '#d1d5db';
+                  }
+                }
+                
+                // Also check computed styles and apply fixes
+                try {
+                  const computedStyle = window.getComputedStyle(el);
+                  
+                  if (computedStyle.color && (computedStyle.color.includes('oklch') || computedStyle.color.includes('lab') || computedStyle.color.includes('lch'))) {
+                    el.style.color = '#000000';
+                  }
+                  if (computedStyle.backgroundColor && (computedStyle.backgroundColor.includes('oklch') || computedStyle.backgroundColor.includes('lab') || computedStyle.backgroundColor.includes('lch'))) {
+                    el.style.backgroundColor = '#ffffff';
+                  }
+                  if (computedStyle.borderColor && (computedStyle.borderColor.includes('oklch') || computedStyle.borderColor.includes('lab') || computedStyle.borderColor.includes('lch'))) {
+                    el.style.borderColor = '#d1d5db';
+                  }
+                } catch (e) {
+                  // Ignore errors from getComputedStyle
                 }
               });
             }

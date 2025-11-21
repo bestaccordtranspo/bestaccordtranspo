@@ -2327,7 +2327,7 @@ export default function Monitoring() {
 
                       {/* Product Details */}
                       <motion.div
-                        className="bg-white p-6"
+                        className="bg-white border border-gray-200 p-6"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: 0.2 }}

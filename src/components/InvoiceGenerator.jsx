@@ -68,87 +68,57 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
     try {
       const element = invoiceRef.current;
       
-      const originalWidth = element.style.width;
-      const originalMaxWidth = element.style.maxWidth;
+      // Clone the element to avoid modifying the original
+      const clonedElement = element.cloneNode(true);
       
-      element.style.width = '210mm';
-      element.style.maxWidth = '210mm';
-      element.style.margin = '0';
-      element.style.padding = '10mm';
-      element.style.boxSizing = 'border-box';
+      // Create a temporary container
+      const tempContainer = document.createElement('div');
+      tempContainer.style.position = 'absolute';
+      tempContainer.style.left = '-9999px';
+      tempContainer.style.top = '0';
+      tempContainer.style.width = '210mm';
+      tempContainer.style.backgroundColor = '#ffffff';
+      
+      // Strip all computed styles that might contain oklch
+      const allElements = clonedElement.querySelectorAll('*');
+      allElements.forEach(el => {
+        el.style.color = el.style.color || 'inherit';
+        el.style.backgroundColor = el.style.backgroundColor || 'transparent';
+      });
+      
+      tempContainer.appendChild(clonedElement);
+      document.body.appendChild(tempContainer);
       
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      const canvas = await html2canvas(element, {
+      const canvas = await html2canvas(clonedElement, {
         scale: 2,
         useCORS: true,
         allowTaint: false,
         backgroundColor: '#ffffff',
-        width: element.scrollWidth,
-        height: element.scrollHeight,
-        windowWidth: 794,
-        windowHeight: 1123,
-        scrollX: 0,
-        scrollY: 0,
-        ignoreElements: (element) => {
-          return element.tagName === 'IFRAME' || element.tagName === 'SCRIPT';
-        }
+        logging: false,
+        removeContainer: false,
       });
       
-      element.style.width = originalWidth;
-      element.style.maxWidth = originalMaxWidth;
-      element.style.margin = '';
-      element.style.padding = '';
-      element.style.boxSizing = '';
+      // Remove temporary container
+      document.body.removeChild(tempContainer);
       
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
         orientation: 'p',
         unit: 'mm',
         format: 'a4',
-        hotfixes: ["px_scaling"]
       });
+      
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      const imgY = 0;
       
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
-      const ratio = pdfWidth / (canvasWidth / 2);
-      const scaledHeight = (canvasHeight / 2) * ratio;
-      
-      if (scaledHeight <= pdfHeight) {
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, scaledHeight, undefined, 'FAST');
-      } else {
-        let remainingHeight = scaledHeight;
-        let page = 1;
-        
-        while (remainingHeight > 0) {
-          if (page > 1) {
-            pdf.addPage();
-          }
-          
-          const pageHeight = Math.min(pdfHeight, remainingHeight);
-          const sourceY = (page - 1) * pdfHeight * (canvasHeight / scaledHeight);
-          const sourceHeight = pageHeight * (canvasHeight / scaledHeight);
-          
-          const pageCanvas = document.createElement('canvas');
-          pageCanvas.width = canvasWidth;
-          pageCanvas.height = sourceHeight;
-          const pageCtx = pageCanvas.getContext('2d');
-          
-          pageCtx.drawImage(
-            canvas,
-            0, sourceY, canvasWidth, sourceHeight,
-            0, 0, canvasWidth, sourceHeight
-          );
-          
-          const pageImgData = pageCanvas.toDataURL('image/png');
-          pdf.addImage(pageImgData, 'PNG', 0, 0, pdfWidth, pageHeight);
-          
-          remainingHeight -= pageHeight;
-          page++;
-        }
-      }
+      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
       
       const fileName = `Invoice_${invoiceNumber}_${booking.tripNumber}.pdf`;
       pdf.save(fileName);

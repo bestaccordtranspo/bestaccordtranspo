@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { Download, X } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Download, FileText } from 'lucide-react';
 import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
   const [generating, setGenerating] = useState(false);
+  const invoiceRef = useRef(null);
 
   // Generate invoice number
   const generateInvoiceNumber = () => {
@@ -60,360 +62,94 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
   };
 
   const downloadAsPDF = async () => {
+    if (!invoiceRef.current) return;
+    
     setGenerating(true);
     try {
+      const element = invoiceRef.current;
+      
+      const originalWidth = element.style.width;
+      const originalMaxWidth = element.style.maxWidth;
+      
+      element.style.width = '210mm';
+      element.style.maxWidth = '210mm';
+      element.style.margin = '0';
+      element.style.padding = '10mm';
+      element.style.boxSizing = 'border-box';
+      
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+        windowWidth: 794,
+        windowHeight: 1123,
+        scrollX: 0,
+        scrollY: 0,
+      });
+      
+      element.style.width = originalWidth;
+      element.style.maxWidth = originalMaxWidth;
+      element.style.margin = '';
+      element.style.padding = '';
+      element.style.boxSizing = '';
+      
+      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
         orientation: 'p',
         unit: 'mm',
-        format: 'a4'
+        format: 'a4',
+        hotfixes: ["px_scaling"]
       });
-
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 20;
-      const contentWidth = pageWidth - (2 * margin);
-      let yPos = 25;
-
-      // Company Header with Background
-      pdf.setFillColor(99, 102, 241); // Indigo color
-      pdf.rect(0, 0, pageWidth, 35, 'F');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(24);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('BESTACCORD TRANSPORTATION', pageWidth / 2, 15, { align: 'center' });
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+      const ratio = pdfWidth / (canvasWidth / 2);
+      const scaledHeight = (canvasHeight / 2) * ratio;
       
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text('Professional Logistics & Transportation Services', pageWidth / 2, 22, { align: 'center' });
-      pdf.text('bestaccordtranspo@gmail.com', pageWidth / 2, 28, { align: 'center' });
-      
-      yPos = 45;
-
-      // Reset text color
-      pdf.setTextColor(0, 0, 0);
-
-      // Invoice Title with background
-      pdf.setFillColor(243, 244, 246);
-      pdf.rect(margin, yPos, contentWidth, 12, 'F');
-      pdf.setFontSize(18);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('INVOICE', margin + 5, yPos + 8);
-      
-      pdf.setFontSize(14);
-      pdf.setTextColor(99, 102, 241);
-      pdf.text(`#${invoiceNumber}`, pageWidth - margin - 5, yPos + 8, { align: 'right' });
-      pdf.setTextColor(0, 0, 0);
-      
-      yPos += 20;
-
-      // Invoice Details in two columns
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Invoice Date:', margin, yPos);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(formatDate(new Date()), margin + 35, yPos);
-      
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Due Date:', pageWidth - margin - 70, yPos);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(220, 38, 38);
-      pdf.text(formatDate(getDueDate()), pageWidth - margin - 35, yPos, { align: 'right' });
-      pdf.setTextColor(0, 0, 0);
-      
-      yPos += 6;
-      
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Trip Number:', margin, yPos);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(booking.tripNumber, margin + 35, yPos);
-      
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Service Date:', pageWidth - margin - 70, yPos);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(formatDate(booking.dateNeeded), pageWidth - margin - 35, yPos, { align: 'right' });
-      
-      yPos += 6;
-      
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Reservation ID:', margin, yPos);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(booking.reservationId, margin + 35, yPos);
-      
-      yPos += 15;
-
-      // Bill To Section with boxes
-      pdf.setFillColor(249, 250, 251);
-      pdf.rect(margin, yPos, contentWidth / 2 - 2, 35, 'F');
-      pdf.rect(pageWidth / 2 + 1, yPos, contentWidth / 2 - 2, 35, 'F');
-      
-      // Draw borders
-      pdf.setDrawColor(229, 231, 235);
-      pdf.rect(margin, yPos, contentWidth / 2 - 2, 35);
-      pdf.rect(pageWidth / 2 + 1, yPos, contentWidth / 2 - 2, 35);
-      
-      pdf.setFontSize(11);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(79, 70, 229);
-      pdf.text('BILL TO', margin + 3, yPos + 6);
-      pdf.text('SERVICE DETAILS', pageWidth / 2 + 4, yPos + 6);
-      pdf.setTextColor(0, 0, 0);
-      
-      yPos += 11;
-      
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text(booking.companyName, margin + 3, yPos, { maxWidth: contentWidth / 2 - 8 });
-      
-      pdf.setFont('helvetica', 'normal');
-      pdf.text('Logistics & Transportation', pageWidth / 2 + 4, yPos);
-      
-      yPos += 6;
-      
-      pdf.setFontSize(9);
-      pdf.setTextColor(75, 85, 99);
-      const addressLines = pdf.splitTextToSize(booking.originAddress, contentWidth / 2 - 8);
-      pdf.text(addressLines, margin + 3, yPos);
-      
-      pdf.text(`Vehicle: ${booking.vehicleType}`, pageWidth / 2 + 4, yPos);
-      yPos += 5;
-      pdf.text(`Plate: ${booking.plateNumber}`, pageWidth / 2 + 4, yPos);
-      yPos += 5;
-      
-      const tripType = getDestinations().length > 1 
-        ? `Multiple Stops (${getDestinations().length})` 
-        : 'Single Destination';
-      pdf.text(`Trip Type: ${tripType}`, pageWidth / 2 + 4, yPos);
-      
-      pdf.setTextColor(0, 0, 0);
-      yPos += 20;
-
-      // Destinations Table
-      if (getDestinations().length > 0) {
-        pdf.setFillColor(79, 70, 229);
-        pdf.rect(margin, yPos, contentWidth, 8, 'F');
+      if (scaledHeight <= pdfHeight) {
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, scaledHeight, undefined, 'FAST');
+      } else {
+        let remainingHeight = scaledHeight;
+        let page = 1;
         
-        pdf.setFontSize(11);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setTextColor(255, 255, 255);
-        pdf.text('DELIVERY DESTINATIONS', margin + 3, yPos + 5.5);
-        pdf.setTextColor(0, 0, 0);
-        
-        yPos += 12;
-
-        // Table headers
-        pdf.setFillColor(243, 244, 246);
-        pdf.rect(margin, yPos, contentWidth, 7, 'F');
-        
-        pdf.setFontSize(9);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Stop', margin + 3, yPos + 5);
-        pdf.text('Destination Address', margin + 20, yPos + 5);
-        pdf.text('Branch/Customer', pageWidth - margin - 50, yPos + 5);
-        
-        yPos += 10;
-
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(9);
-        
-        getDestinations().forEach((dest, idx) => {
-          if (idx % 2 === 0) {
-            pdf.setFillColor(249, 250, 251);
-            pdf.rect(margin, yPos - 3, contentWidth, 7, 'F');
+        while (remainingHeight > 0) {
+          if (page > 1) {
+            pdf.addPage();
           }
           
-          pdf.text(`${idx + 1}`, margin + 5, yPos + 2);
+          const pageHeight = Math.min(pdfHeight, remainingHeight);
+          const sourceY = (page - 1) * pdfHeight * (canvasHeight / scaledHeight);
+          const sourceHeight = pageHeight * (canvasHeight / scaledHeight);
           
-          const destAddress = pdf.splitTextToSize(dest.destinationAddress, 85);
-          pdf.text(destAddress[0], margin + 20, yPos + 2);
+          const pageCanvas = document.createElement('canvas');
+          pageCanvas.width = canvasWidth;
+          pageCanvas.height = sourceHeight;
+          const pageCtx = pageCanvas.getContext('2d');
           
-          const customerName = pdf.splitTextToSize(dest.customerEstablishmentName || 'N/A', 45);
-          pdf.text(customerName[0], pageWidth - margin - 50, yPos + 2);
+          pageCtx.drawImage(
+            canvas,
+            0, sourceY, canvasWidth, sourceHeight,
+            0, 0, canvasWidth, sourceHeight
+          );
           
-          yPos += 7;
-        });
-        
-        yPos += 8;
-      }
-
-      // Items Table
-      pdf.setFillColor(79, 70, 229);
-      pdf.rect(margin, yPos, contentWidth, 8, 'F');
-      
-      pdf.setFontSize(11);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(255, 255, 255);
-      pdf.text('ITEMS TRANSPORTED', margin + 3, yPos + 5.5);
-      pdf.setTextColor(0, 0, 0);
-      
-      yPos += 12;
-
-      // Table headers
-      pdf.setFillColor(243, 244, 246);
-      pdf.rect(margin, yPos, contentWidth, 7, 'F');
-      
-      pdf.setFontSize(9);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Product Name', margin + 3, yPos + 5);
-      pdf.text('Quantity', margin + 90, yPos + 5);
-      pdf.text('Weight (kg)', margin + 120, yPos + 5);
-      pdf.text('Status', pageWidth - margin - 25, yPos + 5);
-      
-      yPos += 10;
-
-      pdf.setFont('helvetica', 'normal');
-      
-      if (getDestinations().length > 0) {
-        getDestinations().forEach((dest, idx) => {
-          if (idx % 2 === 0) {
-            pdf.setFillColor(249, 250, 251);
-            pdf.rect(margin, yPos - 3, contentWidth, 7, 'F');
-          }
+          const pageImgData = pageCanvas.toDataURL('image/png');
+          pdf.addImage(pageImgData, 'PNG', 0, 0, pdfWidth, pageHeight);
           
-          pdf.text(dest.productName, margin + 3, yPos + 2);
-          pdf.text(dest.quantity?.toLocaleString() || 'N/A', margin + 95, yPos + 2, { align: 'right' });
-          pdf.text(dest.grossWeight?.toString() || 'N/A', margin + 125, yPos + 2, { align: 'right' });
-          pdf.text(dest.status === 'delivered' ? 'Delivered' : 'Pending', pageWidth - margin - 25, yPos + 2);
-          yPos += 7;
-        });
-
-        if (getDestinations().length > 1) {
-          yPos += 2;
-          pdf.setFillColor(243, 244, 246);
-          pdf.rect(margin, yPos - 3, contentWidth, 8, 'F');
-          
-          pdf.setFont('helvetica', 'bold');
-          pdf.text('TOTAL', margin + 3, yPos + 2.5);
-          pdf.text(getTotalQuantity().toLocaleString(), margin + 95, yPos + 2.5, { align: 'right' });
-          pdf.text(`${getTotalWeight().toFixed(2)}`, margin + 125, yPos + 2.5, { align: 'right' });
-          yPos += 10;
-        } else {
-          yPos += 5;
+          remainingHeight -= pageHeight;
+          page++;
         }
-      } else {
-        pdf.text(booking.productName || 'N/A', margin + 3, yPos + 2);
-        pdf.text(booking.quantity?.toLocaleString() || 'N/A', margin + 95, yPos + 2, { align: 'right' });
-        pdf.text(booking.grossWeight || 'N/A', margin + 125, yPos + 2, { align: 'right' });
-        pdf.text(booking.status === 'Completed' ? 'Delivered' : 'Pending', pageWidth - margin - 25, yPos + 2);
-        yPos += 12;
-      }
-
-      // Vehicle & Team Section
-      pdf.setFillColor(249, 250, 251);
-      pdf.rect(margin, yPos, contentWidth / 2 - 2, 25, 'F');
-      pdf.rect(pageWidth / 2 + 1, yPos, contentWidth / 2 - 2, 25, 'F');
-      
-      pdf.setDrawColor(229, 231, 235);
-      pdf.rect(margin, yPos, contentWidth / 2 - 2, 25);
-      pdf.rect(pageWidth / 2 + 1, yPos, contentWidth / 2 - 2, 25);
-      
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(79, 70, 229);
-      pdf.text('VEHICLE USED', margin + 3, yPos + 6);
-      pdf.text('SERVICE TEAM', pageWidth / 2 + 4, yPos + 6);
-      pdf.setTextColor(0, 0, 0);
-      
-      yPos += 11;
-      
-      pdf.setFontSize(9);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(`Type: ${booking.vehicleType}`, margin + 3, yPos);
-      pdf.text(`Plate: ${booking.plateNumber}`, margin + 3, yPos + 5);
-      
-      let teamYPos = yPos;
-      if (booking.employeeDetails && booking.employeeDetails.length > 0) {
-        booking.employeeDetails.forEach((emp) => {
-          const empName = emp.employeeName || emp.fullName || 'N/A';
-          pdf.text(`${emp.role}: ${empName}`, pageWidth / 2 + 4, teamYPos);
-          teamYPos += 5;
-        });
-      } else {
-        pdf.setTextColor(156, 163, 175);
-        pdf.text('No team assigned', pageWidth / 2 + 4, teamYPos);
-        pdf.setTextColor(0, 0, 0);
       }
       
-      yPos += 20;
-
-      // Invoice Summary - Professional styling
-      pdf.setFillColor(79, 70, 229);
-      pdf.rect(margin, yPos, contentWidth, 8, 'F');
-      
-      pdf.setFontSize(11);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(255, 255, 255);
-      pdf.text('INVOICE SUMMARY', margin + 3, yPos + 5.5);
-      pdf.setTextColor(0, 0, 0);
-      
-      yPos += 12;
-
-      // Summary table
-      pdf.setFillColor(249, 250, 251);
-      pdf.rect(margin, yPos, contentWidth, 10, 'F');
-      
-      pdf.setDrawColor(229, 231, 235);
-      pdf.rect(margin, yPos, contentWidth, 10);
-      
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text('Transportation Service Fee', margin + 3, yPos + 6.5);
-      
-      // Format currency properly for PDF
-      const amountText = formatCurrency(booking.deliveryFee);
-      pdf.text(amountText, pageWidth - margin - 3, yPos + 6.5, { align: 'right' });
-      
-      yPos += 14;
-
-      // Total Amount Due - Highlighted
-      pdf.setFillColor(243, 244, 246);
-      pdf.rect(margin, yPos, contentWidth, 12, 'F');
-      
-      pdf.setDrawColor(79, 70, 229);
-      pdf.setLineWidth(0.5);
-      pdf.rect(margin, yPos, contentWidth, 12);
-      pdf.setLineWidth(0.2);
-      
-      pdf.setFontSize(13);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(79, 70, 229);
-      pdf.text('TOTAL AMOUNT DUE', margin + 3, yPos + 8);
-      
-      pdf.setFontSize(16);
-      const totalAmountText = formatCurrency(booking.deliveryFee || 0);
-      pdf.text(totalAmountText, pageWidth - margin - 3, yPos + 8, { align: 'right' });
-      pdf.setTextColor(0, 0, 0);
-      
-      yPos += 20;
-
-      // Footer
-      pdf.setFillColor(249, 250, 251);
-      pdf.rect(0, pageHeight - 25, pageWidth, 25, 'F');
-      
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(79, 70, 229);
-      pdf.text('Thank you for choosing Bestaccord Logistics!', pageWidth / 2, pageHeight - 17, { align: 'center' });
-      
-      pdf.setFontSize(8);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(107, 114, 128);
-      pdf.text('For inquiries about this invoice, please contact us at bestaccordtranspo@gmail.com', pageWidth / 2, pageHeight - 12, { align: 'center' });
-      
-      pdf.setFontSize(7);
-      pdf.setTextColor(156, 163, 175);
-      pdf.text(`Generated on: ${new Date().toLocaleString('en-US', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })}`, pageWidth / 2, pageHeight - 7, { align: 'center' });
-      pdf.setTextColor(0, 0, 0);
-
       const fileName = `Invoice_${invoiceNumber}_${booking.tripNumber}.pdf`;
       pdf.save(fileName);
-
+      
       if (onInvoiceGenerated) {
         onInvoiceGenerated({
           invoiceNumber,
@@ -422,7 +158,7 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
           tripNumber: booking.tripNumber
         });
       }
-
+      
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Error generating PDF. Please try again.');
@@ -431,110 +167,316 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
     }
   };
 
+  const styles = {
+    modal: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 50,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '16px',
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backdropFilter: 'blur(5px)'
+    },
+    modalContent: {
+      backgroundColor: '#ffffff',
+      borderRadius: '8px',
+      maxWidth: '1000px',
+      width: '100%',
+      maxHeight: '90vh',
+      overflowY: 'auto'
+    },
+    header: {
+      position: 'sticky',
+      top: 0,
+      backgroundColor: '#ffffff',
+      borderBottom: '1px solid #e5e7eb',
+      padding: '16px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      zIndex: 10
+    },
+    content: {
+      padding: '20px'
+    },
+    invoice: {
+      backgroundColor: '#ffffff',
+      fontFamily: 'Arial, sans-serif',
+      color: '#000000',
+      maxWidth: '100%',
+      margin: '0 auto',
+      padding: '0',
+      boxSizing: 'border-box'
+    }
+  };
+
   return (
-    <div 
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
-      style={{
-        backgroundColor: 'rgba(0, 0, 0, 0.6)',
-        backdropFilter: 'blur(8px)',
-      }}
-    >
-      <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full overflow-hidden">
-        {/* Header */}
-        <div className="px-8 py-6 bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">Generate Invoice</h2>
-              <p className="text-purple-100 text-sm mt-1">Review and download your invoice</p>
-            </div>
-            <button 
-              onClick={onClose}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+    <div style={styles.modal}>
+      <div style={styles.modalContent}>
+        {/* Modal Header */}
+        <div style={styles.header}>
+          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827' }}>Generate Invoice</h2>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={downloadAsPDF}
+              disabled={generating}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                backgroundColor: '#2563eb',
+                color: '#ffffff',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: generating ? 'not-allowed' : 'pointer',
+                fontSize: '14px',
+                opacity: generating ? 0.5 : 1
+              }}
             >
-              <X className="w-6 h-6" />
+              <Download size={16} />
+              <span>{generating ? 'Generating...' : 'Download PDF'}</span>
+            </button>
+            <button 
+              onClick={onClose} 
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#d1d5db',
+                color: '#374151',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              Close
             </button>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-8">
-          {/* Invoice Preview Card */}
-          <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-8 mb-6 border border-purple-100">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-1">Invoice Preview</h3>
-                <p className="text-sm text-gray-600">Review details before downloading</p>
+        {/* Invoice Content */}
+        <div style={styles.content}>
+          <div ref={invoiceRef} data-invoice-content style={styles.invoice}>
+            {/* Company Header */}
+            <div style={{ textAlign: 'center', borderBottom: '2px solid #d1d5db', paddingBottom: '20px', marginBottom: '20px' }}>
+              <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: '#111827', marginBottom: '6px' }}>
+                BESTACCORD TRANSPORTATION
+              </h1>
+            </div>
+
+            {/* Invoice Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', gap: '20px' }}>
+              <div style={{ flex: 1 }}>
+                <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#111827', marginBottom: '8px' }}>INVOICE</h2>
+                <div style={{ fontSize: '11px', color: '#374151' }}>
+                  <p style={{ marginBottom: '3px' }}><strong>Invoice No:</strong> {invoiceNumber}</p>
+                  <p style={{ marginBottom: '3px' }}><strong>Trip No:</strong> {booking.tripNumber}</p>
+                  <p><strong>Reservation ID:</strong> {booking.reservationId}</p>
+                </div>
               </div>
-              <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-purple-200">
-                <p className="text-xs text-gray-600 font-medium">Invoice No.</p>
-                <p className="text-lg font-bold text-purple-600">{invoiceNumber}</p>
+              <div style={{ textAlign: 'right', fontSize: '11px', color: '#374151', minWidth: '120px' }}>
+                <p><strong>Invoice Date:</strong></p>
+                <p style={{ marginBottom: '6px' }}>{formatDate(new Date())}</p>
+                <p><strong>Service Date:</strong></p>
+                <p style={{ marginBottom: '6px' }}>{formatDate(booking.dateNeeded)}</p>
+                <p><strong>Due Date:</strong></p>
+                <p style={{ color: '#dc2626', fontWeight: 'bold' }}>{formatDate(getDueDate())}</p>
               </div>
             </div>
-            
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <p className="text-xs text-gray-500 font-medium mb-1">Trip Number</p>
-                  <p className="text-base font-semibold text-gray-900">{booking.tripNumber}</p>
-                </div>
-                
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <p className="text-xs text-gray-500 font-medium mb-1">Company</p>
-                  <p className="text-base font-semibold text-gray-900">{booking.companyName}</p>
+
+            {/* Bill To & Service Information */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+              <div style={{ border: '1px solid #d1d5db', padding: '12px', borderRadius: '4px', backgroundColor: '#ffffff' }}>
+                <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#111827', marginBottom: '8px' }}>Bill To</h3>
+                <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
+                  <p style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '6px' }}>{booking.companyName}</p>
+                  <p style={{ marginBottom: '4px' }}><strong>Address:</strong> {booking.originAddress}</p>
                 </div>
               </div>
               
-              <div className="space-y-4">
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <p className="text-xs text-gray-500 font-medium mb-1">Service Date</p>
-                  <p className="text-base font-semibold text-gray-900">{formatDate(booking.dateNeeded)}</p>
+              <div style={{ border: '1px solid #d1d5db', padding: '12px', borderRadius: '4px', backgroundColor: '#ffffff' }}>
+                <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#111827', marginBottom: '8px' }}>Service Details</h3>
+                <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
+                  <p style={{ marginBottom: '4px' }}><strong>Service:</strong> Logistics & Transportation</p>
+                  <p style={{ marginBottom: '4px' }}><strong>Trip Type:</strong> {getDestinations().length > 1 ? `Multiple Stops (${getDestinations().length})` : 'Single Destination'}</p>
+                  <p style={{ marginBottom: '4px' }}><strong>Vehicle:</strong> {booking.vehicleType}</p>
+                  <p style={{ marginBottom: '4px' }}><strong>Plate Number:</strong> {booking.plateNumber}</p>
+                  {booking.totalDistance && (
+                    <p><strong>Total Distance:</strong> {booking.totalDistance.toFixed(2)} km</p>
+                  )}
                 </div>
-                
-                <div className="bg-white rounded-lg p-4 shadow-sm border-2 border-purple-200">
-                  <p className="text-xs text-gray-500 font-medium mb-1">Total Amount</p>
-                  <p className="text-2xl font-bold text-purple-600">{formatCurrency(booking.deliveryFee)}</p>
+              </div>
+            </div>
+
+            {/* Delivery Destinations */}
+            {getDestinations().length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: 'bold', color: '#111827', marginBottom: '12px' }}>Delivery Destinations</h3>
+                <div style={{ border: '1px solid #d1d5db', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#ffffff' }}>
+                  <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ backgroundColor: '#f3f4f6', padding: '8px 10px', textAlign: 'left', fontWeight: 'bold', borderBottom: '1px solid #d1d5db', fontSize: '10px', width: '10%' }}>Stop</th>
+                        <th style={{ backgroundColor: '#f3f4f6', padding: '8px 10px', textAlign: 'left', fontWeight: 'bold', borderBottom: '1px solid #d1d5db', fontSize: '10px', width: '45%' }}>Destination</th>
+                        <th style={{ backgroundColor: '#f3f4f6', padding: '8px 10px', textAlign: 'left', fontWeight: 'bold', borderBottom: '1px solid #d1d5db', fontSize: '10px', width: '45%' }}>Branch/Customer</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {getDestinations().map((dest, index) => (
+                        <tr key={index}>
+                          <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{index + 1}</td>
+                          <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{dest.destinationAddress}</td>
+                          <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{dest.customerEstablishmentName}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Items Transported */}
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 'bold', color: '#111827', marginBottom: '12px' }}>Items Transported</h3>
+              <div style={{ border: '1px solid #d1d5db', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#ffffff' }}>
+                <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      {getDestinations().length > 1 && (
+                        <th style={{ backgroundColor: '#f3f4f6', padding: '8px 10px', textAlign: 'left', fontWeight: 'bold', borderBottom: '1px solid #d1d5db', fontSize: '10px', width: '10%' }}>Stop</th>
+                      )}
+                      <th style={{ backgroundColor: '#f3f4f6', padding: '8px 10px', textAlign: 'left', fontWeight: 'bold', borderBottom: '1px solid #d1d5db', fontSize: '10px', width: '35%' }}>Product Name</th>
+                      <th style={{ backgroundColor: '#f3f4f6', padding: '8px 10px', textAlign: 'left', fontWeight: 'bold', borderBottom: '1px solid #d1d5db', fontSize: '10px', width: '20%' }}>Quantity</th>
+                      <th style={{ backgroundColor: '#f3f4f6', padding: '8px 10px', textAlign: 'left', fontWeight: 'bold', borderBottom: '1px solid #d1d5db', fontSize: '10px', width: '20%' }}>Weight (kg)</th>
+                      <th style={{ backgroundColor: '#f3f4f6', padding: '8px 10px', textAlign: 'left', fontWeight: 'bold', borderBottom: '1px solid #d1d5db', fontSize: '10px', width: '15%' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getDestinations().length > 0 ? (
+                      <>
+                        {getDestinations().map((dest, index) => (
+                          <tr key={index}>
+                            <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{dest.productName}</td>
+                            <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{dest.quantity?.toLocaleString()}</td>
+                            <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{dest.grossWeight}</td>
+                            <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>
+                              <span style={{
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontSize: '9px',
+                                fontWeight: 'bold',
+                                backgroundColor: dest.status === 'delivered' ? '#d1fae5' : '#fef3c7',
+                                color: dest.status === 'delivered' ? '#059669' : '#d97706'
+                              }}>
+                                {dest.status === 'delivered' ? '✓ Delivered' : 'Pending'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                        {getDestinations().length > 1 && (
+                          <tr style={{ borderTop: '2px solid #9ca3af', backgroundColor: '#f3f4f6' }}>
+                            <td style={{ padding: '10px', fontWeight: 'bold', fontSize: '11px' }} colSpan="2">TOTAL</td>
+                            <td style={{ padding: '10px', fontWeight: 'bold', fontSize: '11px' }}>{getTotalQuantity().toLocaleString()}</td>
+                            <td style={{ padding: '10px', fontWeight: 'bold', fontSize: '11px' }}>{getTotalWeight().toFixed(2)} kg</td>
+                            <td style={{ padding: '10px', fontSize: '11px' }}></td>
+                          </tr>
+                        )}
+                      </>
+                    ) : (
+                      <tr>
+                        <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{booking.productName || 'N/A'}</td>
+                        <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{booking.quantity?.toLocaleString() || 'N/A'}</td>
+                        <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{booking.grossWeight || 'N/A'}</td>
+                        <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>
+                          <span style={{
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontSize: '9px',
+                            fontWeight: 'bold',
+                            backgroundColor: booking.status === 'Completed' ? '#d1fae5' : '#fef3c7',
+                            color: booking.status === 'Completed' ? '#059669' : '#d97706'
+                          }}>
+                            {booking.status === 'Completed' ? '✓ Delivered' : 'Pending'}
+                          </span>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Vehicle & Team Information */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+              <div style={{ border: '1px solid #d1d5db', padding: '12px', borderRadius: '4px', backgroundColor: '#ffffff' }}>
+                <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#111827', marginBottom: '8px' }}>Vehicle Used</h3>
+                <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
+                  <p style={{ marginBottom: '4px' }}><strong>Type:</strong> {booking.vehicleType}</p>
+                  <p style={{ marginBottom: '4px' }}><strong>ID:</strong> {booking.vehicleId}</p>
+                  <p><strong>Plate:</strong> {booking.plateNumber || 'N/A'}</p>
+                </div>
+              </div>
+              
+              <div style={{ border: '1px solid #d1d5db', padding: '12px', borderRadius: '4px', backgroundColor: '#ffffff' }}>
+                <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#111827', marginBottom: '8px' }}>Service Team</h3>
+                <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
+                  {booking.employeeDetails && booking.employeeDetails.length > 0 ? (
+                    booking.employeeDetails.map((emp, idx) => (
+                      <p key={idx} style={{ marginBottom: '4px' }}>
+                        <strong>{emp.role}:</strong> {emp.employeeName || emp.fullName}
+                      </p>
+                    ))
+                  ) : booking.employeeAssigned && booking.employeeAssigned.length > 0 ? (
+                    booking.employeeAssigned.map((empId, idx) => (
+                      <p key={idx} style={{ marginBottom: '4px' }}>
+                        <strong>Team Member {idx + 1}:</strong> {empId}
+                      </p>
+                    ))
+                  ) : (
+                    <p style={{ color: '#6b7280' }}>No team assigned</p>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Additional Info */}
-            <div className="mt-6 pt-6 border-t border-purple-200">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-gray-600">Vehicle Type</p>
-                  <p className="font-semibold text-gray-900">{booking.vehicleType}</p>
-                </div>
-                <div>
-                  <p className="text-gray-600">Plate Number</p>
-                  <p className="font-semibold text-gray-900">{booking.plateNumber}</p>
-                </div>
+            {/* Invoice Summary */}
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 'bold', color: '#111827', marginBottom: '12px' }}>Invoice Summary</h3>
+              <div style={{ border: '1px solid #d1d5db', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#ffffff' }}>
+                <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ backgroundColor: '#f3f4f6', padding: '8px 10px', textAlign: 'left', fontWeight: 'bold', borderBottom: '1px solid #d1d5db', fontSize: '10px', width: '70%' }}>Description</th>
+                      <th style={{ backgroundColor: '#f3f4f6', padding: '8px 10px', textAlign: 'right', fontWeight: 'bold', borderBottom: '1px solid #d1d5db', fontSize: '10px', width: '30%' }}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>Transportation Service Fee</td>
+                      <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', textAlign: 'right', fontSize: '10px' }}>{formatCurrency(booking.deliveryFee)}</td>
+                    </tr>
+                    <tr style={{ borderTop: '2px solid #9ca3af', backgroundColor: '#fef3c7' }}>
+                      <td style={{ padding: '10px', fontWeight: 'bold', fontSize: '11px' }}>TOTAL AMOUNT DUE</td>
+                      <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', fontSize: '12px' }}>
+                        {formatCurrency(booking.deliveryFee || 0)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
-          </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-4">
-            <button
-              onClick={downloadAsPDF}
-              disabled={generating}
-              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <Download size={20} />
-              <span className="font-semibold">{generating ? 'Generating PDF...' : 'Download Invoice PDF'}</span>
-            </button>
-            <button 
-              onClick={onClose}
-              className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all font-semibold"
-            >
-              Cancel
-            </button>
-          </div>
-
-          {/* Footer Note */}
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-            <p className="text-xs text-blue-800 text-center">
-              📄 Your invoice will be downloaded as a PDF file with all transaction details
-            </p>
+            {/* Footer */}
+            <div style={{ textAlign: 'center', marginTop: '20px', paddingTop: '12px', borderTop: '1px solid #e5e7eb', fontSize: '9px', color: '#6b7280' }}>
+              <p style={{ fontWeight: 'bold', marginBottom: '3px' }}>Thank you for choosing Bestaccord Logistics!</p>
+              <p style={{ marginBottom: '6px' }}>For inquiries about this invoice, please contact us at bestaccordtranspo@gmail.com</p>
+              <p>Generated on: {new Date().toLocaleString()}</p>
+            </div>
           </div>
         </div>
       </div>

@@ -61,84 +61,135 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
     return dueDate;
   };
 
-  const downloadAsPDF = async () => {
-    if (!invoiceRef.current) return;
-    
-    setGenerating(true);
-    try {
-      const element = invoiceRef.current;
+    const downloadAsPDF = async () => {
+      if (!invoiceRef.current) return;
       
-      // Clone the element to avoid modifying the original
-      const clonedElement = element.cloneNode(true);
-      
-      // Create a temporary container
-      const tempContainer = document.createElement('div');
-      tempContainer.style.position = 'absolute';
-      tempContainer.style.left = '-9999px';
-      tempContainer.style.top = '0';
-      tempContainer.style.width = '210mm';
-      tempContainer.style.backgroundColor = '#ffffff';
-      
-      // Strip all computed styles that might contain oklch
-      const allElements = clonedElement.querySelectorAll('*');
-      allElements.forEach(el => {
-        el.style.color = el.style.color || 'inherit';
-        el.style.backgroundColor = el.style.backgroundColor || 'transparent';
-      });
-      
-      tempContainer.appendChild(clonedElement);
-      document.body.appendChild(tempContainer);
-      
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      const canvas = await html2canvas(clonedElement, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        logging: false,
-        removeContainer: false,
-      });
-      
-      // Remove temporary container
-      document.body.removeChild(tempContainer);
-      
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'p',
-        unit: 'mm',
-        format: 'a4',
-      });
-      
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-      const imgX = (pdfWidth - imgWidth * ratio) / 2;
-      const imgY = 0;
-      
-      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
-      
-      const fileName = `Invoice_${invoiceNumber}_${booking.tripNumber}.pdf`;
-      pdf.save(fileName);
-      
-      if (onInvoiceGenerated) {
-        onInvoiceGenerated({
-          invoiceNumber,
-          fileName,
-          bookingId: booking._id,
-          tripNumber: booking.tripNumber
+      setGenerating(true);
+      try {
+        const element = invoiceRef.current;
+        
+        // Store original styles
+        const originalWidth = element.style.width;
+        const originalMaxWidth = element.style.maxWidth;
+        
+        element.style.width = '210mm';
+        element.style.maxWidth = '210mm';
+        element.style.margin = '0';
+        element.style.padding = '10mm';
+        element.style.boxSizing = 'border-box';
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Convert to canvas with oklch color handling
+        const canvas = await html2canvas(element, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          width: element.scrollWidth,
+          height: element.scrollHeight,
+          windowWidth: 794,
+          windowHeight: 1123,
+          scrollX: 0,
+          scrollY: 0,
+          onclone: (clonedDoc) => {
+            // Replace all oklch colors in the cloned document
+            const clonedElement = clonedDoc.querySelector('[data-invoice-content]');
+            if (clonedElement) {
+              const allElements = clonedElement.querySelectorAll('*');
+              allElements.forEach(el => {
+                const computedStyle = window.getComputedStyle(el);
+                
+                // Force convert colors to rgb
+                if (computedStyle.color && computedStyle.color.includes('oklch')) {
+                  el.style.color = '#000000';
+                }
+                if (computedStyle.backgroundColor && computedStyle.backgroundColor.includes('oklch')) {
+                  el.style.backgroundColor = '#ffffff';
+                }
+                if (computedStyle.borderColor && computedStyle.borderColor.includes('oklch')) {
+                  el.style.borderColor = '#d1d5db';
+                }
+              });
+            }
+          }
         });
+        
+        // Restore original styles
+        element.style.width = originalWidth;
+        element.style.maxWidth = originalMaxWidth;
+        element.style.margin = '';
+        element.style.padding = '';
+        element.style.boxSizing = '';
+        
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({
+          orientation: 'p',
+          unit: 'mm',
+          format: 'a4',
+          hotfixes: ["px_scaling"]
+        });
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const ratio = pdfWidth / (canvasWidth / 2);
+        const scaledHeight = (canvasHeight / 2) * ratio;
+        
+        if (scaledHeight <= pdfHeight) {
+          pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, scaledHeight, undefined, 'FAST');
+        } else {
+          let remainingHeight = scaledHeight;
+          let page = 1;
+          
+          while (remainingHeight > 0) {
+            if (page > 1) {
+              pdf.addPage();
+            }
+            
+            const pageHeight = Math.min(pdfHeight, remainingHeight);
+            const sourceY = (page - 1) * pdfHeight * (canvasHeight / scaledHeight);
+            const sourceHeight = pageHeight * (canvasHeight / scaledHeight);
+            
+            const pageCanvas = document.createElement('canvas');
+            pageCanvas.width = canvasWidth;
+            pageCanvas.height = sourceHeight;
+            const pageCtx = pageCanvas.getContext('2d');
+            
+            pageCtx.drawImage(
+              canvas,
+              0, sourceY, canvasWidth, sourceHeight,
+              0, 0, canvasWidth, sourceHeight
+            );
+            
+            const pageImgData = pageCanvas.toDataURL('image/png');
+            pdf.addImage(pageImgData, 'PNG', 0, 0, pdfWidth, pageHeight);
+            
+            remainingHeight -= pageHeight;
+            page++;
+          }
+        }
+        
+        const fileName = `Invoice_${invoiceNumber}_${booking.tripNumber}.pdf`;
+        pdf.save(fileName);
+        
+        if (onInvoiceGenerated) {
+          onInvoiceGenerated({
+            invoiceNumber,
+            fileName,
+            bookingId: booking._id,
+            tripNumber: booking.tripNumber
+          });
+        }
+        
+      } catch (error) {
+        console.error('Error generating PDF:', error);
+        alert('Error generating PDF. Please try again.');
+      } finally {
+        setGenerating(false);
       }
-      
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Error generating PDF. Please try again.');
-    } finally {
-      setGenerating(false);
-    }
-  };
+    };
 
   const styles = {
     modal: {

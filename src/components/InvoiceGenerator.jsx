@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Download, FileText } from 'lucide-react';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas/dist/html2canvas.min.js';
 
 const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
   const [generating, setGenerating] = useState(false);
@@ -82,7 +82,7 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false,
         backgroundColor: '#ffffff',
         width: element.scrollWidth,
         height: element.scrollHeight,
@@ -90,6 +90,9 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
         windowHeight: 1123,
         scrollX: 0,
         scrollY: 0,
+        ignoreElements: (element) => {
+          return element.tagName === 'IFRAME' || element.tagName === 'SCRIPT';
+        }
       });
       
       element.style.width = originalWidth;

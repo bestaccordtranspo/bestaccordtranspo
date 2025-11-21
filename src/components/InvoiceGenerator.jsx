@@ -361,12 +361,11 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
                       <>
                         {getDestinations().map((dest, index) => (
                           <tr key={index}>
-                            <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{index + 1}</td>
                             <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{dest.productName}</td>
                             <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{dest.quantity?.toLocaleString()}</td>
                             <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{dest.grossWeight}</td>
                             <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>
-                              <span style={{
+                              {/* <span style={{
                                 padding: '2px 6px',
                                 borderRadius: '4px',
                                 fontSize: '9px',
@@ -375,7 +374,7 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
                                 color: dest.status === 'delivered' ? '#059669' : '#d97706'
                               }}>
                                 {dest.status === 'delivered' ? '✓ Delivered' : 'Pending'}
-                              </span>
+                              </span> */}
                             </td>
                           </tr>
                         ))}
@@ -394,7 +393,7 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
                         <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{booking.quantity?.toLocaleString() || 'N/A'}</td>
                         <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>{booking.grossWeight || 'N/A'}</td>
                         <td style={{ padding: '8px 10px', borderTop: '1px solid #d1d5db', fontSize: '10px' }}>
-                          <span style={{
+                          {/* <span style={{
                             padding: '2px 6px',
                             borderRadius: '4px',
                             fontSize: '9px',
@@ -403,7 +402,7 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
                             color: booking.status === 'Completed' ? '#059669' : '#d97706'
                           }}>
                             {booking.status === 'Completed' ? '✓ Delivered' : 'Pending'}
-                          </span>
+                          </span> */}
                         </td>
                       </tr>
                     )}

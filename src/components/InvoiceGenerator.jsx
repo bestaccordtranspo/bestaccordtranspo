@@ -846,7 +846,7 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
                           <td style={styles.tableCell}>{dest.destinationAddress || 'N/A'}</td>
                           <td style={styles.tableCell}>{dest.productName || 'N/A'}</td>
                           <td style={styles.tableCell}>{dest.quantity?.toLocaleString() || 'N/A'} pcs</td>
-                          <td style={styles.tableCell}>{dest.grossWeight || 'N/A'} tons</td>
+                          <td style={styles.tableCell}>{dest.grossWeight || 'N/A'} KG</td>
                           {booking.numberOfPackages && (
                             <td style={styles.tableCell}>{booking.numberOfPackages} boxes</td>
                           )}
@@ -973,16 +973,11 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
                       <td style={styles.tableCell}>Transportation Service Fee</td>
                       <td className="text-right" style={styles.tableCellRight}>{formatCurrency(booking.deliveryFee)}</td>
                     </tr>
-                    <tr>
-                      <td style={styles.tableCell}>Area Rate Charge</td>
-                      <td className="text-right" style={styles.tableCellRight}>{formatCurrency(booking.rateCost)}</td>
-                    </tr>
                     <tr className="total-row" style={styles.totalRow}>
                       <td style={styles.totalCell}>TOTAL AMOUNT DUE</td>
                       <td className="text-right" style={styles.totalAmount}>
                         {formatCurrency(
-                          (booking.deliveryFee || 0) + 
-                          (booking.rateCost || 0)
+                          (booking.deliveryFee || 0)
                         )}
                       </td>
                     </tr>

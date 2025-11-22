@@ -504,7 +504,7 @@ export default function TripReport() {
             Billing
           </h1>
           <p className="text-gray-600 text-sm">
-            Manage and view uploaded trip documents and receipts
+            Manage and view uploaded trip documents and invoices
           </p>
         </div>
 
@@ -598,7 +598,7 @@ export default function TripReport() {
                     No
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-purple-900 uppercase tracking-wider">
-                    Receipt Number
+                    Invoice Number
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-purple-900 uppercase tracking-wider">
                     Document Type
@@ -1041,10 +1041,10 @@ export default function TripReport() {
                       </div>
                     </div>
 
-                    {/* Receipt Number - Full Width */}
+                    {/* Invoice Number - Full Width */}
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Receipt Number
+                        Invoice Number
                       </label>
                       <input
                         type="text"
@@ -1056,7 +1056,7 @@ export default function TripReport() {
                             receiptNumber: e.target.value,
                           })
                         }
-                        placeholder="e.g., RCP001234"
+                        placeholder="e.g., Invoice_001234"
                         className="w-full px-4 py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
                       />
                     </div>

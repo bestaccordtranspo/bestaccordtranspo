@@ -777,9 +777,21 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
                 <h3 style={styles.cardTitle}>Bill To</h3>
                 <div className="card-content" style={styles.cardContent}>
                   <p style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '6px' }}>{booking.companyName}</p>
-                  <p style={{ marginBottom: '4px' }}><span style={{ fontWeight: 'bold' }}>Contact:</span> {booking.customerEstablishmentName}</p>
-                  <p style={{ marginBottom: '4px' }}><span style={{ fontWeight: 'bold' }}>Consignor:</span> {booking.shipperConsignorName}</p>
-                  <p><span style={{ fontWeight: 'bold' }}>Address:</span> {booking.originAddress}</p>
+                  <p style={{ marginBottom: '4px' }}>
+                    <span style={{ fontWeight: 'bold' }}>Address:</span> {
+                      booking.clientDetails?.formattedAddress ||
+                      (booking.clientDetails?.address ? `${booking.clientDetails.address.street || ''} ${booking.clientDetails.address.city || ''}`.trim() : '') ||
+                      booking.originAddressDetails?.formattedAddress ||
+                      booking.originAddress ||
+                      'N/A'
+                    }
+                  </p>
+                  {booking.customerEstablishmentName && (
+                    <p style={{ marginBottom: '4px' }}><span style={{ fontWeight: 'bold' }}>Contact:</span> {booking.customerEstablishmentName}</p>
+                  )}
+                  {booking.shipperConsignorName && (
+                    <p style={{ marginBottom: '4px' }}><span style={{ fontWeight: 'bold' }}>Consignor:</span> {booking.shipperConsignorName}</p>
+                  )}
                 </div>
               </div>
               
@@ -787,9 +799,17 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
                 <h3 style={styles.cardTitle}>Service Details</h3>
                 <div className="card-content" style={styles.cardContent}>
                   <p style={{ marginBottom: '4px' }}><span style={{ fontWeight: 'bold' }}>Service:</span> Logistics & Transportation</p>
-                  <p style={{ marginBottom: '4px' }}><span style={{ fontWeight: 'bold' }}>Route:</span> {booking.originAddress} → {booking.destinationAddress}</p>
+                  <p style={{ marginBottom: '4px' }}><span style={{ fontWeight: 'bold' }}>Trip Type:</span> {booking.tripType === 'multiple' ? 'Multiple Stops' : 'Single Destination'}</p>
+                  {booking.numberOfStops && booking.numberOfStops > 1 && (
+                    <p style={{ marginBottom: '4px' }}><span style={{ fontWeight: 'bold' }}>Number of Stops:</span> {booking.numberOfStops}</p>
+                  )}
                   <p style={{ marginBottom: '4px' }}><span style={{ fontWeight: 'bold' }}>Vehicle:</span> {booking.vehicleType}</p>
-                  <p><span style={{ fontWeight: 'bold' }}>Area Code:</span> {booking.areaLocationCode}</p>
+                  {booking.totalDistance && (
+                    <p style={{ marginBottom: '4px' }}><span style={{ fontWeight: 'bold' }}>Total Distance:</span> {booking.totalDistance} km</p>
+                  )}
+                  {booking.areaLocationCode && (
+                    <p><span style={{ fontWeight: 'bold' }}>Area Code:</span> {booking.areaLocationCode}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -801,21 +821,61 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
                 <table style={styles.table}>
                   <thead>
                     <tr>
-                      <th style={{ ...styles.tableHeader, width: '30%' }}>Product Name</th>
-                      <th style={{ ...styles.tableHeader, width: '17%' }}>Quantity</th>
-                      <th style={{ ...styles.tableHeader, width: '17%' }}>Weight</th>
-                      <th style={{ ...styles.tableHeader, width: '18%' }}>Packages</th>
-                      <th style={{ ...styles.tableHeader, width: '18%' }}>Units/Package</th>
+                      {booking.destinationDeliveries && booking.destinationDeliveries.length > 1 && (
+                        <th style={{ ...styles.tableHeader, width: '8%' }}>Stop</th>
+                      )}
+                      <th style={{ ...styles.tableHeader, width: booking.destinationDeliveries && booking.destinationDeliveries.length > 1 ? '22%' : '25%' }}>Destination</th>
+                      <th style={{ ...styles.tableHeader, width: '20%' }}>Product Name</th>
+                      <th style={{ ...styles.tableHeader, width: '15%' }}>Quantity</th>
+                      <th style={{ ...styles.tableHeader, width: '15%' }}>Weight</th>
+                      {booking.numberOfPackages && (
+                        <th style={{ ...styles.tableHeader, width: '10%' }}>Packages</th>
+                      )}
+                      {booking.unitPerPackage && (
+                        <th style={{ ...styles.tableHeader, width: '10%' }}>Units/Pkg</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td style={styles.tableCell}>{booking.productName}</td>
-                      <td style={styles.tableCell}>{booking.quantity?.toLocaleString()} pcs</td>
-                      <td style={styles.tableCell}>{booking.grossWeight} tons</td>
-                      <td style={styles.tableCell}>{booking.numberOfPackages} boxes</td>
-                      <td style={styles.tableCell}>{booking.unitPerPackage} pcs/box</td>
-                    </tr>
+                    {booking.destinationDeliveries && booking.destinationDeliveries.length > 0 ? (
+                      booking.destinationDeliveries.map((dest, idx) => (
+                        <tr key={idx}>
+                          {booking.destinationDeliveries.length > 1 && (
+                            <td style={styles.tableCell}>{dest.destinationIndex + 1 || idx + 1}</td>
+                          )}
+                          <td style={styles.tableCell}>{dest.destinationAddress || 'N/A'}</td>
+                          <td style={styles.tableCell}>{dest.productName || 'N/A'}</td>
+                          <td style={styles.tableCell}>{dest.quantity?.toLocaleString() || 'N/A'} pcs</td>
+                          <td style={styles.tableCell}>{dest.grossWeight || 'N/A'} tons</td>
+                          {booking.numberOfPackages && (
+                            <td style={styles.tableCell}>{booking.numberOfPackages} boxes</td>
+                          )}
+                          {booking.unitPerPackage && (
+                            <td style={styles.tableCell}>{booking.unitPerPackage} pcs/box</td>
+                          )}
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        {booking.destinationDeliveries && booking.destinationDeliveries.length > 1 && (
+                          <td style={styles.tableCell}>1</td>
+                        )}
+                        <td style={styles.tableCell}>{
+                          Array.isArray(booking.destinationAddress) 
+                            ? booking.destinationAddress.join(', ') 
+                            : booking.destinationAddress || 'N/A'
+                        }</td>
+                        <td style={styles.tableCell}>{booking.productName || 'N/A'}</td>
+                        <td style={styles.tableCell}>{booking.quantity?.toLocaleString() || 'N/A'} pcs</td>
+                        <td style={styles.tableCell}>{booking.grossWeight || 'N/A'} tons</td>
+                        {booking.numberOfPackages && (
+                          <td style={styles.tableCell}>{booking.numberOfPackages} boxes</td>
+                        )}
+                        {booking.unitPerPackage && (
+                          <td style={styles.tableCell}>{booking.unitPerPackage} pcs/box</td>
+                        )}
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -836,19 +896,62 @@ const InvoiceGenerator = ({ booking, onClose, onInvoiceGenerated }) => {
                 <h3 style={styles.cardTitle}>Service Team</h3>
                 <div className="card-content" style={styles.cardContent}>
                   {booking.employeeDetails && booking.employeeDetails.length > 0 ? (
-                    booking.employeeDetails.map((emp, idx) => (
-                      <p key={idx} style={{ marginBottom: '4px' }}>
-                        <span style={{ fontWeight: 'bold' }}>{emp.role}:</span> {emp.employeeName}
-                      </p>
-                    ))
+                    <>
+                      {booking.employeeDetails.filter(emp => emp.role === 'Driver').map((emp, idx) => (
+                        <p key={`driver-${idx}`} style={{ marginBottom: '4px' }}>
+                          <span style={{ fontWeight: 'bold' }}>Driver:</span> {emp.employeeName || emp.fullName || emp.name}
+                        </p>
+                      ))}
+                      {booking.employeeDetails.filter(emp => emp.role === 'Helper').map((emp, idx) => (
+                        <p key={`helper-${idx}`} style={{ marginBottom: '4px' }}>
+                          <span style={{ fontWeight: 'bold' }}>Helper:</span> {emp.employeeName || emp.fullName || emp.name}
+                        </p>
+                      ))}
+                    </>
                   ) : booking.employeeAssigned && booking.employeeAssigned.length > 0 ? (
                     booking.employeeAssigned.map((empId, idx) => (
                       <p key={idx} style={{ marginBottom: '4px' }}>
-                        <span style={{ fontWeight: 'bold' }}>Member:</span> {empId}
+                        <span style={{ fontWeight: 'bold' }}>Member {idx + 1}:</span> {empId}
                       </p>
                     ))
                   ) : (
                     <p style={{ color: '#6b7280' }}>No team assigned</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Route Information */}
+            <div className="grid" style={styles.grid}>
+              <div className="card" style={styles.card}>
+                <h3 style={styles.cardTitle}>Origin Location</h3>
+                <div className="card-content" style={styles.cardContent}>
+                  <p style={{ fontSize: '11px', lineHeight: '1.4' }}>{booking.originAddress}</p>
+                </div>
+              </div>
+              
+              <div className="card" style={styles.card}>
+                <h3 style={styles.cardTitle}>
+                  {booking.destinationDeliveries && booking.destinationDeliveries.length > 1 
+                    ? 'Destination Stops' 
+                    : 'Destination Location'}
+                </h3>
+                <div className="card-content" style={styles.cardContent}>
+                  {booking.destinationDeliveries && booking.destinationDeliveries.length > 0 ? (
+                    booking.destinationDeliveries.map((dest, idx) => (
+                      <p key={idx} style={{ fontSize: '11px', lineHeight: '1.4', marginBottom: booking.destinationDeliveries.length > 1 ? '6px' : '0' }}>
+                        {booking.destinationDeliveries.length > 1 && (
+                          <span style={{ fontWeight: 'bold' }}>Stop {dest.destinationIndex + 1 || idx + 1}: </span>
+                        )}
+                        {dest.destinationAddress}
+                      </p>
+                    ))
+                  ) : (
+                    <p style={{ fontSize: '11px', lineHeight: '1.4' }}>
+                      {Array.isArray(booking.destinationAddress) 
+                        ? booking.destinationAddress.join(', ') 
+                        : booking.destinationAddress || 'N/A'}
+                    </p>
                   )}
                 </div>
               </div>

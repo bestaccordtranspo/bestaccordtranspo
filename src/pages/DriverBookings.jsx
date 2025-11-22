@@ -202,7 +202,7 @@ const startLocationTracking = async (bookingId) => {
       clearInterval(locationIntervalRef.current);
     }
     
-    // Set up periodic updates every 1 minute (60000 ms)
+    // Set up periodic updates every 30 seconds (30000 ms)
     locationIntervalRef.current = setInterval(async () => {
       try {
         console.log("📍 Periodic location update triggered");
@@ -212,7 +212,7 @@ const startLocationTracking = async (bookingId) => {
         console.error("❌ Error in periodic location update:", err);
         setLocationError(err.message);
       }
-    }, 60000); // 1 minute
+    }, 30000); // 30 seconds
     
     console.log("✅ Location tracking started successfully");
     
@@ -971,7 +971,7 @@ console.log(`🗺️ Displaying ${destinationsToDisplay.length} destinations, ac
         
         await startLocationTracking(selectedBooking._id);
         
-        alert("Trip started! Navigate to origin to pick up cargo. Your location will be tracked every 1 minute.");
+        alert("Trip started! Navigate to origin to pick up cargo. Your location will be tracked every 30 seconds.");
       }
     } catch (err) {
       console.error("❌ Error starting trip:", err);

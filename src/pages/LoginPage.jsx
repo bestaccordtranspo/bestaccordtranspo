@@ -177,7 +177,7 @@ export default function LoginPage() {
               whileTap={{ scale: 0.98 }}
               className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold py-4 rounded-2xl transition-all duration-300 shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/40 transform hover:-translate-y-0.5"
             >
-              Sign In nigga
+              Sign In to Dashboard
             </motion.button>
           </form>
         </motion.div>
